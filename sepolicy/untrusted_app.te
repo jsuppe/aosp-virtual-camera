@@ -1,0 +1,37 @@
+# untrusted_app.te additions for Virtual Camera Renderer Apps
+#
+# Add to: system/sepolicy/private/untrusted_app.te
+# Or create: device/<vendor>/<device>/sepolicy/private/virtual_camera_app.te
+#
+# NOTE: For security, consider creating a dedicated "virtual_camera_renderer"
+# domain with more restricted permissions than untrusted_app.
+
+# ============ Service Access ============
+
+# Allow renderer apps to find and use virtual camera service
+allow untrusted_app virtual_camera_service:service_manager find;
+
+# ============ Shared Memory ============
+
+# Receive ashmem FDs from system_server
+allow untrusted_app system_server:fd use;
+
+# Map shared memory for control ring
+allow untrusted_app ashmem_device:chr_file { read write map };
+allow untrusted_app ashmem_libcutils_device:chr_file { read write map };
+
+# ============ HardwareBuffer Access ============
+
+# Receive HardwareBuffer FDs
+allow untrusted_app dmabuf_system_heap_device:chr_file r_file_perms;
+
+# ============ GPU Rendering ============
+
+# Already typically allowed for untrusted_app:
+# - gpu_device access
+# - EGL/GLES usage
+
+# ============ Sync Fences ============
+
+# Create and use sync fences
+allow untrusted_app sync_device:chr_file { read write ioctl };

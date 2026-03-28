@@ -1,0 +1,8 @@
+# service_contexts for Virtual Camera
+#
+# Add to: system/sepolicy/private/service_contexts
+# Or: device/<vendor>/<device>/sepolicy/private/service_contexts
+
+# System services (Java, in system_server)
+virtual_camera                    u:object_r:virtual_camera_service:s0
+virtual_camera_manager            u:object_r:virtual_camera_manager_service:s0

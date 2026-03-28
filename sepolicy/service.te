@@ -1,0 +1,10 @@
+# service.te - Service type definitions
+#
+# Add to: system/sepolicy/private/service.te (for system services)
+# Or: device/<vendor>/<device>/sepolicy/private/service.te
+
+# Virtual Camera Service (Java service in system_server)
+type virtual_camera_service, system_api_service, system_server_service, service_manager_type;
+
+# Virtual Camera Manager Service (for HAL communication)
+type virtual_camera_manager_service, system_api_service, system_server_service, service_manager_type;

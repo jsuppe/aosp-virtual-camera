@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:gravity="center">
+
+    <ImageView
+        android:layout_width="120dp"
+        android:layout_height="120dp"
+        android:src="@drawable/ic_cube"
+        android:contentDescription="Golden Cube Icon" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Virtual Camera Renderer"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:layout_marginTop="16dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Renders a golden cube via Vulkan"
+        android:textSize="14sp"
+        android:textColor="#888888"
+        android:layout_marginTop="8dp" />
+
+    <TextView
+        android:id="@+id/statusText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Initializing..."
+        android:textSize="16sp"
+        android:layout_marginTop="32dp"
+        android:gravity="center" />
+
+    <Button
+        android:id="@+id/startButton"
+        android:layout_width="200dp"
+        android:layout_height="wrap_content"
+        android:text="Start"
+        android:layout_marginTop="24dp" />
+
+</LinearLayout>

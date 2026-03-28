@@ -1,0 +1,68 @@
+# hal_camera_virtual.te
+# SELinux policy for Virtual Camera HAL
+#
+# Location: device/google/cuttlefish/sepolicy/vendor/hal_camera_virtual.te
+# (or your device's sepolicy directory)
+
+# Define the HAL domain
+type hal_camera_virtual, domain;
+type hal_camera_virtual_exec, exec_type, vendor_file_type, file_type;
+
+# HAL is a Binder server (camera provider)
+binder_use(hal_camera_virtual)
+binder_service(hal_camera_virtual)
+
+# HAL is also a Binder client (to VirtualCameraManager)
+binder_call(hal_camera_virtual, system_server)
+
+# Allow hwbinder for camera HAL interface
+hwbinder_use(hal_camera_virtual)
+hal_server_domain(hal_camera_virtual, hal_camera)
+
+# ============ Shared Memory Access ============
+
+# Allow creating and using ashmem regions
+allow hal_camera_virtual ashmem_device:chr_file rw_file_perms;
+allow hal_camera_virtual ashmem_libcutils_device:chr_file rw_file_perms;
+
+# Allow mapping shared memory
+allow hal_camera_virtual self:process { execmem };  # May be needed for GPU
+allow hal_camera_virtual hal_camera_virtual:fd use;
+
+# ============ HardwareBuffer / Gralloc ============
+
+# Allow using gralloc HAL
+hal_client_domain(hal_camera_virtual, hal_graphics_allocator)
+
+# Allow accessing GPU
+allow hal_camera_virtual gpu_device:chr_file rw_file_perms;
+allow hal_camera_virtual gpu_device:dir search;
+
+# DMA-BUF / ion access
+allow hal_camera_virtual dmabuf_system_heap_device:chr_file r_file_perms;
+allow hal_camera_virtual ion_device:chr_file r_file_perms;
+
+# ============ File Descriptors from System Server ============
+
+# Receive FDs from system_server via Binder
+allow hal_camera_virtual system_server:fd use;
+allow hal_camera_virtual system_server:fifo_file { read write };
+
+# ============ Service Registration ============
+
+# Register as camera provider
+add_hwservice(hal_camera_virtual, hal_camera_provider_hwservice)
+
+# Access servicemanager
+allow hal_camera_virtual servicemanager:service_manager find;
+allow hal_camera_virtual virtual_camera_manager_service:service_manager find;
+
+# ============ Logging ============
+
+allow hal_camera_virtual logd:fd use;
+allow hal_camera_virtual logdr_socket:sock_file write;
+allow hal_camera_virtual logdw_socket:sock_file write;
+
+# ============ Init / Startup ============
+
+init_daemon_domain(hal_camera_virtual)

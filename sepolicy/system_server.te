@@ -1,0 +1,53 @@
+# system_server.te additions for Virtual Camera Service
+#
+# Add to: system/sepolicy/private/system_server.te
+# Or: device/<vendor>/<device>/sepolicy/private/system_server.te
+
+# ============ Service Registration ============
+
+# Register virtual camera services
+allow system_server virtual_camera_service:service_manager { add find };
+allow system_server virtual_camera_manager_service:service_manager { add find };
+
+# ============ Binder Communication ============
+
+# Allow HAL to call into system_server
+binder_call(system_server, hal_camera_virtual)
+
+# Allow apps to call into system_server for virtual camera
+# (already covered by existing app→system_server rules)
+
+# ============ Shared Memory ============
+
+# Create ashmem regions for control ring
+allow system_server ashmem_device:chr_file rw_file_perms;
+allow system_server ashmem_libcutils_device:chr_file rw_file_perms;
+
+# ============ HardwareBuffer Allocation ============
+
+# Allocate HardwareBuffers
+allow system_server hal_graphics_allocator_hwservice:hwservice_manager find;
+allow system_server hal_graphics_allocator_default:binder call;
+
+# Use gralloc
+hal_client_domain(system_server, hal_graphics_allocator)
+
+# DMA-BUF access
+allow system_server dmabuf_system_heap_device:chr_file r_file_perms;
+
+# ============ File Descriptor Passing ============
+
+# Pass FDs to HAL
+allow system_server hal_camera_virtual:fd use;
+allow system_server hal_camera_virtual:binder { call transfer };
+
+# Pass FDs to apps (renderer apps)
+# Note: This may already be allowed by existing policies
+allow system_server untrusted_app:fd use;
+allow system_server platform_app:fd use;
+
+# ============ ImageReader / GPU ============
+
+# Access GPU for ImageReader surfaces
+allow system_server gpu_device:chr_file rw_file_perms;
+allow system_server gpu_device:dir search;

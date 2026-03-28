@@ -1,0 +1,52 @@
+/*
+ * Virtual Camera HAL - Build configuration
+ * 
+ * Location: hardware/interfaces/camera/provider/virtual/
+ */
+
+cc_library_shared {
+    name: "android.hardware.camera.provider-V1-virtual",
+    vendor: true,
+    relative_install_path: "hw",
+    
+    srcs: [
+        "VirtualCameraProvider.cpp",
+        "VirtualCameraDevice.cpp",
+    ],
+    
+    shared_libs: [
+        "libbase",
+        "libbinder_ndk",
+        "libcamera_metadata",
+        "liblog",
+        "libutils",
+        "android.hardware.camera.common-V1-ndk",
+        "android.hardware.camera.device-V3-ndk",
+        "android.hardware.camera.provider-V2-ndk",
+    ],
+    
+    static_libs: [
+        "libaidlcommonsupport",
+    ],
+    
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+}
+
+cc_binary {
+    name: "android.hardware.camera.provider-virtual-service",
+    vendor: true,
+    relative_install_path: "hw",
+    init_rc: ["android.hardware.camera.provider-virtual-service.rc"],
+    vintf_fragments: ["android.hardware.camera.provider-virtual-service.xml"],
+    
+    srcs: ["service.cpp"],
+    
+    shared_libs: [
+        "libbase",
+        "libbinder_ndk",
+        "android.hardware.camera.provider-V1-virtual",
+    ],
+}

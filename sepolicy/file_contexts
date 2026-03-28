@@ -1,0 +1,6 @@
+# file_contexts for Virtual Camera
+#
+# Add to: device/<vendor>/<device>/sepolicy/vendor/file_contexts
+
+# HAL binary
+/vendor/bin/hw/android\.hardware\.camera\.provider-virtual-service    u:object_r:hal_camera_virtual_exec:s0

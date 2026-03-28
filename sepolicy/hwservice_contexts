@@ -1,0 +1,5 @@
+# hwservice_contexts for Virtual Camera HAL
+#
+# Add to: device/<vendor>/<device>/sepolicy/vendor/hwservice_contexts
+
+android.hardware.camera.provider.virtual::IVirtualCameraProvider    u:object_r:hal_camera_provider_hwservice:s0
