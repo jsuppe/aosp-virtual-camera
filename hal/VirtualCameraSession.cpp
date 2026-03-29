@@ -1,5 +1,5 @@
 /*
- * VirtualCameraSession - Minimal implementation with test pattern output
+ * VirtualCameraSession - Implementation with buffer filling via HandleImporter
  */
 
 #define LOG_TAG "VirtualCameraSession"
@@ -8,13 +8,14 @@
 
 #include <log/log.h>
 #include <system/camera_metadata.h>
-#include <hardware/gralloc.h>
 #include <aidl/android/hardware/camera/device/ErrorCode.h>
 #include <aidl/android/hardware/camera/device/ErrorMsg.h>
 #include <aidl/android/hardware/camera/device/BufferStatus.h>
 #include <aidl/android/hardware/graphics/common/BufferUsage.h>
+#include <aidlcommonsupport/NativeHandle.h>
 
 #include <chrono>
+#include <cstring>
 
 namespace aidl::android::hardware::camera::provider::implementation {
 
@@ -22,6 +23,10 @@ using ::aidl::android::hardware::camera::device::BufferStatus;
 using ::aidl::android::hardware::camera::device::ErrorCode;
 using ::aidl::android::hardware::camera::device::ErrorMsg;
 using ::aidl::android::hardware::graphics::common::BufferUsage;
+using ::android::hardware::camera::common::helper::HandleImporter;
+
+// Static HandleImporter instance (shared across all sessions)
+HandleImporter VirtualCameraSession::sHandleImporter;
 
 VirtualCameraSession::VirtualCameraSession(
         const std::shared_ptr<ICameraDeviceCallback>& callback)
@@ -30,7 +35,16 @@ VirtualCameraSession::VirtualCameraSession(
 }
 
 VirtualCameraSession::~VirtualCameraSession() {
-    ALOGI("VirtualCameraSession destroyed");
+    ALOGI("VirtualCameraSession destroyed, clearing %zu cached buffers", mBufferCache.size());
+    
+    // Free all cached buffer handles
+    for (auto& pair : mBufferCache) {
+        if (pair.second != nullptr) {
+            sHandleImporter.freeBuffer(pair.second);
+        }
+    }
+    mBufferCache.clear();
+    
     close();
 }
 
@@ -51,7 +65,14 @@ ndk::ScopedAStatus VirtualCameraSession::configureStreams(
                 static_cast<int32_t>(CameraStatus::INTERNAL_ERROR));
     }
     
+    // Clear old streams and buffer cache
     mStreams.clear();
+    for (auto& pair : mBufferCache) {
+        if (pair.second != nullptr) {
+            sHandleImporter.freeBuffer(pair.second);
+        }
+    }
+    mBufferCache.clear();
     halStreams->clear();
     
     ALOGI("Configuring %zu streams", requestedConfiguration.streams.size());
@@ -77,9 +98,10 @@ ndk::ScopedAStatus VirtualCameraSession::configureStreams(
         halStream.physicalCameraId = "";
         halStream.supportOffline = false;
         
-        halStreams->push_back(halStream);
+        halStreams->push_back(std::move(halStream));
     }
     
+    ALOGI("Streams configured successfully");
     return ndk::ScopedAStatus::ok();
 }
 
@@ -87,10 +109,9 @@ ndk::ScopedAStatus VirtualCameraSession::constructDefaultRequestSettings(
         RequestTemplate type,
         CameraMetadata* metadata) {
     
-    ALOGI("constructDefaultRequestSettings type=%d", static_cast<int>(type));
+    (void)type;  // All templates return the same minimal settings
     
-    // Create minimal metadata
-    camera_metadata_t* meta = allocate_camera_metadata(10, 100);
+    camera_metadata_t* meta = allocate_camera_metadata(10, 200);
     
     uint8_t controlMode = ANDROID_CONTROL_MODE_AUTO;
     add_camera_metadata_entry(meta, ANDROID_CONTROL_MODE, &controlMode, 1);
@@ -101,11 +122,12 @@ ndk::ScopedAStatus VirtualCameraSession::constructDefaultRequestSettings(
     uint8_t awbMode = ANDROID_CONTROL_AWB_MODE_AUTO;
     add_camera_metadata_entry(meta, ANDROID_CONTROL_AWB_MODE, &awbMode, 1);
     
-    // Copy to output
+    float zoomRatio = 1.0f;
+    add_camera_metadata_entry(meta, ANDROID_CONTROL_ZOOM_RATIO, &zoomRatio, 1);
+    
     size_t metaSize = get_camera_metadata_size(meta);
     metadata->metadata.resize(metaSize);
     memcpy(metadata->metadata.data(), meta, metaSize);
-    
     free_camera_metadata(meta);
     
     return ndk::ScopedAStatus::ok();
@@ -117,16 +139,14 @@ ndk::ScopedAStatus VirtualCameraSession::flush() {
 }
 
 ndk::ScopedAStatus VirtualCameraSession::getCaptureRequestMetadataQueue(
-        MQDescriptor<int8_t, SynchronizedReadWrite>* queue) {
-    // Return empty descriptor - metadata will be passed inline
-    *queue = MQDescriptor<int8_t, SynchronizedReadWrite>();
+        MQDescriptor<int8_t, SynchronizedReadWrite>* /*queue*/) {
+    // FMQ not used in this implementation
     return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus VirtualCameraSession::getCaptureResultMetadataQueue(
-        MQDescriptor<int8_t, SynchronizedReadWrite>* queue) {
-    // Return empty descriptor - metadata will be passed inline
-    *queue = MQDescriptor<int8_t, SynchronizedReadWrite>();
+        MQDescriptor<int8_t, SynchronizedReadWrite>* /*queue*/) {
+    // FMQ not used in this implementation
     return ndk::ScopedAStatus::ok();
 }
 
@@ -138,15 +158,80 @@ ndk::ScopedAStatus VirtualCameraSession::isReconfigurationRequired(
     return ndk::ScopedAStatus::ok();
 }
 
+buffer_handle_t VirtualCameraSession::importBuffer(const StreamBuffer& buffer) {
+    BufferKey key(buffer.streamId, buffer.bufferId);
+    
+    // Check if already cached
+    auto it = mBufferCache.find(key);
+    if (it != mBufferCache.end()) {
+        return it->second;
+    }
+    
+    // Buffer not cached - need to import it
+    if (buffer.buffer.fds.empty()) {
+        ALOGE("importBuffer: No handle provided and buffer not in cache (streamId=%d, bufferId=%lu)",
+              buffer.streamId, (unsigned long)buffer.bufferId);
+        return nullptr;
+    }
+    
+    // Convert AIDL NativeHandle to native_handle_t, then to buffer_handle_t
+    native_handle_t* nativeHandle = ::android::makeFromAidl(buffer.buffer);
+    if (nativeHandle == nullptr || nativeHandle->numFds < 1) {
+        ALOGE("importBuffer: Invalid handle from AIDL (numFds=%d)",
+              nativeHandle ? nativeHandle->numFds : -1);
+        if (nativeHandle) {
+            native_handle_close(nativeHandle);
+            native_handle_delete(nativeHandle);
+        }
+        return nullptr;
+    }
+    
+    // Import the buffer using HandleImporter
+    buffer_handle_t bufHandle = nativeHandle;
+    if (!sHandleImporter.importBuffer(bufHandle)) {
+        ALOGE("importBuffer: HandleImporter.importBuffer failed");
+        native_handle_close(nativeHandle);
+        native_handle_delete(nativeHandle);
+        return nullptr;
+    }
+    
+    // Cache it
+    mBufferCache[key] = bufHandle;
+    
+    if (mBufferCache.size() <= 8) {  // Only log first few
+        ALOGI("importBuffer: Cached buffer (streamId=%d, bufferId=%lu, numFds=%d)",
+              buffer.streamId, (unsigned long)buffer.bufferId, nativeHandle->numFds);
+    }
+    
+    return bufHandle;
+}
+
+void VirtualCameraSession::removeBuffersFromCache(const std::vector<BufferCache>& cachesToRemove) {
+    for (const auto& cache : cachesToRemove) {
+        BufferKey key(cache.streamId, cache.bufferId);
+        auto it = mBufferCache.find(key);
+        if (it != mBufferCache.end()) {
+            if (it->second != nullptr) {
+                sHandleImporter.freeBuffer(it->second);
+            }
+            mBufferCache.erase(it);
+        }
+    }
+}
+
 ndk::ScopedAStatus VirtualCameraSession::processCaptureRequest(
         const std::vector<CaptureRequest>& requests,
-        const std::vector<BufferCache>& /*cachesToRemove*/,
+        const std::vector<BufferCache>& cachesToRemove,
         int32_t* numRequestsProcessed) {
     
     if (mClosed) {
         *numRequestsProcessed = 0;
         return ndk::ScopedAStatus::fromServiceSpecificError(
                 static_cast<int32_t>(CameraStatus::INTERNAL_ERROR));
+    }
+    
+    if (!cachesToRemove.empty()) {
+        removeBuffersFromCache(cachesToRemove);
     }
     
     *numRequestsProcessed = 0;
@@ -164,9 +249,6 @@ ndk::ScopedAStatus VirtualCameraSession::processCaptureRequest(
 }
 
 CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& request) {
-    ALOGI("Processing frame %d with %zu output buffers",
-          request.frameNumber, request.outputBuffers.size());
-    
     // Get timestamp
     auto now = std::chrono::steady_clock::now();
     int64_t timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -183,48 +265,142 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
         mCallback->notify(msgs);
     }
     
-    // Process each output buffer - just mark as OK for now
-    // TODO: Actually fill buffers with test pattern
+    // Process each output buffer
     std::vector<StreamBuffer> outputBuffers;
     outputBuffers.reserve(request.outputBuffers.size());
     
     for (size_t i = 0; i < request.outputBuffers.size(); i++) {
         const auto& inBuffer = request.outputBuffers[i];
         
+        // Import/cache the buffer
+        buffer_handle_t handle = importBuffer(inBuffer);
+        
+        // Get stream info for dimensions
+        auto streamIt = mStreams.find(inBuffer.streamId);
+        if (streamIt != mStreams.end() && handle != nullptr) {
+            int width = streamIt->second.width;
+            int height = streamIt->second.height;
+            
+            // Fill buffer with test pattern
+            fillYuvBuffer(handle, width, height, mFrameCounter.load());
+        }
+        
         StreamBuffer outBuffer;
         outBuffer.streamId = inBuffer.streamId;
         outBuffer.bufferId = inBuffer.bufferId;
         outBuffer.status = BufferStatus::OK;
         
-        mFrameCounter++;
         outputBuffers.push_back(std::move(outBuffer));
+        mFrameCounter++;
     }
     
-    // Send capture result
-    std::vector<CaptureResult> results(1);
-    results[0].frameNumber = request.frameNumber;
-    results[0].outputBuffers = std::move(outputBuffers);
-    results[0].partialResult = 1;
+    // Log periodically
+    if (mFrameCounter % 100 == 0) {
+        ALOGI("Processed %d frames", mFrameCounter.load());
+    }
     
     // Create result metadata
-    camera_metadata_t* meta = allocate_camera_metadata(5, 50);
+    camera_metadata_t* meta = allocate_camera_metadata(10, 200);
+    
     int64_t ts = timestamp;
     add_camera_metadata_entry(meta, ANDROID_SENSOR_TIMESTAMP, &ts, 1);
     
+    float zoomRatio = 1.0f;
+    add_camera_metadata_entry(meta, ANDROID_CONTROL_ZOOM_RATIO, &zoomRatio, 1);
+    
+    int32_t cropRegion[] = {0, 0, 1920, 1080};
+    add_camera_metadata_entry(meta, ANDROID_SCALER_CROP_REGION, cropRegion, 4);
+    
+    // Build capture result
+    CaptureResult captureResult;
+    captureResult.frameNumber = request.frameNumber;
+    captureResult.fmqResultSize = 0;
+    captureResult.outputBuffers = std::move(outputBuffers);
+    captureResult.inputBuffer.streamId = -1;
+    captureResult.partialResult = 1;
+    captureResult.physicalCameraMetadata = {};
+    
     size_t metaSize = get_camera_metadata_size(meta);
-    results[0].result.metadata.resize(metaSize);
-    memcpy(results[0].result.metadata.data(), meta, metaSize);
+    captureResult.result.metadata.resize(metaSize);
+    memcpy(captureResult.result.metadata.data(), meta, metaSize);
     free_camera_metadata(meta);
     
+    std::vector<CaptureResult> results;
+    results.push_back(std::move(captureResult));
     mCallback->processCaptureResult(results);
     
     return CameraStatus::OK;
 }
 
-void VirtualCameraSession::fillTestPattern(void* /*data*/, int /*width*/, int /*height*/,
-                                            int /*stride*/, int /*frameNumber*/) {
-    // TODO: Implement when we add proper buffer access
-    // For now, buffers are returned as-is (uninitialized)
+void VirtualCameraSession::fillYuvBuffer(
+        buffer_handle_t handle, int width, int height, int frameNumber) {
+    
+    if (handle == nullptr) {
+        return;
+    }
+    
+    // Lock buffer for CPU write access (YCbCr format)
+    ::android::Rect region(0, 0, width, height);
+    android_ycbcr ycbcr = sHandleImporter.lockYCbCr(
+            handle,
+            0x00000030U,  // GRALLOC_USAGE_SW_WRITE_OFTEN
+            region);
+    
+    if (ycbcr.y == nullptr) {
+        ALOGE("fillYuvBuffer: Failed to lock buffer for CPU access");
+        return;
+    }
+    
+    uint8_t* yPlane = static_cast<uint8_t*>(ycbcr.y);
+    uint8_t* cbPlane = static_cast<uint8_t*>(ycbcr.cb);
+    uint8_t* crPlane = static_cast<uint8_t*>(ycbcr.cr);
+    int yStride = ycbcr.ystride;
+    int cStride = ycbcr.cstride;
+    int chromaStep = ycbcr.chroma_step;
+    
+    // Generate animated color bars test pattern
+    // Colors cycle based on frame number
+    int barWidth = width / 8;
+    int offset = (frameNumber * 4) % width;  // Animation offset
+    
+    // Color bar YUV values (8 bars cycling)
+    // White, Yellow, Cyan, Green, Magenta, Red, Blue, Black
+    const uint8_t barY[] = {235, 210, 170, 145, 106, 81, 41, 16};
+    const uint8_t barCb[] = {128, 16, 166, 54, 202, 90, 240, 128};
+    const uint8_t barCr[] = {128, 146, 16, 34, 222, 240, 110, 128};
+    
+    // Fill Y plane
+    for (int y = 0; y < height; y++) {
+        uint8_t* row = yPlane + y * yStride;
+        for (int x = 0; x < width; x++) {
+            int barIndex = ((x + offset) / barWidth) % 8;
+            row[x] = barY[barIndex];
+        }
+    }
+    
+    // Fill UV planes (handle both NV12/NV21 and I420)
+    int chromaHeight = height / 2;
+    int chromaWidth = width / 2;
+    
+    for (int y = 0; y < chromaHeight; y++) {
+        for (int x = 0; x < chromaWidth; x++) {
+            int barIndex = ((x * 2 + offset) / barWidth) % 8;
+            
+            // Handle interleaved (NV12/NV21) or planar (I420) chroma
+            if (chromaStep == 2) {
+                // Interleaved: Cb and Cr are interleaved
+                cbPlane[y * cStride + x * 2] = barCb[barIndex];
+                crPlane[y * cStride + x * 2] = barCr[barIndex];
+            } else {
+                // Planar: separate Cb and Cr planes
+                cbPlane[y * cStride + x] = barCb[barIndex];
+                crPlane[y * cStride + x] = barCr[barIndex];
+            }
+        }
+    }
+    
+    // Unlock buffer
+    sHandleImporter.unlock(handle);
 }
 
 ndk::ScopedAStatus VirtualCameraSession::signalStreamFlush(

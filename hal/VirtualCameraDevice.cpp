@@ -23,8 +23,8 @@ VirtualCameraDevice::VirtualCameraDevice(const std::string& cameraId)
 }
 
 void VirtualCameraDevice::initCharacteristics() {
-    // Create minimal camera characteristics
-    camera_metadata_t* meta = allocate_camera_metadata(50, 500);
+    // Create camera characteristics with enough space for all entries
+    camera_metadata_t* meta = allocate_camera_metadata(100, 2000);
     
     // Required characteristics for a basic camera
     uint8_t facing = ANDROID_LENS_FACING_EXTERNAL;
@@ -33,32 +33,125 @@ void VirtualCameraDevice::initCharacteristics() {
     int32_t orientation = 0;
     add_camera_metadata_entry(meta, ANDROID_SENSOR_ORIENTATION, &orientation, 1);
     
-    // Supported stream configurations: 1080p RGBA
+    // Supported stream configurations: IMPLEMENTATION_DEFINED, RGBA and YUV_420_888
     const int32_t streamConfigs[] = {
+        // IMPLEMENTATION_DEFINED (required for SurfaceView preview)
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1920, 1080,
+        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1280, 720,
+        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 640, 480,
+        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        // RGBA formats
         HAL_PIXEL_FORMAT_RGBA_8888, 1920, 1080,
         ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
         HAL_PIXEL_FORMAT_RGBA_8888, 1280, 720,
         ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
         HAL_PIXEL_FORMAT_RGBA_8888, 640, 480,
         ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        // YUV_420_888 formats (required for most camera apps)
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 1920, 1080,
+        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 1280, 720,
+        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 640, 480,
+        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
     };
-    constexpr size_t streamConfigsCount = 12;  // 3 resolutions * 4 entries each
+    constexpr size_t streamConfigsCount = 36;  // 9 configs * 4 entries each
     add_camera_metadata_entry(meta, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS,
                               streamConfigs, streamConfigsCount);
     
     // Min frame durations (33ms = 30fps)
     const int64_t frameDurations[] = {
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1920, 1080, 33333333LL,
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1280, 720, 33333333LL,
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 640, 480, 33333333LL,
         HAL_PIXEL_FORMAT_RGBA_8888, 1920, 1080, 33333333LL,
         HAL_PIXEL_FORMAT_RGBA_8888, 1280, 720, 33333333LL,
         HAL_PIXEL_FORMAT_RGBA_8888, 640, 480, 33333333LL,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 1920, 1080, 33333333LL,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 1280, 720, 33333333LL,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 640, 480, 33333333LL,
     };
-    constexpr size_t frameDurationsCount = 12;  // 3 resolutions * 4 entries each
+    constexpr size_t frameDurationsCount = 36;  // 9 configs * 4 entries each
     add_camera_metadata_entry(meta, ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS,
                               frameDurations, frameDurationsCount);
+    
+    // Stall durations (0 for all formats - we don't stall)
+    const int64_t stallDurations[] = {
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1920, 1080, 0LL,
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1280, 720, 0LL,
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 640, 480, 0LL,
+        HAL_PIXEL_FORMAT_RGBA_8888, 1920, 1080, 0LL,
+        HAL_PIXEL_FORMAT_RGBA_8888, 1280, 720, 0LL,
+        HAL_PIXEL_FORMAT_RGBA_8888, 640, 480, 0LL,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 1920, 1080, 0LL,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 1280, 720, 0LL,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 640, 480, 0LL,
+    };
+    constexpr size_t stallDurationsCount = 36;  // 9 configs * 4 entries each
+    add_camera_metadata_entry(meta, ANDROID_SCALER_AVAILABLE_STALL_DURATIONS,
+                              stallDurations, stallDurationsCount);
     
     // Hardware level
     uint8_t hwLevel = ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL;
     add_camera_metadata_entry(meta, ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL, &hwLevel, 1);
+    
+    // Available capabilities (required!)
+    const uint8_t capabilities[] = {
+        ANDROID_REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE,
+    };
+    add_camera_metadata_entry(meta, ANDROID_REQUEST_AVAILABLE_CAPABILITIES,
+                              capabilities, sizeof(capabilities));
+    
+    // Partial result count (we send single complete result)
+    int32_t partialResultCount = 1;
+    add_camera_metadata_entry(meta, ANDROID_REQUEST_PARTIAL_RESULT_COUNT, 
+                              &partialResultCount, 1);
+    
+    // Zoom ratio range (1.0x only - no zoom)
+    const float zoomRange[] = {1.0f, 1.0f};
+    add_camera_metadata_entry(meta, ANDROID_CONTROL_ZOOM_RATIO_RANGE, zoomRange, 2);
+    
+    // Active array size (required)
+    const int32_t activeArray[] = {0, 0, 1920, 1080};
+    add_camera_metadata_entry(meta, ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE, activeArray, 4);
+    
+    // Max digital zoom
+    const float maxZoom = 1.0f;
+    add_camera_metadata_entry(meta, ANDROID_SCALER_AVAILABLE_MAX_DIGITAL_ZOOM, &maxZoom, 1);
+    
+    // Scaler crop region
+    const int32_t cropRegion[] = {0, 0, 1920, 1080};
+    add_camera_metadata_entry(meta, ANDROID_SCALER_CROP_REGION, cropRegion, 4);
+    
+    // Available request keys
+    const int32_t requestKeys[] = {
+        ANDROID_CONTROL_MODE,
+        ANDROID_CONTROL_AE_MODE,
+        ANDROID_CONTROL_AWB_MODE,
+    };
+    add_camera_metadata_entry(meta, ANDROID_REQUEST_AVAILABLE_REQUEST_KEYS, 
+                              requestKeys, sizeof(requestKeys)/sizeof(int32_t));
+    
+    // Available result keys
+    const int32_t resultKeys[] = {
+        ANDROID_SENSOR_TIMESTAMP,
+        ANDROID_CONTROL_ZOOM_RATIO,
+    };
+    add_camera_metadata_entry(meta, ANDROID_REQUEST_AVAILABLE_RESULT_KEYS,
+                              resultKeys, sizeof(resultKeys)/sizeof(int32_t));
+    
+    // Available characteristics keys
+    const int32_t charKeys[] = {
+        ANDROID_LENS_FACING,
+        ANDROID_SENSOR_ORIENTATION,
+        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS,
+        ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL,
+        ANDROID_CONTROL_ZOOM_RATIO_RANGE,
+    };
+    add_camera_metadata_entry(meta, ANDROID_REQUEST_AVAILABLE_CHARACTERISTICS_KEYS,
+                              charKeys, sizeof(charKeys)/sizeof(int32_t));
     
     // Copy to our metadata vector
     size_t metaSize = get_camera_metadata_size(meta);

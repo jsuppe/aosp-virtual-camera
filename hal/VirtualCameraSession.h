@@ -10,9 +10,12 @@
 #include <aidl/android/hardware/camera/device/BnCameraDeviceSession.h>
 #include <aidl/android/hardware/camera/device/ICameraDeviceCallback.h>
 #include <aidl/android/hardware/camera/device/Stream.h>
-// FMQ not used in minimal implementation
-// #include <fmq/AidlMessageQueue.h>
+// HandleImporter for buffer mapping
+#include <HandleImporter.h>
 #include <utils/Thread.h>
+#include <system/graphics.h>
+#include <cutils/native_handle.h>
+#include <ui/Rect.h>
 
 #include <atomic>
 #include <mutex>
@@ -88,8 +91,28 @@ public:
             const std::vector<int32_t>& streamIds) override;
 
 private:
-    // Fill buffer with test pattern (color bars)
-    void fillTestPattern(void* data, int width, int height, int stride, int frameNumber);
+    // HandleImporter for buffer mapping (shared across all sessions)
+    static ::android::hardware::camera::common::helper::HandleImporter sHandleImporter;
+    
+    // Buffer cache: maps (streamId, bufferId) -> buffer_handle_t
+    // Framework sends empty handles after first request; we must cache them
+    using BufferKey = std::pair<int32_t, uint64_t>;  // (streamId, bufferId)
+    struct BufferKeyHash {
+        size_t operator()(const BufferKey& k) const {
+            return std::hash<int32_t>()(k.first) ^ (std::hash<uint64_t>()(k.second) << 1);
+        }
+    };
+    std::unordered_map<BufferKey, buffer_handle_t, BufferKeyHash> mBufferCache;
+    
+    // Import a buffer into the cache (if not already cached)
+    // Returns the cached handle (or nullptr if buffer is empty and not cached)
+    buffer_handle_t importBuffer(const StreamBuffer& buffer);
+    
+    // Remove buffers from cache
+    void removeBuffersFromCache(const std::vector<BufferCache>& cachesToRemove);
+    
+    // Fill YUV buffer with test pattern
+    void fillYuvBuffer(buffer_handle_t handle, int width, int height, int frameNumber);
     
     // Process a single capture request
     CameraStatus processSingleRequest(const CaptureRequest& request);
