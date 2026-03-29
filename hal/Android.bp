@@ -1,52 +1,68 @@
 /*
- * Virtual Camera HAL - Build configuration
- * 
- * Location: hardware/interfaces/camera/provider/virtual/
+ * Virtual Camera HAL - Stub Implementation
  */
 
+package {
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
 cc_library_shared {
-    name: "android.hardware.camera.provider-V1-virtual",
-    vendor: true,
+    name: "android.hardware.camera.provider-V1-virtual-impl",
+    defaults: ["hidl_defaults"],
+    proprietary: true,
     relative_install_path: "hw",
-    
+
     srcs: [
         "VirtualCameraProvider.cpp",
         "VirtualCameraDevice.cpp",
+        "VirtualCameraSession.cpp",
     ],
-    
+
     shared_libs: [
-        "libbase",
+        "android.hardware.camera.common-V1-ndk",
+        "android.hardware.camera.device-V1-ndk",
+        "android.hardware.camera.provider-V1-ndk",
+        "android.hardware.common-V2-ndk",
+        "android.hardware.common.fmq-V1-ndk",
         "libbinder_ndk",
         "libcamera_metadata",
+        "libcutils",
+        "libhardware",
         "liblog",
         "libutils",
-        "android.hardware.camera.common-V1-ndk",
-        "android.hardware.camera.device-V3-ndk",
-        "android.hardware.camera.provider-V2-ndk",
+        "libbase",
     ],
-    
+
     static_libs: [
-        "libaidlcommonsupport",
+        "android.hardware.camera.common@1.0-helper",
     ],
-    
+
     cflags: [
         "-Wall",
-        "-Werror",
+        "-Wno-unused-parameter",
     ],
+
+    export_include_dirs: ["."],
 }
 
 cc_binary {
     name: "android.hardware.camera.provider-virtual-service",
-    vendor: true,
+    defaults: ["hidl_defaults"],
+    proprietary: true,
     relative_install_path: "hw",
     init_rc: ["android.hardware.camera.provider-virtual-service.rc"],
     vintf_fragments: ["android.hardware.camera.provider-virtual-service.xml"],
-    
+
     srcs: ["service.cpp"],
-    
+
     shared_libs: [
-        "libbase",
+        "android.hardware.camera.common-V1-ndk",
+        "android.hardware.camera.device-V1-ndk",
+        "android.hardware.camera.provider-V1-ndk",
+        "android.hardware.camera.provider-V1-virtual-impl",
         "libbinder_ndk",
-        "android.hardware.camera.provider-V1-virtual",
+        "liblog",
+        "libutils",
+        "libbase",
     ],
 }

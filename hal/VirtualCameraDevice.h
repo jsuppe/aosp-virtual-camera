@@ -1,140 +1,59 @@
 /*
- * VirtualCameraDevice - Individual camera device
- * 
- * Implements ICameraDevice for a single virtual camera.
- * Uses IVirtualCameraManager for buffer operations.
- * 
- * Location: hardware/interfaces/camera/provider/virtual/
+ * VirtualCameraDevice - Stub Camera Device (V1 Interface)
  */
 #pragma once
 
 #include <aidl/android/hardware/camera/device/BnCameraDevice.h>
-#include <aidl/android/hardware/camera/device/BnCameraDeviceSession.h>
 #include <aidl/android/hardware/camera/device/ICameraDeviceCallback.h>
-#include <aidl/android/hardware/camera/virtual/IVirtualCameraManager.h>
-#include <aidl/android/hardware/camera/virtual/VirtualCameraConfig.h>
-#include <aidl/android/hardware/camera/virtual/StreamConfig.h>
+#include <aidl/android/hardware/camera/common/Status.h>
 #include <mutex>
-#include <thread>
-#include <condition_variable>
-#include <queue>
+#include <string>
 
 namespace aidl::android::hardware::camera::provider::implementation {
 
 using namespace aidl::android::hardware::camera::device;
-using ::aidl::android::hardware::camera::virtual_::IVirtualCameraManager;
-using ::aidl::android::hardware::camera::virtual_::VirtualCameraConfig;
-using ::aidl::android::hardware::camera::virtual_::StreamConfig;
-
-// Forward declaration
-class VirtualCameraProvider;
+using aidl::android::hardware::camera::common::CameraResourceCost;
 
 class VirtualCameraDevice : public BnCameraDevice {
 public:
-    VirtualCameraDevice(int cameraId, 
-                        const VirtualCameraConfig& config,
-                        VirtualCameraProvider* provider);
-    ~VirtualCameraDevice() override;
+    explicit VirtualCameraDevice(const std::string& cameraId);
+    ~VirtualCameraDevice() override = default;
 
-    // ICameraDevice interface
+    // ICameraDevice V1 interface
     ndk::ScopedAStatus getCameraCharacteristics(
-        CameraMetadata* characteristics) override;
+            CameraMetadata* _aidl_return) override;
     
     ndk::ScopedAStatus getPhysicalCameraCharacteristics(
-        const std::string& physicalCameraId,
-        CameraMetadata* characteristics) override;
+            const std::string& physicalCameraId,
+            CameraMetadata* _aidl_return) override;
     
     ndk::ScopedAStatus getResourceCost(
-        CameraResourceCost* resourceCost) override;
+            CameraResourceCost* _aidl_return) override;
     
     ndk::ScopedAStatus isStreamCombinationSupported(
-        const StreamConfiguration& streams,
-        bool* supported) override;
+            const StreamConfiguration& streams,
+            bool* _aidl_return) override;
     
     ndk::ScopedAStatus open(
-        const std::shared_ptr<ICameraDeviceCallback>& callback,
-        std::shared_ptr<ICameraDeviceSession>* session) override;
+            const std::shared_ptr<ICameraDeviceCallback>& callback,
+            std::shared_ptr<ICameraDeviceSession>* _aidl_return) override;
     
     ndk::ScopedAStatus openInjectionSession(
-        const std::shared_ptr<ICameraDeviceCallback>& callback,
-        std::shared_ptr<ICameraInjectionSession>* session) override;
+            const std::shared_ptr<ICameraDeviceCallback>& callback,
+            std::shared_ptr<ICameraInjectionSession>* _aidl_return) override;
     
     ndk::ScopedAStatus setTorchMode(bool on) override;
-    ndk::ScopedAStatus turnOnTorchWithStrengthLevel(int32_t strength) override;
-    ndk::ScopedAStatus getTorchStrengthLevel(int32_t* strength) override;
-
-    int getCameraId() const { return mCameraId; }
-    const VirtualCameraConfig& getConfig() const { return mConfig; }
-    VirtualCameraProvider* getProvider() const { return mProvider; }
+    
+    ndk::ScopedAStatus turnOnTorchWithStrengthLevel(int32_t torchStrength) override;
+    
+    ndk::ScopedAStatus getTorchStrengthLevel(int32_t* _aidl_return) override;
 
 private:
-    const int mCameraId;
-    VirtualCameraConfig mConfig;
-    VirtualCameraProvider* mProvider;
+    std::string mCameraId;
+    std::mutex mLock;
+    
+    void initCharacteristics();
     CameraMetadata mCharacteristics;
-    
-    void buildCharacteristics();
 };
 
-/**
- * Camera session - handles capture requests
- */
-class VirtualCameraSession : public BnCameraDeviceSession {
-public:
-    VirtualCameraSession(VirtualCameraDevice* device,
-                         std::shared_ptr<ICameraDeviceCallback> callback);
-    ~VirtualCameraSession() override;
-
-    // ICameraDeviceSession interface
-    ndk::ScopedAStatus close() override;
-    
-    ndk::ScopedAStatus configureStreams(
-        const StreamConfiguration& config,
-        std::vector<HalStream>* halStreams) override;
-    
-    ndk::ScopedAStatus constructDefaultRequestSettings(
-        RequestTemplate type,
-        CameraMetadata* settings) override;
-    
-    ndk::ScopedAStatus processCaptureRequest(
-        const std::vector<CaptureRequest>& requests,
-        const std::vector<BufferCache>& cachesToRemove,
-        int32_t* numRequestProcessed) override;
-    
-    ndk::ScopedAStatus signalStreamFlush(
-        const std::vector<int32_t>& streamIds,
-        int32_t streamConfigCounter) override;
-    
-    ndk::ScopedAStatus flush() override;
-    
-    ndk::ScopedAStatus switchToOffline(
-        const std::vector<int32_t>& streamsToKeep,
-        CameraOfflineSessionInfo* offlineSessionInfo,
-        std::shared_ptr<ICameraOfflineSession>* offlineSession) override;
-    
-    ndk::ScopedAStatus repeatingRequestEnd(
-        int32_t frameNumber,
-        const std::vector<int32_t>& streamIds) override;
-
-private:
-    VirtualCameraDevice* mDevice;
-    std::shared_ptr<ICameraDeviceCallback> mCallback;
-    std::shared_ptr<IVirtualCameraManager> mManager;
-    
-    std::mutex mMutex;
-    bool mClosed = false;
-    
-    // Stream configuration
-    std::vector<StreamConfig> mStreams;
-    
-    // Request processing
-    std::thread mRequestThread;
-    std::condition_variable mRequestCv;
-    std::queue<CaptureRequest> mPendingRequests;
-    bool mRequestThreadRunning = false;
-    
-    void requestThreadLoop();
-    void processRequest(const CaptureRequest& request);
-};
-
-}  // namespace aidl::android::hardware::camera::provider::implementation
+}  // namespace

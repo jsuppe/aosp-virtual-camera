@@ -1,72 +1,51 @@
 /*
- * VirtualCameraProvider - Camera HAL Provider
+ * VirtualCameraProvider - Stub HAL Provider
  * 
- * Implements ICameraProvider to expose virtual cameras to Android framework.
- * Communicates with VirtualCameraService via IVirtualCameraManager AIDL.
- * 
- * Location: hardware/interfaces/camera/provider/virtual/
+ * Minimal implementation to register a virtual camera.
  */
 #pragma once
 
 #include <aidl/android/hardware/camera/provider/BnCameraProvider.h>
 #include <aidl/android/hardware/camera/provider/ICameraProviderCallback.h>
-#include <aidl/android/hardware/camera/virtual/IVirtualCameraManager.h>
 #include <mutex>
-#include <unordered_map>
-#include <thread>
-
-#include "VirtualCameraDevice.h"
+#include <memory>
 
 namespace aidl::android::hardware::camera::provider::implementation {
-
-using ::aidl::android::hardware::camera::virtual_::IVirtualCameraManager;
-using ::aidl::android::hardware::camera::virtual_::VirtualCameraConfig;
 
 class VirtualCameraProvider : public BnCameraProvider {
 public:
     VirtualCameraProvider();
-    ~VirtualCameraProvider() override;
+    ~VirtualCameraProvider() override = default;
 
     // ICameraProvider interface
     ndk::ScopedAStatus setCallback(
-        const std::shared_ptr<ICameraProviderCallback>& callback) override;
+            const std::shared_ptr<ICameraProviderCallback>& callback) override;
     
     ndk::ScopedAStatus getVendorTags(
-        std::vector<VendorTagSection>* vendorTags) override;
+            std::vector<common::VendorTagSection>* vendorTags) override;
     
     ndk::ScopedAStatus getCameraIdList(
-        std::vector<std::string>* cameraIds) override;
+            std::vector<std::string>* cameraIds) override;
     
     ndk::ScopedAStatus getCameraDeviceInterface(
-        const std::string& cameraId,
-        std::shared_ptr<ICameraDevice>* device) override;
+            const std::string& cameraDeviceId,
+            std::shared_ptr<device::ICameraDevice>* device) override;
     
-    ndk::ScopedAStatus notifyDeviceStateChange(int64_t state) override;
+    ndk::ScopedAStatus notifyDeviceStateChange(int64_t deviceState) override;
     
     ndk::ScopedAStatus getConcurrentCameraIds(
-        std::vector<ConcurrentCameraIdCombination>* combinations) override;
+            std::vector<ConcurrentCameraIdCombination>* concurrentCameraIds) override;
     
     ndk::ScopedAStatus isConcurrentStreamCombinationSupported(
-        const std::vector<CameraIdAndStreamCombination>& configs,
-        bool* supported) override;
-    
-    // Access to manager for device/session use
-    std::shared_ptr<IVirtualCameraManager> getManager() { return mManager; }
+            const std::vector<CameraIdAndStreamCombination>& configs,
+            bool* supported) override;
 
 private:
-    std::mutex mMutex;
+    std::mutex mLock;
     std::shared_ptr<ICameraProviderCallback> mCallback;
-    std::shared_ptr<IVirtualCameraManager> mManager;
-    std::unordered_map<int, std::shared_ptr<VirtualCameraDevice>> mDevices;
-    
-    // Background thread to poll for camera changes
-    std::thread mPollingThread;
-    std::atomic<bool> mPollingRunning{false};
-    
-    void connectToService();
-    void pollingLoop();
-    void refreshCameras();
-    std::string makeDeviceName(int cameraId) const;
+    // Format: device@<major>.<minor>/<type>/<id>
+    // Note: ID must be unique across all camera providers (0-2 used by internal/0)
+    static constexpr const char* kVirtualCameraId = "device@1.0/virtual_renderer/100";
 };
 
-}  // namespace aidl::android::hardware::camera::provider::implementation
+}  // namespace
