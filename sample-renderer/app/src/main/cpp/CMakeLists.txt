@@ -13,11 +13,11 @@ file(MAKE_DIRECTORY ${SPIRV_DIR})
 add_library(vcamrenderer SHARED
     vcam_renderer.cpp
     vulkan_renderer.cpp
-    cube_geometry.cpp
 )
 
 target_include_directories(vcamrenderer PRIVATE
     ${CMAKE_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/glm
     ${Vulkan_INCLUDE_DIRS}
 )
 

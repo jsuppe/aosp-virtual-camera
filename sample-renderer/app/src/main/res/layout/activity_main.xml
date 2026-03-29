@@ -3,38 +3,33 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="24dp"
-    android:gravity="center">
-
-    <ImageView
-        android:layout_width="120dp"
-        android:layout_height="120dp"
-        android:src="@drawable/ic_cube"
-        android:contentDescription="Golden Cube Icon" />
+    android:padding="16dp"
+    android:gravity="center_horizontal">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Virtual Camera Renderer"
-        android:textSize="24sp"
+        android:text="🎲 Golden Cube Renderer"
+        android:textSize="20sp"
         android:textStyle="bold"
-        android:layout_marginTop="16dp" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Renders a golden cube via Vulkan"
-        android:textSize="14sp"
-        android:textColor="#888888"
         android:layout_marginTop="8dp" />
+
+    <!-- Preview Surface for Vulkan rendering -->
+    <SurfaceView
+        android:id="@+id/previewSurface"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp"
+        android:background="#1a1a2e" />
 
     <TextView
         android:id="@+id/statusText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Initializing..."
-        android:textSize="16sp"
-        android:layout_marginTop="32dp"
+        android:textSize="14sp"
         android:gravity="center" />
 
     <Button
@@ -42,6 +37,7 @@
         android:layout_width="200dp"
         android:layout_height="wrap_content"
         android:text="Start"
-        android:layout_marginTop="24dp" />
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp" />
 
 </LinearLayout>

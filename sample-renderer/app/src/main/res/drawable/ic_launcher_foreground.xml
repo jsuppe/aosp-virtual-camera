@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Background square (back layer) -->
+    <path
+        android:fillColor="#4CAF50"
+        android:pathData="M28,28 L68,28 L68,68 L28,68 Z" />
+    
+    <!-- Middle square (offset) -->
+    <path
+        android:fillColor="#2196F3"
+        android:pathData="M38,38 L78,38 L78,78 L38,78 Z" />
+    
+    <!-- Front square (top layer) -->
+    <path
+        android:fillColor="#9C27B0"
+        android:pathData="M48,48 L88,48 L88,88 L48,88 Z" />
+    
+    <!-- Small camera lens detail on front square -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.6"
+        android:pathData="M68,68 m-8,0 a8,8 0 1,1 16,0 a8,8 0 1,1 -16,0" />
+</vector>

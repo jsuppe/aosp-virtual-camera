@@ -1,20 +1,20 @@
 package com.example.vcamrenderer
 
-import android.graphics.PixelFormat
 import android.os.Bundle
-import android.os.IBinder
-import android.os.ServiceManager
 import android.util.Log
 import android.view.Surface
+import android.view.SurfaceHolder
+import android.view.SurfaceView
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 
 /**
- * Sample Virtual Camera Renderer
+ * Golden Cube Virtual Camera Renderer
  * 
- * Renders a rotating golden cube via Vulkan and provides it
- * as a virtual camera source.
+ * Preview Mode: Renders a rotating golden cube via Vulkan to a local SurfaceView.
+ * This validates the Vulkan rendering pipeline works before integrating with
+ * the VirtualCameraService.
  */
 class MainActivity : AppCompatActivity() {
     
@@ -27,7 +27,6 @@ class MainActivity : AppCompatActivity() {
     }
     
     private var isRendering = false
-    private var cameraId = -1
     
     // Native methods
     private external fun nativeInit(): Long
@@ -41,6 +40,11 @@ class MainActivity : AppCompatActivity() {
     
     private lateinit var statusText: TextView
     private lateinit var startButton: Button
+    private lateinit var surfaceView: SurfaceView
+    
+    private var surfaceReady = false
+    private var surfaceWidth = 0
+    private var surfaceHeight = 0
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,143 +52,110 @@ class MainActivity : AppCompatActivity() {
         
         statusText = findViewById(R.id.statusText)
         startButton = findViewById(R.id.startButton)
+        surfaceView = findViewById(R.id.previewSurface)
         
         startButton.setOnClickListener {
             if (isRendering) {
-                stopCamera()
+                stopRendering()
             } else {
-                startCamera()
+                startPreview()
             }
         }
         
-        // Initialize Vulkan
-        nativeContext = nativeInit()
-        if (nativeContext == 0L) {
-            statusText.text = "Failed to initialize Vulkan"
-            startButton.isEnabled = false
-            return
-        }
+        // Setup preview surface
+        surfaceView.holder.addCallback(object : SurfaceHolder.Callback {
+            override fun surfaceCreated(holder: SurfaceHolder) {
+                Log.d(TAG, "Preview surface created")
+            }
+            
+            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+                Log.d(TAG, "Preview surface changed: ${width}x${height}")
+                surfaceWidth = width
+                surfaceHeight = height
+                surfaceReady = true
+                
+                // If we were waiting to start, start now
+                if (nativeContext != 0L && !isRendering) {
+                    statusText.text = "Ready - tap Start to render\n${width}x${height}"
+                }
+            }
+            
+            override fun surfaceDestroyed(holder: SurfaceHolder) {
+                Log.d(TAG, "Preview surface destroyed")
+                surfaceReady = false
+                if (isRendering) {
+                    stopRendering()
+                }
+            }
+        })
         
-        statusText.text = "Ready - tap Start to begin"
+        // Initialize Vulkan
+        statusText.text = "Initializing Vulkan..."
+        
+        Thread {
+            nativeContext = nativeInit()
+            runOnUiThread {
+                if (nativeContext == 0L) {
+                    statusText.text = "❌ Failed to initialize Vulkan"
+                    startButton.isEnabled = false
+                } else {
+                    statusText.text = "✓ Vulkan ready\nWaiting for surface..."
+                    Log.i(TAG, "Vulkan initialized successfully")
+                }
+            }
+        }.start()
     }
     
     override fun onDestroy() {
         super.onDestroy()
-        stopCamera()
+        stopRendering()
         if (nativeContext != 0L) {
             nativeDestroy(nativeContext)
             nativeContext = 0
         }
     }
     
-    private fun startCamera() {
-        try {
-            // Get the VirtualCameraService
-            val binder = ServiceManager.getService("virtual_camera")
-            if (binder == null) {
-                statusText.text = "VirtualCameraService not found"
-                return
-            }
-            
-            val service = IVirtualCameraService.Stub.asInterface(binder)
-            
-            // Configure camera: 4K60 RGBA
-            val config = VirtualCameraConfig().apply {
-                name = "Golden Cube Camera"
-                maxWidth = 3840
-                maxHeight = 2160
-                maxFps = 60
-                supportedFormats = intArrayOf(PixelFormat.RGBA_8888)
-                facing = 2  // EXTERNAL
-                orientation = 0
-                supportsJpeg = false
-            }
-            
-            // Register with callback
-            cameraId = service.registerCamera(config, cameraCallback)
-            
-            if (cameraId < 0) {
-                statusText.text = "Failed to register camera"
-                return
-            }
-            
-            isRendering = true
-            startButton.text = "Stop"
-            statusText.text = "Camera registered (ID: $cameraId)\nWaiting for client..."
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to start camera", e)
-            statusText.text = "Error: ${e.message}"
-        }
-    }
-    
-    private fun stopCamera() {
-        if (cameraId >= 0) {
-            try {
-                val binder = ServiceManager.getService("virtual_camera")
-                val service = IVirtualCameraService.Stub.asInterface(binder)
-                service?.unregisterCamera(cameraId)
-            } catch (e: Exception) {
-                Log.e(TAG, "Error unregistering camera", e)
-            }
-            cameraId = -1
+    private fun startPreview() {
+        if (!surfaceReady) {
+            statusText.text = "Surface not ready yet"
+            return
         }
         
-        nativeStopRendering(nativeContext)
+        if (nativeContext == 0L) {
+            statusText.text = "Vulkan not initialized"
+            return
+        }
+        
+        val surface = surfaceView.holder.surface
+        if (!surface.isValid) {
+            statusText.text = "Surface not valid"
+            return
+        }
+        
+        Log.d(TAG, "Starting preview: ${surfaceWidth}x${surfaceHeight}")
+        statusText.text = "Setting up swapchain..."
+        
+        Thread {
+            val success = nativeSetSurface(nativeContext, surface, surfaceWidth, surfaceHeight)
+            runOnUiThread {
+                if (success) {
+                    nativeStartRendering(nativeContext)
+                    isRendering = true
+                    startButton.text = "Stop"
+                    statusText.text = "🎲 Rendering cube\n${surfaceWidth}x${surfaceHeight} @ 60fps"
+                } else {
+                    statusText.text = "❌ Failed to create swapchain"
+                }
+            }
+        }.start()
+    }
+    
+    private fun stopRendering() {
+        if (nativeContext != 0L) {
+            nativeStopRendering(nativeContext)
+        }
         isRendering = false
         startButton.text = "Start"
         statusText.text = "Stopped"
-    }
-    
-    private val cameraCallback = object : IVirtualCameraCallback.Stub() {
-        
-        override fun onCameraOpened() {
-            runOnUiThread {
-                statusText.text = "Camera opened by client"
-            }
-        }
-        
-        override fun onStreamsConfigured(streams: Array<StreamConfig>, surfaces: Array<Surface>) {
-            runOnUiThread {
-                if (streams.isNotEmpty() && surfaces.isNotEmpty()) {
-                    val stream = streams[0]
-                    val surface = surfaces[0]
-                    
-                    statusText.text = "Streaming: ${stream.width}x${stream.height} @ ${stream.fps}fps"
-                    
-                    // Configure Vulkan to render to this surface
-                    if (nativeSetSurface(nativeContext, surface, stream.width, stream.height)) {
-                        nativeStartRendering(nativeContext)
-                    } else {
-                        statusText.text = "Failed to set surface"
-                    }
-                }
-            }
-        }
-        
-        override fun onCaptureStarted(frameRate: Int) {
-            runOnUiThread {
-                statusText.text = "Rendering at $frameRate fps"
-            }
-        }
-        
-        override fun onCaptureStopped() {
-            runOnUiThread {
-                nativeStopRendering(nativeContext)
-                statusText.text = "Capture stopped"
-            }
-        }
-        
-        override fun onCameraClosed() {
-            runOnUiThread {
-                nativeStopRendering(nativeContext)
-                statusText.text = "Camera closed - waiting for client..."
-            }
-        }
-        
-        override fun onStillCaptureRequested(surface: Surface, captureId: Int) {
-            // Render a single high-quality frame
-            Log.d(TAG, "Still capture requested: $captureId")
-        }
     }
 }

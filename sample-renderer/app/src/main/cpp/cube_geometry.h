@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <array>
+#include <vulkan/vulkan.h>
 
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
@@ -13,10 +14,50 @@ struct Vertex {
     glm::vec3 pos;
     glm::vec3 normal;
     glm::vec3 color;
+    
+    static VkVertexInputBindingDescription getBindingDescription() {
+        VkVertexInputBindingDescription desc{};
+        desc.binding = 0;
+        desc.stride = sizeof(Vertex);
+        desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+        return desc;
+    }
+    
+    static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
+        std::array<VkVertexInputAttributeDescription, 3> attrs{};
+        
+        // Position
+        attrs[0].binding = 0;
+        attrs[0].location = 0;
+        attrs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attrs[0].offset = offsetof(Vertex, pos);
+        
+        // Normal
+        attrs[1].binding = 0;
+        attrs[1].location = 1;
+        attrs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attrs[1].offset = offsetof(Vertex, normal);
+        
+        // Color
+        attrs[2].binding = 0;
+        attrs[2].location = 2;
+        attrs[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attrs[2].offset = offsetof(Vertex, color);
+        
+        return attrs;
+    }
 };
 
 class CubeGeometry {
 public:
+    static VkVertexInputBindingDescription getBindingDescription() {
+        return Vertex::getBindingDescription();
+    }
+    
+    static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
+        return Vertex::getAttributeDescriptions();
+    }
+    
     // Golden color: RGB(255, 215, 0) normalized
     static constexpr glm::vec3 GOLD = {1.0f, 0.843f, 0.0f};
     static constexpr glm::vec3 GOLD_DARK = {0.8f, 0.674f, 0.0f};

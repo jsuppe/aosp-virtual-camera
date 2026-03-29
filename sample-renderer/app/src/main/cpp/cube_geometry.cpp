@@ -2,6 +2,7 @@
  * cube_geometry.cpp - Additional Vulkan renderer methods
  */
 #include "vulkan_renderer.h"
+#include "cube_geometry.h"
 #include "shaders.h"
 #include <android/log.h>
 

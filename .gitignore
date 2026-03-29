@@ -1,0 +1,19 @@
+# Build outputs
+**/build/
+**/.gradle/
+**/.cxx/
+**/local.properties
+
+# IDE
+.idea/
+*.iml
+
+# Native
+**/*.so
+**/*.o
+
+# External deps (cloned)
+sample-renderer/app/src/main/cpp/glm/
+
+# Compiled shaders (regenerated from source)
+sample-renderer/app/src/main/cpp/shaders/*.spv

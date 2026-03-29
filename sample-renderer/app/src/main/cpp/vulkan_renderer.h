@@ -16,18 +16,10 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-struct Vertex {
-    glm::vec3 pos;
-    glm::vec3 normal;
-    glm::vec3 color;
-};
+// Vertex is defined in cube_geometry.h
 
 struct UniformBufferObject {
-    alignas(16) glm::mat4 model;
-    alignas(16) glm::mat4 view;
-    alignas(16) glm::mat4 proj;
-    alignas(16) glm::vec3 lightPos;
-    alignas(16) glm::vec3 viewPos;
+    alignas(16) glm::mat4 mvp;  // Combined model-view-projection matrix
 };
 
 class VulkanRenderer {
