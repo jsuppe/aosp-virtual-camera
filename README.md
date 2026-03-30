@@ -2,14 +2,19 @@
 
 A custom virtual camera HAL for Android that allows apps to act as camera "renderers" — providing frames that appear as a standard camera source to other apps.
 
-## Status: Test Pattern Generation ✅
+## Status: Virtual Camera Fully Working! ✅
 
-The HAL successfully:
+**Virtual Camera HAL:**
 - Registers with Android's ServiceManager
-- Enumerates as camera device `100` (shows as 4th camera)
-- Creates device and session interfaces on demand
-- **Generates animated color bar test patterns** (new!)
-- Uses HandleImporter for proper buffer mapping
+- Enumerates as camera device `100` (4th camera)
+- Supports IMPLEMENTATION_DEFINED format (SurfaceView preview)
+- Generates animated color bar test patterns
+- **Tested: 9,330+ frames @ 30fps** ✅
+
+**Also in this repo:**
+- 🎤 **Virtual Microphone** — HAL scaffolding complete (see `virtual-mic/`)
+- 🖥️ **Virtual Display** — HWC scaffolding complete (see `virtual-display/`)
+- 📄 **Unified API** — Renderer-defined characteristics model (see `RENDERER_API.md`)
 
 ## Architecture
 
@@ -163,13 +168,36 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 ## Roadmap
 
+### Virtual Camera ✅
 - [x] HAL registration and enumeration
 - [x] Camera metadata (including stallDurations)
 - [x] Buffer caching
 - [x] Test pattern generation with HandleImporter
+- [x] IMPLEMENTATION_DEFINED format support
+- [x] **Fully working!** (9,330+ frames tested @ 30fps)
 - [ ] VirtualCameraService for renderer connection
 - [ ] Surface-based frame passing from renderer apps
-- [ ] APEX packaging
+- [ ] Renderer-defined characteristics (resolution, format, FPS)
+
+### Virtual Microphone 🎤 (Scaffolded)
+- [x] HAL scaffolding (IModule, IStreamIn)
+- [x] AIDL service interfaces
+- [x] Audio policy configuration
+- [ ] FMQ audio data transfer
+- [ ] System service implementation
+- [ ] Renderer SDK
+
+### Virtual Display 🖥️ (Scaffolded)
+- [x] Spec with app-controlled model
+- [x] HWC HAL scaffolding (IComposer)
+- [x] AIDL service interfaces
+- [ ] Full HWC implementation
+- [ ] Physical display passthrough
+- [ ] System-wide reconfiguration support
+- [ ] Renderer app frame delivery
+
+### Packaging
+- [ ] APEX packaging for all components
 
 ## Requirements
 
