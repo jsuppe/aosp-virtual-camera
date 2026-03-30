@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Virtual Microphone Audio Policy Configuration -->
+<module name="virtual_mic" halVersion="3.0">
+    <attachedDevices>
+        <item>Virtual Mic In</item>
+    </attachedDevices>
+    <mixPorts>
+        <mixPort name="virtual_mic input" role="sink">
+            <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
+                     samplingRates="48000 44100 16000"
+                     channelMasks="AUDIO_CHANNEL_IN_MONO AUDIO_CHANNEL_IN_STEREO"/>
+            <profile name="" format="AUDIO_FORMAT_PCM_FLOAT"
+                     samplingRates="48000 44100"
+                     channelMasks="AUDIO_CHANNEL_IN_STEREO"/>
+        </mixPort>
+    </mixPorts>
+    <devicePorts>
+        <devicePort tagName="Virtual Mic In"
+                    type="AUDIO_DEVICE_IN_BUILTIN_MIC"
+                    role="source"
+                    address="virtual_mic_0">
+            <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
+                     samplingRates="48000 44100 16000"
+                     channelMasks="AUDIO_CHANNEL_IN_MONO AUDIO_CHANNEL_IN_STEREO"/>
+        </devicePort>
+    </devicePorts>
+    <routes>
+        <route type="mix" sink="virtual_mic input"
+               sources="Virtual Mic In"/>
+    </routes>
+</module>

@@ -9,10 +9,11 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
-import android.util.Size
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import android.view.WindowManager
+import android.widget.FrameLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -22,7 +23,7 @@ import androidx.core.content.ContextCompat
 class MainActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "VCamTest"
-        private const val VIRTUAL_CAMERA_ID = "100"  // Our virtual camera
+        private const val VIRTUAL_CAMERA_ID = "100"
         private const val PERMISSION_REQUEST = 100
     }
 
@@ -31,31 +32,46 @@ class MainActivity : AppCompatActivity() {
     private var captureSession: CameraCaptureSession? = null
     private var imageReader: ImageReader? = null
     
-    private lateinit var backgroundThread: HandlerThread
-    private lateinit var backgroundHandler: Handler
+    private var backgroundThread: HandlerThread? = null
+    private var backgroundHandler: Handler? = null
     
     private lateinit var statusText: TextView
     private lateinit var surfaceView: SurfaceView
     private var frameCount = 0
+    
+    // Track state to prevent race conditions
+    private var surfaceReady = false
+    private var cameraOpening = false
+    private var isResumed = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Simple layout
+        // Keep screen on to prevent surface destruction
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        
+        // Create layout
+        val layout = FrameLayout(this)
+        
         surfaceView = SurfaceView(this)
-        setContentView(surfaceView)
+        layout.addView(surfaceView, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        ))
         
         statusText = TextView(this).apply {
-            text = "Virtual Camera Test"
-            textSize = 16f
-            setBackgroundColor(0x80000000.toInt())
+            text = "Virtual Camera Test\nInitializing..."
+            textSize = 18f
+            setBackgroundColor(0xCC000000.toInt())
             setTextColor(0xFFFFFFFF.toInt())
-            setPadding(16, 16, 16, 16)
+            setPadding(24, 24, 24, 24)
         }
-        addContentView(statusText, android.widget.FrameLayout.LayoutParams(
-            android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
-            android.widget.FrameLayout.LayoutParams.WRAP_CONTENT
+        layout.addView(statusText, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
         ))
+        
+        setContentView(layout)
         
         cameraManager = getSystemService(CAMERA_SERVICE) as CameraManager
         
@@ -63,15 +79,19 @@ class MainActivity : AppCompatActivity() {
         try {
             val cameraIds = cameraManager.cameraIdList
             Log.i(TAG, "Available cameras: ${cameraIds.joinToString()}")
-            statusText.text = "Cameras: ${cameraIds.joinToString()}"
+            updateStatus("Cameras: ${cameraIds.joinToString()}\nWaiting for surface...")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to list cameras", e)
+            updateStatus("Error listing cameras: ${e.message}")
         }
         
         surfaceView.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
                 Log.d(TAG, "Surface created")
-                checkPermissionAndOpenCamera()
+                surfaceReady = true
+                if (isResumed) {
+                    checkPermissionAndOpenCamera()
+                }
             }
             
             override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
@@ -80,35 +100,60 @@ class MainActivity : AppCompatActivity() {
             
             override fun surfaceDestroyed(holder: SurfaceHolder) {
                 Log.d(TAG, "Surface destroyed")
+                surfaceReady = false
                 closeCamera()
             }
         })
     }
     
+    private fun updateStatus(text: String) {
+        runOnUiThread {
+            statusText.text = text
+        }
+    }
+    
     override fun onResume() {
         super.onResume()
+        Log.d(TAG, "onResume")
+        isResumed = true
         startBackgroundThread()
+        
+        // If surface is already ready, open camera
+        if (surfaceReady && cameraDevice == null && !cameraOpening) {
+            checkPermissionAndOpenCamera()
+        }
     }
     
     override fun onPause() {
+        Log.d(TAG, "onPause")
+        isResumed = false
         closeCamera()
         stopBackgroundThread()
         super.onPause()
     }
     
     private fun startBackgroundThread() {
-        backgroundThread = HandlerThread("CameraBackground").also { it.start() }
-        backgroundHandler = Handler(backgroundThread.looper)
+        if (backgroundThread == null) {
+            backgroundThread = HandlerThread("CameraBackground").also { it.start() }
+            backgroundHandler = Handler(backgroundThread!!.looper)
+        }
     }
     
     private fun stopBackgroundThread() {
-        backgroundThread.quitSafely()
-        backgroundThread.join()
+        backgroundThread?.quitSafely()
+        try {
+            backgroundThread?.join()
+        } catch (e: InterruptedException) {
+            Log.e(TAG, "Error stopping background thread", e)
+        }
+        backgroundThread = null
+        backgroundHandler = null
     }
     
     private fun checkPermissionAndOpenCamera() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) 
             != PackageManager.PERMISSION_GRANTED) {
+            updateStatus("Requesting camera permission...")
             ActivityCompat.requestPermissions(this, 
                 arrayOf(Manifest.permission.CAMERA), PERMISSION_REQUEST)
         } else {
@@ -124,23 +169,30 @@ class MainActivity : AppCompatActivity() {
             openVirtualCamera()
         } else {
             Toast.makeText(this, "Camera permission required", Toast.LENGTH_LONG).show()
+            updateStatus("Camera permission denied")
         }
     }
     
     private fun openVirtualCamera() {
+        if (cameraOpening || cameraDevice != null) {
+            Log.d(TAG, "Camera already opening or opened")
+            return
+        }
+        
+        cameraOpening = true
         Log.i(TAG, "Opening virtual camera: $VIRTUAL_CAMERA_ID")
-        statusText.text = "Opening camera $VIRTUAL_CAMERA_ID..."
+        updateStatus("Opening camera $VIRTUAL_CAMERA_ID...")
         
         try {
-            // Check if camera 100 exists
             val ids = cameraManager.cameraIdList
             if (!ids.contains(VIRTUAL_CAMERA_ID)) {
-                Log.e(TAG, "Virtual camera $VIRTUAL_CAMERA_ID not found! Available: ${ids.joinToString()}")
-                statusText.text = "Camera $VIRTUAL_CAMERA_ID not found!\nAvailable: ${ids.joinToString()}"
+                Log.e(TAG, "Virtual camera $VIRTUAL_CAMERA_ID not found!")
+                updateStatus("Camera $VIRTUAL_CAMERA_ID not found!\nAvailable: ${ids.joinToString()}")
+                cameraOpening = false
                 return
             }
             
-            // Get camera characteristics
+            // Log available sizes
             val chars = cameraManager.getCameraCharacteristics(VIRTUAL_CAMERA_ID)
             val configs = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
             val sizes = configs?.getOutputSizes(SurfaceHolder::class.java)
@@ -152,7 +204,8 @@ class MainActivity : AppCompatActivity() {
             }
         } catch (e: CameraAccessException) {
             Log.e(TAG, "Failed to open camera", e)
-            statusText.text = "Error: ${e.message}"
+            updateStatus("Error: ${e.message}")
+            cameraOpening = false
         }
     }
     
@@ -160,19 +213,23 @@ class MainActivity : AppCompatActivity() {
         override fun onOpened(camera: CameraDevice) {
             Log.i(TAG, "Camera opened!")
             cameraDevice = camera
-            runOnUiThread { statusText.text = "Camera $VIRTUAL_CAMERA_ID opened!" }
+            cameraOpening = false
+            updateStatus("Camera $VIRTUAL_CAMERA_ID opened!\nCreating session...")
             createCaptureSession()
         }
         
         override fun onDisconnected(camera: CameraDevice) {
             Log.w(TAG, "Camera disconnected")
+            cameraOpening = false
             camera.close()
             cameraDevice = null
+            updateStatus("Camera disconnected")
         }
         
         override fun onError(camera: CameraDevice, error: Int) {
             Log.e(TAG, "Camera error: $error")
-            runOnUiThread { statusText.text = "Camera error: $error" }
+            cameraOpening = false
+            updateStatus("Camera error: $error")
             camera.close()
             cameraDevice = null
         }
@@ -180,19 +237,22 @@ class MainActivity : AppCompatActivity() {
     
     private fun createCaptureSession() {
         val camera = cameraDevice ?: return
+        if (!surfaceReady) {
+            Log.w(TAG, "Surface not ready, cannot create session")
+            updateStatus("Waiting for surface...")
+            return
+        }
         
         try {
-            // Create ImageReader for frame callback
-            imageReader = ImageReader.newInstance(640, 480, ImageFormat.YUV_420_888, 2).apply {
+            // Use 640x480 for compatibility
+            imageReader = ImageReader.newInstance(640, 480, ImageFormat.YUV_420_888, 3).apply {
                 setOnImageAvailableListener({ reader ->
                     val image = reader.acquireLatestImage()
                     if (image != null) {
                         frameCount++
                         if (frameCount % 30 == 0) {
-                            Log.i(TAG, "Received frame $frameCount")
-                            runOnUiThread { 
-                                statusText.text = "Frames: $frameCount" 
-                            }
+                            Log.i(TAG, "Received frame $frameCount (${image.width}x${image.height})")
+                            updateStatus("Camera $VIRTUAL_CAMERA_ID active\nFrames: $frameCount")
                         }
                         image.close()
                     }
@@ -200,22 +260,24 @@ class MainActivity : AppCompatActivity() {
             }
             
             val surface = surfaceView.holder.surface
-            val surfaces = listOf(surface, imageReader!!.surface)
+            val surfaces = listOf(imageReader!!.surface)  // Just use ImageReader for now
             
             camera.createCaptureSession(surfaces, object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(session: CameraCaptureSession) {
                     Log.i(TAG, "Capture session configured")
                     captureSession = session
+                    updateStatus("Session configured!\nStarting preview...")
                     startPreview()
                 }
                 
                 override fun onConfigureFailed(session: CameraCaptureSession) {
                     Log.e(TAG, "Capture session configuration failed")
-                    runOnUiThread { statusText.text = "Session config failed" }
+                    updateStatus("Session config failed")
                 }
             }, backgroundHandler)
         } catch (e: CameraAccessException) {
             Log.e(TAG, "Failed to create session", e)
+            updateStatus("Session error: ${e.message}")
         }
     }
     
@@ -225,7 +287,6 @@ class MainActivity : AppCompatActivity() {
         
         try {
             val previewRequest = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
-                addTarget(surfaceView.holder.surface)
                 addTarget(imageReader!!.surface)
             }.build()
             
@@ -233,24 +294,34 @@ class MainActivity : AppCompatActivity() {
                 override fun onCaptureCompleted(session: CameraCaptureSession, 
                                                 request: CaptureRequest, 
                                                 result: TotalCaptureResult) {
-                    // Frame captured
+                    // Frame captured successfully
+                }
+                
+                override fun onCaptureFailed(session: CameraCaptureSession,
+                                            request: CaptureRequest,
+                                            failure: CaptureFailure) {
+                    Log.w(TAG, "Capture failed: ${failure.reason}")
                 }
             }, backgroundHandler)
             
             Log.i(TAG, "Preview started!")
-            runOnUiThread { statusText.text = "Preview started" }
+            updateStatus("Preview started!\nReceiving frames...")
         } catch (e: CameraAccessException) {
             Log.e(TAG, "Failed to start preview", e)
+            updateStatus("Preview error: ${e.message}")
         }
     }
     
     private fun closeCamera() {
+        Log.i(TAG, "Closing camera...")
         captureSession?.close()
         captureSession = null
         cameraDevice?.close()
         cameraDevice = null
         imageReader?.close()
         imageReader = null
+        cameraOpening = false
+        frameCount = 0
         Log.i(TAG, "Camera closed")
     }
 }
