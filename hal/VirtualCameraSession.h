@@ -18,9 +18,12 @@
 #include <ui/Rect.h>
 
 #include <atomic>
+#include <memory>
 #include <mutex>
 #include <thread>
 #include <unordered_map>
+
+#include "VirtualCameraFrameSource.h"
 
 namespace aidl::android::hardware::camera::provider::implementation {
 
@@ -126,6 +129,12 @@ private:
     
     // Frame counter for test pattern animation
     std::atomic<int> mFrameCounter{0};
+    
+    // Frame source for renderer-provided frames
+    std::unique_ptr<VirtualCameraFrameSource> mFrameSource;
+    
+    // Track last acquired frame timestamp (to avoid re-acquiring same frame)
+    uint64_t mLastFrameTimestamp{0};
 };
 
 }  // namespace

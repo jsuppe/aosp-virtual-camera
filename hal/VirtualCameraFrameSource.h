@@ -65,7 +65,8 @@ private:
     std::mutex mLock;
     
     // Path for shared memory - renderer creates, HAL opens
-    static constexpr const char* SHARED_MEM_PATH = "/dev/virtual_camera_shm";
+    // Using /data/local/tmp for testing; production would use ashmem
+    static constexpr const char* SHARED_MEM_PATH = "/data/local/tmp/virtual_camera_shm";
 };
 
 }  // namespace

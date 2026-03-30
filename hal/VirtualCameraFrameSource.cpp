@@ -1,5 +1,5 @@
 /*
- * VirtualCameraFrameSource - Shared memory frame source implementation
+ * VirtualCameraFrameSource - Shared memory interface for renderer frames
  */
 
 #define LOG_TAG "VirtualCameraFrameSource"
@@ -11,17 +11,21 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <cerrno>
 #include <cstring>
 
 namespace aidl::android::hardware::camera::provider::implementation {
 
+// Maximum shared memory size: 4K RGBA = 4096 * 2160 * 4 + header
+static constexpr size_t MAX_SHM_SIZE = 4096 * 2160 * 4 + 4096;
+
 VirtualCameraFrameSource::VirtualCameraFrameSource() {
-    // Try to map shared memory on construction
-    mapSharedMemory();
+    ALOGI("VirtualCameraFrameSource created");
 }
 
 VirtualCameraFrameSource::~VirtualCameraFrameSource() {
     unmapSharedMemory();
+    ALOGI("VirtualCameraFrameSource destroyed");
 }
 
 bool VirtualCameraFrameSource::mapSharedMemory() {
@@ -31,87 +35,90 @@ bool VirtualCameraFrameSource::mapSharedMemory() {
         return true;  // Already mapped
     }
     
-    // Try to open existing shared memory
+    // Try to open existing shared memory created by renderer
     mFd = open(SHARED_MEM_PATH, O_RDONLY);
     if (mFd < 0) {
-        // Not an error - renderer may not have started yet
+        // Not an error - renderer just isn't running yet
         return false;
     }
     
     // Get file size
     struct stat st;
     if (fstat(mFd, &st) < 0) {
+        ALOGE("Failed to stat shared memory: %s", strerror(errno));
         close(mFd);
         mFd = -1;
         return false;
     }
-    mMappedSize = st.st_size;
     
-    // Map the shared memory
+    mMappedSize = st.st_size;
+    if (mMappedSize < sizeof(FrameHeader)) {
+        ALOGE("Shared memory too small: %zu bytes", mMappedSize);
+        close(mFd);
+        mFd = -1;
+        return false;
+    }
+    
+    // Map the shared memory read-only
     mMappedAddr = mmap(nullptr, mMappedSize, PROT_READ, MAP_SHARED, mFd, 0);
     if (mMappedAddr == MAP_FAILED) {
         ALOGE("Failed to mmap shared memory: %s", strerror(errno));
+        mMappedAddr = nullptr;
         close(mFd);
         mFd = -1;
-        mMappedAddr = nullptr;
         return false;
     }
     
-    // Validate header
     mHeader = static_cast<FrameHeader*>(mMappedAddr);
-    if (mHeader->magic.load() != VCMF_MAGIC) {
-        ALOGE("Invalid shared memory magic: 0x%x", mHeader->magic.load());
+    
+    // Verify magic number
+    if (mHeader->magic.load(std::memory_order_acquire) != VCMF_MAGIC) {
+        ALOGE("Invalid magic number in shared memory");
         unmapSharedMemory();
         return false;
     }
     
-    if (mHeader->version.load() != VCMF_VERSION) {
-        ALOGE("Unsupported shared memory version: %u", mHeader->version.load());
+    // Verify version
+    if (mHeader->version.load(std::memory_order_acquire) != VCMF_VERSION) {
+        ALOGE("Unsupported shared memory version: %u", 
+              mHeader->version.load(std::memory_order_acquire));
         unmapSharedMemory();
         return false;
     }
     
-    // Get pointer to frame data
-    uint32_t dataOffset = mHeader->dataOffset.load();
-    if (dataOffset < sizeof(FrameHeader) || dataOffset >= mMappedSize) {
+    // Calculate frame data pointer
+    uint32_t dataOffset = mHeader->dataOffset.load(std::memory_order_acquire);
+    if (dataOffset >= mMappedSize) {
         ALOGE("Invalid data offset: %u", dataOffset);
         unmapSharedMemory();
         return false;
     }
+    
     mFrameData = static_cast<uint8_t*>(mMappedAddr) + dataOffset;
     
-    ALOGI("Mapped shared memory: %ux%u, format=%u",
-          mHeader->width.load(), mHeader->height.load(), mHeader->format.load());
-    
+    ALOGI("Mapped shared memory: %zu bytes, data offset: %u", mMappedSize, dataOffset);
     return true;
 }
 
 void VirtualCameraFrameSource::unmapSharedMemory() {
+    std::lock_guard<std::mutex> lock(mLock);
+    
     if (mMappedAddr != nullptr) {
         munmap(mMappedAddr, mMappedSize);
         mMappedAddr = nullptr;
         mHeader = nullptr;
         mFrameData = nullptr;
+        mMappedSize = 0;
     }
+    
     if (mFd >= 0) {
         close(mFd);
         mFd = -1;
     }
-    mMappedSize = 0;
 }
 
 bool VirtualCameraFrameSource::isRendererActive() {
-    // Try to map if not already
-    if (mMappedAddr == nullptr) {
-        if (!mapSharedMemory()) {
-            return false;
-        }
-    }
-    
-    return (mHeader->flags.load() & FLAG_RENDERER_ACTIVE) != 0;
-}
-
-bool VirtualCameraFrameSource::getFrameInfo(uint32_t* width, uint32_t* height, uint32_t* format) {
+    // Try to map if not already mapped
     if (mMappedAddr == nullptr) {
         if (!mapSharedMemory()) {
             return false;
@@ -122,49 +129,76 @@ bool VirtualCameraFrameSource::getFrameInfo(uint32_t* width, uint32_t* height, u
         return false;
     }
     
-    *width = mHeader->width.load();
-    *height = mHeader->height.load();
-    *format = mHeader->format.load();
-    return true;
+    // Check if renderer has marked itself as active
+    uint32_t flags = mHeader->flags.load(std::memory_order_acquire);
+    return (flags & FLAG_RENDERER_ACTIVE) != 0;
 }
 
-bool VirtualCameraFrameSource::acquireFrame(void* destBuffer, size_t destSize,
-                                            uint32_t* outWidth, uint32_t* outHeight,
-                                            uint64_t* outTimestamp) {
-    std::lock_guard<std::mutex> lock(mLock);
+bool VirtualCameraFrameSource::acquireFrame(
+        void* destBuffer, size_t destSize,
+        uint32_t* outWidth, uint32_t* outHeight,
+        uint64_t* outTimestamp) {
     
-    if (mMappedAddr == nullptr) {
-        if (!mapSharedMemory()) {
-            return false;
-        }
+    if (!isRendererActive()) {
+        return false;
     }
+    
+    std::lock_guard<std::mutex> lock(mLock);
     
     if (mHeader == nullptr || mFrameData == nullptr) {
         return false;
     }
     
-    // Check if new frame is available
-    uint32_t flags = mHeader->flags.load();
-    if (!(flags & FLAG_NEW_FRAME)) {
-        return false;  // No new frame
+    // Check for new frame flag
+    uint32_t flags = mHeader->flags.load(std::memory_order_acquire);
+    if ((flags & FLAG_NEW_FRAME) == 0) {
+        return false;  // No new frame available
     }
     
-    // Get frame metadata
-    *outWidth = mHeader->width.load();
-    *outHeight = mHeader->height.load();
-    *outTimestamp = mHeader->timestamp.load();
+    // Read frame info
+    uint32_t width = mHeader->width.load(std::memory_order_acquire);
+    uint32_t height = mHeader->height.load(std::memory_order_acquire);
+    uint32_t dataSize = mHeader->dataSize.load(std::memory_order_acquire);
+    uint64_t timestamp = mHeader->timestamp.load(std::memory_order_acquire);
     
-    uint32_t dataSize = mHeader->dataSize.load();
+    if (outWidth) *outWidth = width;
+    if (outHeight) *outHeight = height;
+    if (outTimestamp) *outTimestamp = timestamp;
+    
+    // Validate data size
     if (dataSize > destSize) {
-        ALOGE("Frame too large: %u > %zu", dataSize, destSize);
+        ALOGE("Frame data too large: %u > %zu", dataSize, destSize);
         return false;
     }
     
     // Copy frame data
     memcpy(destBuffer, mFrameData, dataSize);
     
-    // Note: We don't clear NEW_FRAME flag since we're read-only
-    // The renderer manages the flag
+    // Clear new frame flag (we've consumed it)
+    // Note: This is a simple approach. For proper double-buffering,
+    // we'd use separate read/write indices.
+    mHeader->flags.fetch_and(~FLAG_NEW_FRAME, std::memory_order_release);
+    
+    ALOGV("Acquired frame: %ux%u, %u bytes", width, height, dataSize);
+    return true;
+}
+
+bool VirtualCameraFrameSource::getFrameInfo(
+        uint32_t* width, uint32_t* height, uint32_t* format) {
+    
+    if (!isRendererActive()) {
+        return false;
+    }
+    
+    std::lock_guard<std::mutex> lock(mLock);
+    
+    if (mHeader == nullptr) {
+        return false;
+    }
+    
+    if (width) *width = mHeader->width.load(std::memory_order_acquire);
+    if (height) *height = mHeader->height.load(std::memory_order_acquire);
+    if (format) *format = mHeader->format.load(std::memory_order_acquire);
     
     return true;
 }

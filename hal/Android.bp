@@ -30,7 +30,7 @@ cc_library_shared {
         "libaidlcommonsupport",
     ],
     static_libs: [
-        "libcamera_common_helper",
+        "android.hardware.camera.common-helper",
     ],
     header_libs: [
         "libhardware_headers",

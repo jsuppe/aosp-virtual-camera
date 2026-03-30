@@ -14,8 +14,10 @@
 #include <aidl/android/hardware/graphics/common/BufferUsage.h>
 #include <aidlcommonsupport/NativeHandle.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstring>
+#include <vector>
 
 namespace aidl::android::hardware::camera::provider::implementation {
 
@@ -30,8 +32,9 @@ HandleImporter VirtualCameraSession::sHandleImporter;
 
 VirtualCameraSession::VirtualCameraSession(
         const std::shared_ptr<ICameraDeviceCallback>& callback)
-    : mCallback(callback) {
-    ALOGI("VirtualCameraSession created");
+    : mCallback(callback),
+      mFrameSource(std::make_unique<VirtualCameraFrameSource>()) {
+    ALOGI("VirtualCameraSession created with FrameSource");
 }
 
 VirtualCameraSession::~VirtualCameraSession() {
@@ -332,6 +335,19 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
     return CameraStatus::OK;
 }
 
+// Convert RGBA pixel to YUV (BT.601)
+static inline void rgbaToYuv(uint8_t r, uint8_t g, uint8_t b,
+                             uint8_t* y, uint8_t* cb, uint8_t* cr) {
+    // BT.601 conversion
+    int yVal = ((66 * r + 129 * g + 25 * b + 128) >> 8) + 16;
+    int cbVal = ((-38 * r - 74 * g + 112 * b + 128) >> 8) + 128;
+    int crVal = ((112 * r - 94 * g - 18 * b + 128) >> 8) + 128;
+    
+    *y = static_cast<uint8_t>(std::clamp(yVal, 0, 255));
+    *cb = static_cast<uint8_t>(std::clamp(cbVal, 0, 255));
+    *cr = static_cast<uint8_t>(std::clamp(crVal, 0, 255));
+}
+
 void VirtualCameraSession::fillYuvBuffer(
         buffer_handle_t handle, int width, int height, int frameNumber) {
     
@@ -358,43 +374,120 @@ void VirtualCameraSession::fillYuvBuffer(
     int cStride = ycbcr.cstride;
     int chromaStep = ycbcr.chroma_step;
     
-    // Generate animated color bars test pattern
-    // Colors cycle based on frame number
-    int barWidth = width / 8;
-    int offset = (frameNumber * 4) % width;  // Animation offset
-    
-    // Color bar YUV values (8 bars cycling)
-    // White, Yellow, Cyan, Green, Magenta, Red, Blue, Black
-    const uint8_t barY[] = {235, 210, 170, 145, 106, 81, 41, 16};
-    const uint8_t barCb[] = {128, 16, 166, 54, 202, 90, 240, 128};
-    const uint8_t barCr[] = {128, 146, 16, 34, 222, 240, 110, 128};
-    
-    // Fill Y plane
-    for (int y = 0; y < height; y++) {
-        uint8_t* row = yPlane + y * yStride;
-        for (int x = 0; x < width; x++) {
-            int barIndex = ((x + offset) / barWidth) % 8;
-            row[x] = barY[barIndex];
+    // Try to get frame from renderer first
+    bool usedRendererFrame = false;
+    if (mFrameSource && mFrameSource->isRendererActive()) {
+        // Allocate temp buffer for RGBA data from renderer
+        size_t rgbaSize = width * height * 4;
+        std::vector<uint8_t> rgbaBuffer(rgbaSize);
+        
+        uint32_t srcWidth, srcHeight;
+        uint64_t timestamp;
+        
+        if (mFrameSource->acquireFrame(rgbaBuffer.data(), rgbaSize,
+                                       &srcWidth, &srcHeight, &timestamp)) {
+            // Check dimensions match
+            if (srcWidth == static_cast<uint32_t>(width) && 
+                srcHeight == static_cast<uint32_t>(height)) {
+                
+                // Convert RGBA to YUV
+                const uint8_t* rgba = rgbaBuffer.data();
+                
+                // Fill Y plane
+                for (int y = 0; y < height; y++) {
+                    for (int x = 0; x < width; x++) {
+                        int rgbaIdx = (y * width + x) * 4;
+                        uint8_t r = rgba[rgbaIdx + 0];
+                        uint8_t g = rgba[rgbaIdx + 1];
+                        uint8_t b = rgba[rgbaIdx + 2];
+                        // alpha at rgbaIdx + 3 ignored
+                        
+                        uint8_t yVal, cbVal, crVal;
+                        rgbaToYuv(r, g, b, &yVal, &cbVal, &crVal);
+                        
+                        yPlane[y * yStride + x] = yVal;
+                    }
+                }
+                
+                // Fill UV planes (subsampled 2x2)
+                int chromaHeight = height / 2;
+                int chromaWidth = width / 2;
+                
+                for (int cy = 0; cy < chromaHeight; cy++) {
+                    for (int cx = 0; cx < chromaWidth; cx++) {
+                        // Sample center of 2x2 block
+                        int sx = cx * 2;
+                        int sy = cy * 2;
+                        int rgbaIdx = (sy * width + sx) * 4;
+                        
+                        uint8_t r = rgba[rgbaIdx + 0];
+                        uint8_t g = rgba[rgbaIdx + 1];
+                        uint8_t b = rgba[rgbaIdx + 2];
+                        
+                        uint8_t yVal, cbVal, crVal;
+                        rgbaToYuv(r, g, b, &yVal, &cbVal, &crVal);
+                        
+                        if (chromaStep == 2) {
+                            // Interleaved (NV12/NV21)
+                            cbPlane[cy * cStride + cx * 2] = cbVal;
+                            crPlane[cy * cStride + cx * 2] = crVal;
+                        } else {
+                            // Planar (I420)
+                            cbPlane[cy * cStride + cx] = cbVal;
+                            crPlane[cy * cStride + cx] = crVal;
+                        }
+                    }
+                }
+                
+                usedRendererFrame = true;
+                mLastFrameTimestamp = timestamp;
+                
+                if (frameNumber % 100 == 0) {
+                    ALOGI("Using renderer frame %lu", (unsigned long)timestamp);
+                }
+            } else {
+                ALOGW("Renderer frame size mismatch: %ux%u vs %dx%d",
+                      srcWidth, srcHeight, width, height);
+            }
         }
     }
     
-    // Fill UV planes (handle both NV12/NV21 and I420)
-    int chromaHeight = height / 2;
-    int chromaWidth = width / 2;
-    
-    for (int y = 0; y < chromaHeight; y++) {
-        for (int x = 0; x < chromaWidth; x++) {
-            int barIndex = ((x * 2 + offset) / barWidth) % 8;
-            
-            // Handle interleaved (NV12/NV21) or planar (I420) chroma
-            if (chromaStep == 2) {
-                // Interleaved: Cb and Cr are interleaved
-                cbPlane[y * cStride + x * 2] = barCb[barIndex];
-                crPlane[y * cStride + x * 2] = barCr[barIndex];
-            } else {
-                // Planar: separate Cb and Cr planes
-                cbPlane[y * cStride + x] = barCb[barIndex];
-                crPlane[y * cStride + x] = barCr[barIndex];
+    // Fall back to test pattern if no renderer frame
+    if (!usedRendererFrame) {
+        // Generate animated color bars test pattern
+        int barWidth = width / 8;
+        int offset = (frameNumber * 4) % width;
+        
+        // Color bar YUV values (8 bars cycling)
+        // White, Yellow, Cyan, Green, Magenta, Red, Blue, Black
+        const uint8_t barY[] = {235, 210, 170, 145, 106, 81, 41, 16};
+        const uint8_t barCb[] = {128, 16, 166, 54, 202, 90, 240, 128};
+        const uint8_t barCr[] = {128, 146, 16, 34, 222, 240, 110, 128};
+        
+        // Fill Y plane
+        for (int y = 0; y < height; y++) {
+            uint8_t* row = yPlane + y * yStride;
+            for (int x = 0; x < width; x++) {
+                int barIndex = ((x + offset) / barWidth) % 8;
+                row[x] = barY[barIndex];
+            }
+        }
+        
+        // Fill UV planes
+        int chromaHeight = height / 2;
+        int chromaWidth = width / 2;
+        
+        for (int y = 0; y < chromaHeight; y++) {
+            for (int x = 0; x < chromaWidth; x++) {
+                int barIndex = ((x * 2 + offset) / barWidth) % 8;
+                
+                if (chromaStep == 2) {
+                    cbPlane[y * cStride + x * 2] = barCb[barIndex];
+                    crPlane[y * cStride + x * 2] = barCr[barIndex];
+                } else {
+                    cbPlane[y * cStride + x] = barCb[barIndex];
+                    crPlane[y * cStride + x] = barCr[barIndex];
+                }
             }
         }
     }
