@@ -8,6 +8,7 @@
 
 #include <log/log.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/un.h>
 #include <unistd.h>
 #include <cerrno>

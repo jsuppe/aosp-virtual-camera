@@ -46,7 +46,7 @@ private:
     std::mutex mMutex;
     OnFdReceivedCallback mOnFdReceived;
     
-    static constexpr const char* SOCKET_PATH = "/dev/socket/virtual_camera";
+    static constexpr const char* SOCKET_PATH = "/data/local/tmp/virtual_camera.sock";
 };
 
 }  // namespace
