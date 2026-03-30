@@ -168,36 +168,41 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 ## Roadmap
 
-### Virtual Camera ✅
-- [x] HAL registration and enumeration
+### ✅ Phase 1: Foundation (COMPLETE)
+- [x] AOSP base build (Android 15)
+- [x] Custom camera HAL compiles & links
+- [x] HAL registers with ServiceManager
+- [x] Camera enumeration working (internal + virtual)
 - [x] Camera metadata (including stallDurations)
-- [x] Buffer caching
-- [x] Test pattern generation with HandleImporter
-- [x] IMPLEMENTATION_DEFINED format support
-- [x] **Fully working!** (9,330+ frames tested @ 30fps)
-- [ ] VirtualCameraService for renderer connection
-- [ ] Surface-based frame passing from renderer apps
-- [ ] Renderer-defined characteristics (resolution, format, FPS)
+- [x] Buffer caching with HandleImporter
+- [x] Test pattern generation (12,610 frames @ 3,200+ fps)
+- [x] IMPLEMENTATION_DEFINED format support (SurfaceView preview)
+- [x] Sample Vulkan renderer (60fps golden cube on SwiftShader)
 
-### Virtual Microphone 🎤 (Scaffolded)
-- [x] HAL scaffolding (IModule, IStreamIn)
-- [x] AIDL service interfaces
-- [x] Audio policy configuration
-- [ ] FMQ audio data transfer
-- [ ] System service implementation
-- [ ] Renderer SDK
+### 🔄 Phase 2: Renderer Integration (IN PROGRESS)
+- [x] VirtualCameraService scaffolded (system service)
+- [x] Framework AIDL interfaces created
+- [x] VirtualCameraFrameSource (shared memory design)
+- [x] renderer-lib library (C++, JNI, Kotlin wrapper)
+- [ ] Wire HAL to use FrameSource ← **next**
+- [ ] Renderer app registers via system service
+- [ ] End-to-end: renderer → HAL → camera app
 
-### Virtual Display 🖥️ (Scaffolded)
-- [x] Spec with app-controlled model
-- [x] HWC HAL scaffolding (IComposer)
-- [x] AIDL service interfaces
-- [ ] Full HWC implementation
-- [ ] Physical display passthrough
-- [ ] System-wide reconfiguration support
-- [ ] Renderer app frame delivery
+### 📋 Phase 3: Virtual Mic & Display
+- [x] Virtual Mic HAL scaffolded (IModule, IStreamIn)
+- [x] Virtual Mic AIDL service interfaces
+- [x] Virtual Display spec (app-controlled model)
+- [x] Virtual Display HWC scaffolding (IComposer)
+- [ ] Virtual Mic FMQ audio data transfer
+- [ ] Virtual Display physical passthrough
+- [ ] Unified RENDERER_API across all three
 
-### Packaging
+### 🚀 Phase 4: Production Polish
+- [ ] 4K60 4:4:4 optimization
+- [ ] Multiple simultaneous renderers
+- [ ] Permission model & security hardening
 - [ ] APEX packaging for all components
+- [ ] Documentation & sample apps
 
 ## Requirements
 
