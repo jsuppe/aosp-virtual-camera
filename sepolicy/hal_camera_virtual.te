@@ -8,6 +8,9 @@
 type hal_camera_virtual, domain;
 type hal_camera_virtual_exec, exec_type, vendor_file_type, file_type;
 
+# Define socket type for renderer communication
+type virtual_camera_socket, file_type;
+
 # HAL is a Binder server (camera provider)
 binder_use(hal_camera_virtual)
 binder_service(hal_camera_virtual)
@@ -41,6 +44,16 @@ allow hal_camera_virtual gpu_device:dir search;
 # DMA-BUF / ion access
 allow hal_camera_virtual dmabuf_system_heap_device:chr_file r_file_perms;
 allow hal_camera_virtual ion_device:chr_file r_file_perms;
+
+# ============ Unix Socket for Renderer Communication ============
+
+# Allow creating and using the socket
+allow hal_camera_virtual virtual_camera_socket:sock_file { create unlink setattr };
+allow hal_camera_virtual virtual_camera_socket:unix_stream_socket { create bind listen accept read write getattr getopt setopt };
+
+# Allow receiving FDs via socket (SCM_RIGHTS)
+allow hal_camera_virtual untrusted_app:fd use;
+allow hal_camera_virtual untrusted_app:unix_stream_socket { read write getattr getopt };
 
 # ============ File Descriptors from System Server ============
 

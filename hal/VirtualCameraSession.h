@@ -48,7 +48,8 @@ using ::aidl::android::hardware::common::fmq::SynchronizedReadWrite;
 
 class VirtualCameraSession : public BnCameraDeviceSession {
 public:
-    VirtualCameraSession(const std::shared_ptr<ICameraDeviceCallback>& callback);
+    VirtualCameraSession(const std::shared_ptr<ICameraDeviceCallback>& callback,
+                         std::shared_ptr<VirtualCameraFrameSource> frameSource);
     ~VirtualCameraSession() override;
 
     // ICameraDeviceSession interface
@@ -130,8 +131,8 @@ private:
     // Frame counter for test pattern animation
     std::atomic<int> mFrameCounter{0};
     
-    // Frame source for renderer-provided frames
-    std::unique_ptr<VirtualCameraFrameSource> mFrameSource;
+    // Frame source for renderer-provided frames (shared with provider)
+    std::shared_ptr<VirtualCameraFrameSource> mFrameSource;
     
     // Track last acquired frame timestamp (to avoid re-acquiring same frame)
     uint64_t mLastFrameTimestamp{0};

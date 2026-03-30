@@ -1,88 +1,84 @@
 /*
- * VirtualCameraFrameSource - Shared memory interface for renderer frames
+ * VirtualCameraFrameSource - Ashmem-based shared memory via socket
  */
 
 #define LOG_TAG "VirtualCameraFrameSource"
 
 #include "VirtualCameraFrameSource.h"
+#include "VirtualCameraSocket.h"
 
 #include <log/log.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 #include <unistd.h>
 #include <cerrno>
 #include <cstring>
 
 namespace aidl::android::hardware::camera::provider::implementation {
 
-// Maximum shared memory size: 4K RGBA = 4096 * 2160 * 4 + header
-static constexpr size_t MAX_SHM_SIZE = 4096 * 2160 * 4 + 4096;
-
-VirtualCameraFrameSource::VirtualCameraFrameSource() {
+VirtualCameraFrameSource::VirtualCameraFrameSource()
+    : mSocket(std::make_unique<VirtualCameraSocket>()) {
     ALOGI("VirtualCameraFrameSource created");
 }
 
 VirtualCameraFrameSource::~VirtualCameraFrameSource() {
-    unmapSharedMemory();
+    stop();
     ALOGI("VirtualCameraFrameSource destroyed");
 }
 
-bool VirtualCameraFrameSource::mapSharedMemory() {
+bool VirtualCameraFrameSource::start() {
+    // Set up callback for when renderer connects
+    mSocket->setOnFdReceived([this](int fd, size_t size) {
+        onFdReceived(fd, size);
+    });
+    
+    if (!mSocket->start()) {
+        ALOGE("Failed to start socket server");
+        return false;
+    }
+    
+    ALOGI("FrameSource started, waiting for renderer...");
+    return true;
+}
+
+void VirtualCameraFrameSource::stop() {
+    mSocket->stop();
+    unmapSharedMemory();
+}
+
+void VirtualCameraFrameSource::onFdReceived(int fd, size_t size) {
     std::lock_guard<std::mutex> lock(mLock);
     
-    if (mMappedAddr != nullptr) {
-        return true;  // Already mapped
+    // Unmap old memory if any
+    unmapSharedMemory();
+    
+    // Map the new fd
+    if (!mapSharedMemory(fd, size)) {
+        ALOGE("Failed to map received fd");
+        close(fd);
+        return;
     }
     
-    // Try to open existing shared memory created by renderer
-    mFd = open(SHARED_MEM_PATH, O_RDONLY);
-    if (mFd < 0) {
-        // Not an error - renderer just isn't running yet
-        return false;
-    }
-    
-    // Get file size
-    struct stat st;
-    if (fstat(mFd, &st) < 0) {
-        ALOGE("Failed to stat shared memory: %s", strerror(errno));
-        close(mFd);
-        mFd = -1;
-        return false;
-    }
-    
-    mMappedSize = st.st_size;
-    if (mMappedSize < sizeof(FrameHeader)) {
-        ALOGE("Shared memory too small: %zu bytes", mMappedSize);
-        close(mFd);
-        mFd = -1;
-        return false;
-    }
-    
-    // Map the shared memory read-only
-    mMappedAddr = mmap(nullptr, mMappedSize, PROT_READ, MAP_SHARED, mFd, 0);
+    mShmFd = fd;
+    ALOGI("Renderer connected, mapped %zu bytes", size);
+}
+
+bool VirtualCameraFrameSource::mapSharedMemory(int fd, size_t size) {
+    mMappedAddr = mmap(nullptr, size, PROT_READ, MAP_SHARED, fd, 0);
     if (mMappedAddr == MAP_FAILED) {
-        ALOGE("Failed to mmap shared memory: %s", strerror(errno));
+        ALOGE("Failed to mmap: %s", strerror(errno));
         mMappedAddr = nullptr;
-        close(mFd);
-        mFd = -1;
         return false;
     }
     
+    mMappedSize = size;
     mHeader = static_cast<FrameHeader*>(mMappedAddr);
     
     // Verify magic number
     if (mHeader->magic.load(std::memory_order_acquire) != VCMF_MAGIC) {
         ALOGE("Invalid magic number in shared memory");
-        unmapSharedMemory();
-        return false;
-    }
-    
-    // Verify version
-    if (mHeader->version.load(std::memory_order_acquire) != VCMF_VERSION) {
-        ALOGE("Unsupported shared memory version: %u", 
-              mHeader->version.load(std::memory_order_acquire));
-        unmapSharedMemory();
+        munmap(mMappedAddr, mMappedSize);
+        mMappedAddr = nullptr;
+        mHeader = nullptr;
         return false;
     }
     
@@ -90,7 +86,9 @@ bool VirtualCameraFrameSource::mapSharedMemory() {
     uint32_t dataOffset = mHeader->dataOffset.load(std::memory_order_acquire);
     if (dataOffset >= mMappedSize) {
         ALOGE("Invalid data offset: %u", dataOffset);
-        unmapSharedMemory();
+        munmap(mMappedAddr, mMappedSize);
+        mMappedAddr = nullptr;
+        mHeader = nullptr;
         return false;
     }
     
@@ -101,8 +99,6 @@ bool VirtualCameraFrameSource::mapSharedMemory() {
 }
 
 void VirtualCameraFrameSource::unmapSharedMemory() {
-    std::lock_guard<std::mutex> lock(mLock);
-    
     if (mMappedAddr != nullptr) {
         munmap(mMappedAddr, mMappedSize);
         mMappedAddr = nullptr;
@@ -111,25 +107,19 @@ void VirtualCameraFrameSource::unmapSharedMemory() {
         mMappedSize = 0;
     }
     
-    if (mFd >= 0) {
-        close(mFd);
-        mFd = -1;
+    if (mShmFd >= 0) {
+        close(mShmFd);
+        mShmFd = -1;
     }
 }
 
 bool VirtualCameraFrameSource::isRendererActive() {
-    // Try to map if not already mapped
-    if (mMappedAddr == nullptr) {
-        if (!mapSharedMemory()) {
-            return false;
-        }
-    }
+    std::lock_guard<std::mutex> lock(mLock);
     
     if (mHeader == nullptr) {
         return false;
     }
     
-    // Check if renderer has marked itself as active
     uint32_t flags = mHeader->flags.load(std::memory_order_acquire);
     return (flags & FLAG_RENDERER_ACTIVE) != 0;
 }
@@ -139,13 +129,15 @@ bool VirtualCameraFrameSource::acquireFrame(
         uint32_t* outWidth, uint32_t* outHeight,
         uint64_t* outTimestamp) {
     
-    if (!isRendererActive()) {
-        return false;
-    }
-    
     std::lock_guard<std::mutex> lock(mLock);
     
     if (mHeader == nullptr || mFrameData == nullptr) {
+        return false;
+    }
+    
+    // Check if renderer is active
+    uint32_t flags = mHeader->flags.load(std::memory_order_acquire);
+    if ((flags & FLAG_RENDERER_ACTIVE) == 0) {
         return false;
     }
     
@@ -155,8 +147,7 @@ bool VirtualCameraFrameSource::acquireFrame(
     uint32_t dataSize = mHeader->dataSize.load(std::memory_order_acquire);
     uint64_t timestamp = mHeader->timestamp.load(std::memory_order_acquire);
     
-    // Track timestamp for logging, but always provide the current frame
-    // (Camera reads faster than renderer writes, so we reuse frames)
+    // Track timestamp for logging
     bool isNewFrame = (timestamp != mLastReadTimestamp);
     mLastReadTimestamp = timestamp;
     
@@ -173,17 +164,11 @@ bool VirtualCameraFrameSource::acquireFrame(
     // Copy frame data
     memcpy(destBuffer, mFrameData, dataSize);
     
-    ALOGV("Acquired frame: %ux%u, %u bytes, ts=%lu", width, height, dataSize, 
-          (unsigned long)timestamp);
     return true;
 }
 
 bool VirtualCameraFrameSource::getFrameInfo(
         uint32_t* width, uint32_t* height, uint32_t* format) {
-    
-    if (!isRendererActive()) {
-        return false;
-    }
     
     std::lock_guard<std::mutex> lock(mLock);
     

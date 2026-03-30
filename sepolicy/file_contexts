@@ -4,3 +4,6 @@
 
 # HAL binary
 /vendor/bin/hw/android\.hardware\.camera\.provider-virtual-service    u:object_r:hal_camera_virtual_exec:s0
+
+# Unix socket for renderer communication
+/dev/socket/virtual_camera                                            u:object_r:virtual_camera_socket:s0

@@ -31,10 +31,11 @@ using ::android::hardware::camera::common::V1_0::helper::HandleImporter;
 HandleImporter VirtualCameraSession::sHandleImporter;
 
 VirtualCameraSession::VirtualCameraSession(
-        const std::shared_ptr<ICameraDeviceCallback>& callback)
+        const std::shared_ptr<ICameraDeviceCallback>& callback,
+        std::shared_ptr<VirtualCameraFrameSource> frameSource)
     : mCallback(callback),
-      mFrameSource(std::make_unique<VirtualCameraFrameSource>()) {
-    ALOGI("VirtualCameraSession created with FrameSource");
+      mFrameSource(frameSource) {
+    ALOGI("VirtualCameraSession created with shared FrameSource");
 }
 
 VirtualCameraSession::~VirtualCameraSession() {

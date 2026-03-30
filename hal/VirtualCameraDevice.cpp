@@ -16,8 +16,9 @@ namespace aidl::android::hardware::camera::provider::implementation {
 
 using aidl::android::hardware::camera::common::Status;
 
-VirtualCameraDevice::VirtualCameraDevice(const std::string& cameraId)
-    : mCameraId(cameraId) {
+VirtualCameraDevice::VirtualCameraDevice(const std::string& cameraId,
+                                         std::shared_ptr<VirtualCameraFrameSource> frameSource)
+    : mCameraId(cameraId), mFrameSource(frameSource) {
     ALOGI("VirtualCameraDevice created: %s", cameraId.c_str());
     initCharacteristics();
 }
@@ -207,7 +208,7 @@ ndk::ScopedAStatus VirtualCameraDevice::open(
                 static_cast<int32_t>(Status::ILLEGAL_ARGUMENT));
     }
     
-    *_aidl_return = ndk::SharedRefBase::make<VirtualCameraSession>(callback);
+    *_aidl_return = ndk::SharedRefBase::make<VirtualCameraSession>(callback, mFrameSource);
     ALOGI("Camera session created successfully");
     return ndk::ScopedAStatus::ok();
 }

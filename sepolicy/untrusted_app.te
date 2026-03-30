@@ -11,6 +11,12 @@
 # Allow renderer apps to find and use virtual camera service
 allow untrusted_app virtual_camera_service:service_manager find;
 
+# ============ Unix Socket to HAL ============
+
+# Connect to the virtual camera HAL socket
+allow untrusted_app virtual_camera_socket:sock_file write;
+allow untrusted_app hal_camera_virtual:unix_stream_socket connectto;
+
 # ============ Shared Memory ============
 
 # Receive ashmem FDs from system_server
