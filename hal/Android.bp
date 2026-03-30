@@ -2,14 +2,11 @@ package {
     default_applicable_licenses: ["hardware_interfaces_license"],
 }
 
-cc_binary {
-    name: "android.hardware.camera.provider-V1-virtual-service",
-    relative_install_path: "hw",
-    init_rc: ["android.hardware.camera.provider-virtual-service.rc"],
-    vintf_fragments: ["android.hardware.camera.provider-virtual-service.xml"],
+// Shared library implementation (for APEX)
+cc_library_shared {
+    name: "android.hardware.camera.provider-V1-virtual-impl",
     vendor: true,
     srcs: [
-        "service.cpp",
         "VirtualCameraProvider.cpp",
         "VirtualCameraDevice.cpp",
         "VirtualCameraSession.cpp",
@@ -38,4 +35,30 @@ cc_binary {
     header_libs: [
         "libhardware_headers",
     ],
+    export_include_dirs: ["."],
+}
+
+// Service binary
+cc_binary {
+    name: "android.hardware.camera.provider-virtual-service",
+    relative_install_path: "hw",
+    init_rc: ["android.hardware.camera.provider-virtual-service.rc"],
+    vintf_fragments: ["android.hardware.camera.provider-virtual-service.xml"],
+    vendor: true,
+    srcs: [
+        "service.cpp",
+    ],
+    shared_libs: [
+        "liblog",
+        "libbase",
+        "libbinder_ndk",
+        "android.hardware.camera.provider-V1-virtual-impl",
+        "android.hardware.camera.provider-V2-ndk",
+    ],
+}
+
+// Generate VINTF fragment for APEX
+filegroup {
+    name: "android.hardware.camera.provider-virtual-service.xml",
+    srcs: ["android.hardware.camera.provider-virtual-service.xml"],
 }
