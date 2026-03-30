@@ -9,7 +9,9 @@
 #include <android/native_window.h>
 #include <android/native_window_jni.h>
 #include <android/log.h>
+#include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <vector>
 
@@ -27,10 +29,116 @@ struct UnifiedRenderer {
     int height = 0;
     int frameCount = 0;
     bool initialized = false;
+    
+    // FPS tracking
+    int64_t startTimeMs = 0;
+    int64_t lastFpsTime = 0;
+    int fpsFrameCount = 0;
+    int currentFps = 0;
 };
 
+// Simple 5x7 bitmap font for digits 0-9 and some chars
+static const uint8_t FONT_5X7[16][7] = {
+    {0x0E,0x11,0x13,0x15,0x19,0x11,0x0E}, // 0
+    {0x04,0x0C,0x04,0x04,0x04,0x04,0x0E}, // 1
+    {0x0E,0x11,0x01,0x06,0x08,0x10,0x1F}, // 2
+    {0x0E,0x11,0x01,0x06,0x01,0x11,0x0E}, // 3
+    {0x02,0x06,0x0A,0x12,0x1F,0x02,0x02}, // 4
+    {0x1F,0x10,0x1E,0x01,0x01,0x11,0x0E}, // 5
+    {0x06,0x08,0x10,0x1E,0x11,0x11,0x0E}, // 6
+    {0x1F,0x01,0x02,0x04,0x08,0x08,0x08}, // 7
+    {0x0E,0x11,0x11,0x0E,0x11,0x11,0x0E}, // 8
+    {0x0E,0x11,0x11,0x0F,0x01,0x02,0x0C}, // 9
+    {0x00,0x00,0x00,0x00,0x00,0x00,0x00}, // space (10)
+    {0x00,0x04,0x04,0x04,0x04,0x00,0x04}, // : -> . (11)
+    {0x0E,0x11,0x06,0x08,0x10,0x00,0x10}, // ? (12) - unused
+    {0x00,0x00,0x00,0x1F,0x00,0x00,0x00}, // - (13)
+    {0x0E,0x11,0x06,0x04,0x04,0x00,0x04}, // F (14) - for FPS
+    {0x1E,0x11,0x1E,0x14,0x12,0x11,0x00}, // fps text placeholder (15)
+};
+
+// Draw a character at position
+static void drawChar(uint8_t* buffer, int width, int height, int cx, int cy, int charIdx, 
+                     uint8_t r, uint8_t g, uint8_t b) {
+    if (charIdx < 0 || charIdx > 15) return;
+    const uint8_t* glyph = FONT_5X7[charIdx];
+    
+    for (int row = 0; row < 7; row++) {
+        for (int col = 0; col < 5; col++) {
+            if (glyph[row] & (0x10 >> col)) {
+                int px = cx + col;
+                int py = cy + row;
+                if (px >= 0 && px < width && py >= 0 && py < height) {
+                    int idx = (py * width + px) * 4;
+                    buffer[idx + 0] = r;
+                    buffer[idx + 1] = g;
+                    buffer[idx + 2] = b;
+                    buffer[idx + 3] = 255;
+                }
+            }
+        }
+    }
+}
+
+// Draw a number at position (returns new x position)
+static int drawNumber(uint8_t* buffer, int width, int height, int x, int y, int64_t num,
+                      uint8_t r, uint8_t g, uint8_t b) {
+    char str[32];
+    snprintf(str, sizeof(str), "%lld", (long long)num);
+    for (int i = 0; str[i]; i++) {
+        int charIdx = (str[i] >= '0' && str[i] <= '9') ? (str[i] - '0') : 10;
+        drawChar(buffer, width, height, x, y, charIdx, r, g, b);
+        x += 6;
+    }
+    return x;
+}
+
+// Draw text overlay with frame info
+static void drawOverlay(uint8_t* buffer, int width, int height, int frame, int64_t timestampMs, int fps) {
+    // Background bar
+    for (int y = 0; y < 20; y++) {
+        for (int x = 0; x < width; x++) {
+            int idx = (y * width + x) * 4;
+            buffer[idx + 0] = 0;
+            buffer[idx + 1] = 0;
+            buffer[idx + 2] = 0;
+            buffer[idx + 3] = 200;
+        }
+    }
+    
+    int x = 4;
+    int y = 6;
+    
+    // Frame: XXXXX
+    drawChar(buffer, width, height, x, y, 14, 255, 255, 0);  // F
+    x += 6;
+    drawChar(buffer, width, height, x, y, 11, 255, 255, 0);  // :
+    x += 6;
+    x = drawNumber(buffer, width, height, x, y, frame, 255, 255, 255);
+    
+    x += 12;
+    
+    // Time: XXXXX ms
+    drawChar(buffer, width, height, x, y, 7, 0, 255, 255);  // T (using 7)
+    x += 6;
+    drawChar(buffer, width, height, x, y, 11, 0, 255, 255);  // :
+    x += 6;
+    x = drawNumber(buffer, width, height, x, y, timestampMs, 255, 255, 255);
+    
+    x += 12;
+    
+    // FPS: XX
+    x = drawNumber(buffer, width, height, x, y, fps, 0, 255, 0);
+    drawChar(buffer, width, height, x, y, 14, 0, 255, 0);  // F
+    x += 6;
+    drawChar(buffer, width, height, x, y, 1, 0, 255, 0);   // P (using 1)
+    x += 6;
+    drawChar(buffer, width, height, x, y, 5, 0, 255, 0);   // S (using 5)
+}
+
 // Render a rotating colored pattern (simple test pattern)
-static void renderTestPattern(uint8_t* buffer, int width, int height, int frame) {
+static void renderTestPattern(uint8_t* buffer, int width, int height, int frame, 
+                               int64_t timestampMs, int fps) {
     float time = frame * 0.05f;
     
     for (int y = 0; y < height; y++) {
@@ -60,20 +168,15 @@ static void renderTestPattern(uint8_t* buffer, int width, int height, int frame)
                 r = 255; g = 255; b = 255;
             }
             
-            // Frame counter in corner (for latency measurement)
-            if (x < 64 && y < 16) {
-                int bit = (frame >> (x / 4)) & 1;
-                r = bit ? 255 : 0;
-                g = bit ? 255 : 0;
-                b = bit ? 255 : 0;
-            }
-            
             buffer[idx + 0] = r;
             buffer[idx + 1] = g;
             buffer[idx + 2] = b;
-            buffer[idx + 3] = 255;  // Alpha
+            buffer[idx + 3] = 255;
         }
     }
+    
+    // Draw overlay with frame info
+    drawOverlay(buffer, width, height, frame, timestampMs, fps);
 }
 
 extern "C" {
@@ -131,11 +234,33 @@ Java_com_example_vcamtest_MainActivity_nativeRenderFrame(
         return;
     }
     
+    // Get current time
+    auto now = std::chrono::steady_clock::now();
+    int64_t nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now.time_since_epoch()).count();
+    
+    // Initialize start time
+    if (renderer->startTimeMs == 0) {
+        renderer->startTimeMs = nowMs;
+        renderer->lastFpsTime = nowMs;
+    }
+    
+    // Calculate FPS every second
+    renderer->fpsFrameCount++;
+    if (nowMs - renderer->lastFpsTime >= 1000) {
+        renderer->currentFps = renderer->fpsFrameCount;
+        renderer->fpsFrameCount = 0;
+        renderer->lastFpsTime = nowMs;
+    }
+    
+    int64_t timestampMs = nowMs - renderer->startTimeMs;
+    
     int width = renderer->writer.getWidth();
     int height = renderer->writer.getHeight();
     
-    // Render test pattern to buffer
-    renderTestPattern(renderer->frameBuffer.data(), width, height, renderer->frameCount);
+    // Render test pattern to buffer with timestamp overlay
+    renderTestPattern(renderer->frameBuffer.data(), width, height, 
+                      renderer->frameCount, timestampMs, renderer->currentFps);
     
     // Write to shared memory (for HAL to read)
     renderer->writer.writeFrame(renderer->frameBuffer.data(), renderer->frameBuffer.size());
@@ -160,7 +285,7 @@ Java_com_example_vcamtest_MainActivity_nativeRenderFrame(
     renderer->frameCount++;
     
     if (renderer->frameCount % 60 == 0) {
-        LOGI("Rendered %d frames", renderer->frameCount);
+        LOGI("Rendered %d frames, %d FPS", renderer->frameCount, renderer->currentFps);
     }
 }
 
