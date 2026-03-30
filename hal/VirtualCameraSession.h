@@ -95,7 +95,7 @@ public:
 
 private:
     // HandleImporter for buffer mapping (shared across all sessions)
-    static ::android::hardware::camera::common::helper::HandleImporter sHandleImporter;
+    static ::android::hardware::camera::common::V1_0::helper::HandleImporter sHandleImporter;
     
     // Buffer cache: maps (streamId, bufferId) -> buffer_handle_t
     // Framework sends empty handles after first request; we must cache them

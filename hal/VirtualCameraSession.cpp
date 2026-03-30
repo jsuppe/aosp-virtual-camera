@@ -25,7 +25,7 @@ using ::aidl::android::hardware::camera::device::BufferStatus;
 using ::aidl::android::hardware::camera::device::ErrorCode;
 using ::aidl::android::hardware::camera::device::ErrorMsg;
 using ::aidl::android::hardware::graphics::common::BufferUsage;
-using ::android::hardware::camera::common::helper::HandleImporter;
+using ::android::hardware::camera::common::V1_0::helper::HandleImporter;
 
 // Static HandleImporter instance (shared across all sessions)
 HandleImporter VirtualCameraSession::sHandleImporter;
