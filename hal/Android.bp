@@ -1,108 +1,41 @@
-/*
- * Virtual Camera HAL - APEX-compatible Implementation
- */
-
 package {
     default_applicable_licenses: ["hardware_interfaces_license"],
 }
 
-// VINTF manifest fragment - exported for APEX
-filegroup {
-    name: "android.hardware.camera.provider-virtual-service.xml",
-    srcs: ["android.hardware.camera.provider-virtual-service.xml"],
-}
-
-cc_library_shared {
-    name: "android.hardware.camera.provider-V1-virtual-impl",
-    defaults: [
-        "hidl_defaults",
-        "android.hardware.graphics.common-ndk_shared",
-    ],
-    vendor: true,
+cc_binary {
+    name: "android.hardware.camera.provider-V1-virtual-service",
     relative_install_path: "hw",
-    
-    // Allow installation in APEX
-    apex_available: [
-        "//apex_available:platform",
-        "com.google.cf.virtual_camera",
-    ],
-    min_sdk_version: "30",
-
+    init_rc: ["android.hardware.camera.provider-virtual-service.rc"],
+    vintf_fragments: ["android.hardware.camera.provider-virtual-service.xml"],
+    vendor: true,
     srcs: [
+        "service.cpp",
         "VirtualCameraProvider.cpp",
         "VirtualCameraDevice.cpp",
         "VirtualCameraSession.cpp",
+        "VirtualCameraFrameSource.cpp",
     ],
-
     shared_libs: [
+        "liblog",
+        "libbase",
+        "libbinder_ndk",
+        "libcamera_metadata",
+        "libfmq",
+        "libui",
         "android.hardware.camera.common-V1-ndk",
-        "android.hardware.camera.device-V1-ndk",
-        "android.hardware.camera.provider-V1-ndk",
-        "android.hardware.common-V2-ndk",
-        "android.hardware.common.fmq-V1-ndk",
-        "android.hardware.graphics.allocator-V2-ndk",
+        "android.hardware.camera.device-V3-ndk",
+        "android.hardware.camera.metadata-V3-ndk",
+        "android.hardware.camera.provider-V2-ndk",
+        "android.hardware.graphics.common-V5-ndk",
         "android.hardware.graphics.mapper@2.0",
         "android.hardware.graphics.mapper@3.0",
         "android.hardware.graphics.mapper@4.0",
-        "android.hidl.allocator@1.0",
-        "android.hidl.memory@1.0",
-        "libbinder_ndk",
-        "libcamera_metadata",
-        "libcutils",
-        "libfmq",
-        "libgralloctypes",
-        "libhardware",
-        "libhidlbase",
-        "liblog",
-        "libui",
-        "libutils",
-        "libbase",
-    ],
-
-    static_libs: [
-        "android.hardware.camera.common-helper",
         "libaidlcommonsupport",
     ],
-    
-    include_dirs: [
-        "hardware/interfaces/camera/common/default/include",
+    static_libs: [
+        "libcamera_common_helper",
     ],
-
-    cflags: [
-        "-Wall",
-        "-Wno-unused-parameter",
-    ],
-
-    export_include_dirs: ["."],
-}
-
-cc_binary {
-    name: "android.hardware.camera.provider-virtual-service",
-    defaults: ["hidl_defaults"],
-    vendor: true,
-    relative_install_path: "hw",
-    
-    // Allow installation in APEX
-    apex_available: [
-        "//apex_available:platform",
-        "com.google.cf.virtual_camera",
-    ],
-    min_sdk_version: "30",
-    
-    // When building standalone (not in APEX), use these
-    init_rc: ["android.hardware.camera.provider-virtual-service.rc"],
-    vintf_fragments: ["android.hardware.camera.provider-virtual-service.xml"],
-
-    srcs: ["service.cpp"],
-
-    shared_libs: [
-        "android.hardware.camera.common-V1-ndk",
-        "android.hardware.camera.device-V1-ndk",
-        "android.hardware.camera.provider-V1-ndk",
-        "android.hardware.camera.provider-V1-virtual-impl",
-        "libbinder_ndk",
-        "liblog",
-        "libutils",
-        "libbase",
+    header_libs: [
+        "libhardware_headers",
     ],
 }
