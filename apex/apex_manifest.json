@@ -1,0 +1,5 @@
+{
+  "name": "com.android.hardware.camera.provider.virtual",
+  "version": 1,
+  "supportsRebootlessUpdate": true
+}

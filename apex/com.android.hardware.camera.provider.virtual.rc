@@ -1,0 +1,13 @@
+# Virtual Camera HAL service (APEX)
+
+# Re-start the service on rebootless-update
+on property:apex.com.android.hardware.camera.provider.virtual.ready=true
+    restart vendor.camera-provider-virtual
+
+service vendor.camera-provider-virtual /apex/com.android.hardware.camera.provider.virtual/bin/hw/android.hardware.camera.provider-virtual-service
+    class hal
+    user cameraserver
+    group audio camera drmrpc inet media mediadrm graphics system
+    ioprio rt 4
+    capabilities SYS_NICE
+    task_profiles CameraServiceCapacity CameraServicePerformance

@@ -1,0 +1,7 @@
+(/.*)?                                                                     u:object_r:vendor_file:s0
+# Configs (vintf manifest)
+/etc(/.*)?                                                                 u:object_r:vendor_configs_file:s0
+# Service binary
+/bin/hw/android\.hardware\.camera\.provider-virtual-service               u:object_r:hal_camera_default_exec:s0
+# HAL implementation library
+/lib64/hw/android\.hardware\.camera\.provider-V1-virtual-impl\.so         u:object_r:same_process_hal_file:s0
