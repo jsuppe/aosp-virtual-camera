@@ -452,42 +452,22 @@ void VirtualCameraSession::fillYuvBuffer(
         }
     }
     
-    // Fall back to test pattern if no renderer frame
+    // If no renderer frame, fill with black (no test pattern)
     if (!usedRendererFrame) {
-        // Generate animated color bars test pattern
-        int barWidth = width / 8;
-        int offset = (frameNumber * 4) % width;
+        // Black in YUV: Y=16, Cb=128, Cr=128
+        memset(yPlane, 16, yStride * height);
         
-        // Color bar YUV values (8 bars cycling)
-        // White, Yellow, Cyan, Green, Magenta, Red, Blue, Black
-        const uint8_t barY[] = {235, 210, 170, 145, 106, 81, 41, 16};
-        const uint8_t barCb[] = {128, 16, 166, 54, 202, 90, 240, 128};
-        const uint8_t barCr[] = {128, 146, 16, 34, 222, 240, 110, 128};
-        
-        // Fill Y plane
-        for (int y = 0; y < height; y++) {
-            uint8_t* row = yPlane + y * yStride;
-            for (int x = 0; x < width; x++) {
-                int barIndex = ((x + offset) / barWidth) % 8;
-                row[x] = barY[barIndex];
-            }
-        }
-        
-        // Fill UV planes
         int chromaHeight = height / 2;
-        int chromaWidth = width / 2;
-        
         for (int y = 0; y < chromaHeight; y++) {
-            for (int x = 0; x < chromaWidth; x++) {
-                int barIndex = ((x * 2 + offset) / barWidth) % 8;
-                
-                if (chromaStep == 2) {
-                    cbPlane[y * cStride + x * 2] = barCb[barIndex];
-                    crPlane[y * cStride + x * 2] = barCr[barIndex];
-                } else {
-                    cbPlane[y * cStride + x] = barCb[barIndex];
-                    crPlane[y * cStride + x] = barCr[barIndex];
+            if (chromaStep == 2) {
+                // Interleaved
+                for (int x = 0; x < width; x++) {
+                    cbPlane[y * cStride + x] = 128;
                 }
+            } else {
+                // Planar
+                memset(cbPlane + y * cStride, 128, width / 2);
+                memset(crPlane + y * cStride, 128, width / 2);
             }
         }
     }

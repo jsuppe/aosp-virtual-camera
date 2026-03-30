@@ -61,6 +61,7 @@ private:
     size_t mMappedSize = 0;
     FrameHeader* mHeader = nullptr;
     void* mFrameData = nullptr;
+    uint64_t mLastReadTimestamp = 0;  // Track last read to detect new frames
     
     std::mutex mLock;
     

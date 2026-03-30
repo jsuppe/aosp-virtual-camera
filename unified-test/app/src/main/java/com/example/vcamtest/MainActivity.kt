@@ -31,6 +31,10 @@ class MainActivity : AppCompatActivity() {
         private const val TAG = "VCamTest"
         private const val VIRTUAL_CAMERA_ID = "100"  // Our virtual camera
         private const val REQUEST_CAMERA_PERMISSION = 1
+        
+        init {
+            System.loadLibrary("vcam_unified_test")
+        }
     }
     
     // Views
@@ -240,10 +244,4 @@ class MainActivity : AppCompatActivity() {
     private external fun nativeCreateRenderer(surface: Surface): Long
     private external fun nativeRenderFrame(renderer: Long)
     private external fun nativeDestroyRenderer(renderer: Long)
-    
-    companion object {
-        init {
-            System.loadLibrary("vcam_unified_test")
-        }
-    }
 }

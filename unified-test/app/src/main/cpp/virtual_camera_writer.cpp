@@ -44,21 +44,33 @@ bool VirtualCameraWriter::initialize(uint32_t width, uint32_t height) {
     size_t frameSize = width * height * 4;  // RGBA
     mMappedSize = dataOffset + frameSize;
     
-    // Create shared memory file
+    // Open shared memory file (pre-created by shell/HAL)
     const char* path = "/data/local/tmp/virtual_camera_shm";
     
-    mFd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0666);
+    // First try O_RDWR only (existing file)
+    mFd = open(path, O_RDWR);
     if (mFd < 0) {
-        LOGE("Failed to create shared memory: %s", strerror(errno));
-        return false;
+        // Try creating it (may fail if no write permission to dir)
+        mFd = open(path, O_RDWR | O_CREAT, 0666);
+        if (mFd < 0) {
+            LOGE("Failed to open shared memory: %s", strerror(errno));
+            return false;
+        }
     }
     
-    // Set file size
+    // Set file size (may fail if not owner, that's OK if file is already sized)
     if (ftruncate(mFd, mMappedSize) < 0) {
-        LOGE("Failed to set shared memory size: %s", strerror(errno));
-        close(mFd);
-        mFd = -1;
-        return false;
+        // Check if file is already large enough
+        struct stat st;
+        if (fstat(mFd, &st) == 0 && st.st_size >= (off_t)mMappedSize) {
+            LOGI("File already sized, using existing");
+        } else {
+            LOGE("Failed to set shared memory size: %s (file size: %ld, need: %zu)", 
+                 strerror(errno), st.st_size, mMappedSize);
+            close(mFd);
+            mFd = -1;
+            return false;
+        }
     }
     
     // Map the file

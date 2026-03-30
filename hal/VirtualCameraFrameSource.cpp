@@ -149,17 +149,16 @@ bool VirtualCameraFrameSource::acquireFrame(
         return false;
     }
     
-    // Check for new frame flag
-    uint32_t flags = mHeader->flags.load(std::memory_order_acquire);
-    if ((flags & FLAG_NEW_FRAME) == 0) {
-        return false;  // No new frame available
-    }
-    
     // Read frame info
     uint32_t width = mHeader->width.load(std::memory_order_acquire);
     uint32_t height = mHeader->height.load(std::memory_order_acquire);
     uint32_t dataSize = mHeader->dataSize.load(std::memory_order_acquire);
     uint64_t timestamp = mHeader->timestamp.load(std::memory_order_acquire);
+    
+    // Track timestamp for logging, but always provide the current frame
+    // (Camera reads faster than renderer writes, so we reuse frames)
+    bool isNewFrame = (timestamp != mLastReadTimestamp);
+    mLastReadTimestamp = timestamp;
     
     if (outWidth) *outWidth = width;
     if (outHeight) *outHeight = height;
@@ -174,12 +173,8 @@ bool VirtualCameraFrameSource::acquireFrame(
     // Copy frame data
     memcpy(destBuffer, mFrameData, dataSize);
     
-    // Clear new frame flag (we've consumed it)
-    // Note: This is a simple approach. For proper double-buffering,
-    // we'd use separate read/write indices.
-    mHeader->flags.fetch_and(~FLAG_NEW_FRAME, std::memory_order_release);
-    
-    ALOGV("Acquired frame: %ux%u, %u bytes", width, height, dataSize);
+    ALOGV("Acquired frame: %ux%u, %u bytes, ts=%lu", width, height, dataSize, 
+          (unsigned long)timestamp);
     return true;
 }
 
