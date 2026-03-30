@@ -179,14 +179,14 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 - [x] IMPLEMENTATION_DEFINED format support (SurfaceView preview)
 - [x] Sample Vulkan renderer (60fps golden cube on SwiftShader)
 
-### 🔄 Phase 2: Renderer Integration (IN PROGRESS)
+### ✅ Phase 2: Renderer Integration (COMPLETE)
 - [x] VirtualCameraService scaffolded (system service)
 - [x] Framework AIDL interfaces created
 - [x] VirtualCameraFrameSource (shared memory design)
 - [x] renderer-lib library (C++, JNI, Kotlin wrapper)
-- [ ] Wire HAL to use FrameSource ← **next**
-- [ ] Renderer app registers via system service
-- [ ] End-to-end: renderer → HAL → camera app
+- [x] Wire HAL to use FrameSource
+- [ ] Renderer app registers via system service (deferred)
+- [x] End-to-end: renderer → HAL → camera app
 
 ### 📋 Phase 3: Virtual Mic & Display
 - [x] Virtual Mic HAL scaffolded (IModule, IStreamIn)
