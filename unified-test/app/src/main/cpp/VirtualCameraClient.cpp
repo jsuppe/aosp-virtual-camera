@@ -102,7 +102,7 @@ bool VirtualCameraClient::createSharedMemory() {
 }
 
 bool VirtualCameraClient::connectToHal() {
-    // Connect to HAL's Unix socket
+    // Connect to HAL's Unix socket (retry a few times)
     int sockFd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (sockFd < 0) {
         LOGE("Failed to create socket: %s", strerror(errno));
@@ -114,10 +114,20 @@ bool VirtualCameraClient::connectToHal() {
     addr.sun_family = AF_UNIX;
     strncpy(addr.sun_path, SOCKET_PATH, sizeof(addr.sun_path) - 1);
     
-    if (connect(sockFd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-        LOGE("Failed to connect to HAL socket: %s", strerror(errno));
-        close(sockFd);
-        return false;
+    // Retry connection (HAL socket may not be ready immediately)
+    int maxRetries = 10;
+    for (int i = 0; i < maxRetries; i++) {
+        if (connect(sockFd, (struct sockaddr*)&addr, sizeof(addr)) == 0) {
+            break;
+        }
+        if (i == maxRetries - 1) {
+            LOGE("Failed to connect to HAL socket after %d attempts: %s", 
+                 maxRetries, strerror(errno));
+            close(sockFd);
+            return false;
+        }
+        LOGI("Waiting for HAL socket (attempt %d/%d)...", i + 1, maxRetries);
+        usleep(500000);  // 500ms
     }
     
     LOGI("Connected to HAL socket");

@@ -15,7 +15,7 @@
 #include <cstring>
 #include <vector>
 
-#include "virtual_camera_writer.h"
+#include "VirtualCameraClient.h"
 
 #define LOG_TAG "UnifiedRenderer"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -23,7 +23,7 @@
 
 struct UnifiedRenderer {
     ANativeWindow* window = nullptr;
-    vcam::VirtualCameraWriter writer;
+    vcam::VirtualCameraClient client;  // Now uses ashmem via socket
     std::vector<uint8_t> frameBuffer;
     int width = 0;
     int height = 0;
@@ -201,12 +201,13 @@ Java_com_example_vcamtest_MainActivity_nativeCreateRenderer(
     LOGI("Window size: %dx%d", renderer->width, renderer->height);
     
     // Use fixed size for shared memory (camera resolution)
-    int camWidth = 640;
-    int camHeight = 480;
+    // 1080p test
+    int camWidth = 1920;
+    int camHeight = 1080;
     
-    // Initialize shared memory writer
-    if (!renderer->writer.initialize(camWidth, camHeight)) {
-        LOGE("Failed to initialize VirtualCameraWriter");
+    // Initialize ashmem client (connects to HAL via socket)
+    if (!renderer->client.initialize(camWidth, camHeight)) {
+        LOGE("Failed to initialize VirtualCameraClient");
         ANativeWindow_release(renderer->window);
         delete renderer;
         return 0;
@@ -255,15 +256,15 @@ Java_com_example_vcamtest_MainActivity_nativeRenderFrame(
     
     int64_t timestampMs = nowMs - renderer->startTimeMs;
     
-    int width = renderer->writer.getWidth();
-    int height = renderer->writer.getHeight();
+    int width = renderer->client.getWidth();
+    int height = renderer->client.getHeight();
     
     // Render test pattern to buffer with timestamp overlay
     renderTestPattern(renderer->frameBuffer.data(), width, height, 
                       renderer->frameCount, timestampMs, renderer->currentFps);
     
-    // Write to shared memory (for HAL to read)
-    renderer->writer.writeFrame(renderer->frameBuffer.data(), renderer->frameBuffer.size());
+    // Write to shared memory (for HAL to read via ashmem)
+    renderer->client.writeFrame(renderer->frameBuffer.data(), renderer->frameBuffer.size());
     
     // Also render to display window
     ANativeWindow_Buffer buffer;
@@ -295,7 +296,7 @@ Java_com_example_vcamtest_MainActivity_nativeDestroyRenderer(
     
     auto* renderer = reinterpret_cast<UnifiedRenderer*>(rendererPtr);
     if (renderer) {
-        renderer->writer.shutdown();
+        renderer->client.shutdown();
         if (renderer->window) {
             ANativeWindow_release(renderer->window);
         }

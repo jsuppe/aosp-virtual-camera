@@ -69,7 +69,7 @@ private:
     uint64_t mFrameNumber = 0;
     bool mConnected = false;
     
-    static constexpr const char* SOCKET_PATH = "/dev/socket/virtual_camera";
+    static constexpr const char* SOCKET_PATH = "/data/local/tmp/virtual_camera.sock";
 };
 
 }  // namespace vcam
