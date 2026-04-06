@@ -35,12 +35,17 @@ if [[ ! -f "$AOSP_ROOT/build/envsetup.sh" ]]; then
     exit 1
 fi
 
-# 1. Copy HAL source
+# 1. Copy HAL source + v2 shared memory headers
 echo "[1/4] Copying HAL source..."
 mkdir -p "$HAL_DEST"
-cp "$SCRIPT_DIR/hal/"*.cpp "$HAL_DEST/"
-cp "$SCRIPT_DIR/hal/"*.h "$HAL_DEST/"
-cp "$SCRIPT_DIR/hal/Android.bp" "$HAL_DEST/"
+cp "$SCRIPT_DIR/../hal/"*.cpp "$HAL_DEST/"
+cp "$SCRIPT_DIR/../hal/"*.h "$HAL_DEST/"
+cp "$SCRIPT_DIR/../hal/Android.bp" "$HAL_DEST/"
+
+# Copy v2 shared memory headers (included by HAL via ../v2-shared-memory)
+V2_DEST="$(dirname "$HAL_DEST")/v2-shared-memory"
+mkdir -p "$V2_DEST"
+cp "$SCRIPT_DIR/../v2-shared-memory/"*.h "$V2_DEST/"
 
 # Create VINTF manifest
 cat > "$HAL_DEST/android.hardware.camera.provider-virtual-service.xml" << 'EOF'

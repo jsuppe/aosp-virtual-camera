@@ -15,13 +15,15 @@ namespace aidl::android::hardware::camera::provider::implementation {
 using namespace aidl::android::hardware::camera::device;
 using aidl::android::hardware::camera::common::CameraResourceCost;
 
-// Forward declaration
+// Forward declarations
 class VirtualCameraFrameSource;
+class VirtualCameraFrameSourceV2;
 
 class VirtualCameraDevice : public BnCameraDevice {
 public:
     VirtualCameraDevice(const std::string& cameraId,
-                        std::shared_ptr<VirtualCameraFrameSource> frameSource);
+                        std::shared_ptr<VirtualCameraFrameSource> frameSource,
+                        std::shared_ptr<VirtualCameraFrameSourceV2> frameSourceV2);
     ~VirtualCameraDevice() override = default;
 
     // ICameraDevice V1 interface
@@ -57,6 +59,7 @@ private:
     std::string mCameraId;
     std::mutex mLock;
     std::shared_ptr<VirtualCameraFrameSource> mFrameSource;
+    std::shared_ptr<VirtualCameraFrameSourceV2> mFrameSourceV2;
     
     void initCharacteristics();
     CameraMetadata mCharacteristics;

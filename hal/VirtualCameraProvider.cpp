@@ -7,6 +7,7 @@
 #include "VirtualCameraProvider.h"
 #include "VirtualCameraDevice.h"
 #include "VirtualCameraFrameSource.h"
+#include "VirtualCameraFrameSourceV2.h"
 
 #include <log/log.h>
 #include <aidl/android/hardware/camera/common/Status.h>
@@ -18,18 +19,29 @@ namespace aidl::android::hardware::camera::provider::implementation {
 VirtualCameraProvider::VirtualCameraProvider() {
     ALOGI("VirtualCameraProvider created");
     
-    // Create and start the shared FrameSource
+    // Create and start the shared FrameSource (v1 - ashmem)
     mFrameSource = std::make_shared<VirtualCameraFrameSource>();
     if (mFrameSource->start()) {
-        ALOGI("FrameSource socket server started");
+        ALOGI("FrameSource v1 socket server started");
     } else {
-        ALOGE("Failed to start FrameSource socket server");
+        ALOGE("Failed to start FrameSource v1 socket server");
+    }
+
+    // Create and start v2 zero-copy frame source
+    mFrameSourceV2 = std::make_shared<VirtualCameraFrameSourceV2>();
+    if (mFrameSourceV2->start()) {
+        ALOGI("FrameSource v2 (zero-copy) socket server started");
+    } else {
+        ALOGE("Failed to start FrameSource v2 socket server");
     }
 }
 
 VirtualCameraProvider::~VirtualCameraProvider() {
     if (mFrameSource) {
         mFrameSource->stop();
+    }
+    if (mFrameSourceV2) {
+        mFrameSourceV2->stop();
     }
     ALOGI("VirtualCameraProvider destroyed");
 }
@@ -71,7 +83,8 @@ ndk::ScopedAStatus VirtualCameraProvider::getCameraDeviceInterface(
     }
     
     ALOGI("Creating device interface for: %s", cameraDeviceId.c_str());
-    *device = ndk::SharedRefBase::make<VirtualCameraDevice>(cameraDeviceId, mFrameSource);
+    *device = ndk::SharedRefBase::make<VirtualCameraDevice>(
+        cameraDeviceId, mFrameSource, mFrameSourceV2);
     return ndk::ScopedAStatus::ok();
 }
 

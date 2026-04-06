@@ -24,6 +24,8 @@
 #include <unordered_map>
 
 #include "VirtualCameraFrameSource.h"
+#include "VirtualCameraFrameSourceV2.h"
+#include "../v2-shared-memory/HalInterface.h"
 
 namespace aidl::android::hardware::camera::provider::implementation {
 
@@ -49,7 +51,8 @@ using ::aidl::android::hardware::common::fmq::SynchronizedReadWrite;
 class VirtualCameraSession : public BnCameraDeviceSession {
 public:
     VirtualCameraSession(const std::shared_ptr<ICameraDeviceCallback>& callback,
-                         std::shared_ptr<VirtualCameraFrameSource> frameSource);
+                         std::shared_ptr<VirtualCameraFrameSource> frameSource,
+                         std::shared_ptr<VirtualCameraFrameSourceV2> frameSourceV2);
     ~VirtualCameraSession() override;
 
     // ICameraDeviceSession interface
@@ -115,9 +118,21 @@ private:
     // Remove buffers from cache
     void removeBuffersFromCache(const std::vector<BufferCache>& cachesToRemove);
     
-    // Fill YUV buffer with test pattern
+    // Fill YUV buffer with test pattern or v1 renderer data
     void fillYuvBuffer(buffer_handle_t handle, int width, int height, int frameNumber);
-    
+
+    // Fill output buffer from v2 zero-copy source (AHardwareBuffer → gralloc buffer)
+    // Dispatches to YUV passthrough or RGBA→YUV conversion based on source format.
+    bool fillBufferFromV2(buffer_handle_t handle, int width, int height);
+
+    // Direct YUV plane copy — renderer provided matching YUV format (fastest path)
+    bool fillBufferFromV2Yuv(buffer_handle_t handle, int width, int height,
+                             const virtualcamera::HalInterface::AcquiredFrame& frame);
+
+    // RGBA→YUV conversion — renderer provided RGBA, consumer needs YUV
+    bool fillBufferFromV2Rgba(buffer_handle_t handle, int width, int height,
+                              const virtualcamera::HalInterface::AcquiredFrame& frame);
+
     // Process a single capture request
     CameraStatus processSingleRequest(const CaptureRequest& request);
     
@@ -131,9 +146,12 @@ private:
     // Frame counter for test pattern animation
     std::atomic<int> mFrameCounter{0};
     
-    // Frame source for renderer-provided frames (shared with provider)
+    // v1 frame source for renderer-provided frames (shared with provider)
     std::shared_ptr<VirtualCameraFrameSource> mFrameSource;
-    
+
+    // v2 zero-copy frame source (shared with provider)
+    std::shared_ptr<VirtualCameraFrameSourceV2> mFrameSourceV2;
+
     // Track last acquired frame timestamp (to avoid re-acquiring same frame)
     uint64_t mLastFrameTimestamp{0};
 };

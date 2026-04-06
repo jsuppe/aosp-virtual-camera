@@ -12,16 +12,20 @@
 
 namespace aidl::android::hardware::camera::provider::implementation {
 
-// Forward declaration
+// Forward declarations
 class VirtualCameraFrameSource;
+class VirtualCameraFrameSourceV2;
 
 class VirtualCameraProvider : public BnCameraProvider {
 public:
     VirtualCameraProvider();
     ~VirtualCameraProvider() override;
-    
+
     // Get the shared FrameSource (for sessions to use)
     std::shared_ptr<VirtualCameraFrameSource> getFrameSource() const { return mFrameSource; }
+
+    // Get the v2 zero-copy frame source (for sessions to use)
+    std::shared_ptr<VirtualCameraFrameSourceV2> getFrameSourceV2() const { return mFrameSourceV2; }
 
     // ICameraProvider interface
     ndk::ScopedAStatus setCallback(
@@ -50,6 +54,7 @@ private:
     std::mutex mLock;
     std::shared_ptr<ICameraProviderCallback> mCallback;
     std::shared_ptr<VirtualCameraFrameSource> mFrameSource;
+    std::shared_ptr<VirtualCameraFrameSourceV2> mFrameSourceV2;
     
     // Format: device@<major>.<minor>/<type>/<id>
     // Note: ID must be unique across all camera providers (0-2 used by internal/0)

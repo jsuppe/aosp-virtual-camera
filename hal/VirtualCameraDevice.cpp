@@ -6,6 +6,7 @@
 
 #include "VirtualCameraDevice.h"
 #include "VirtualCameraSession.h"
+#include "VirtualCameraFrameSourceV2.h"
 
 #include <log/log.h>
 #include <system/camera_metadata.h>
@@ -17,8 +18,9 @@ namespace aidl::android::hardware::camera::provider::implementation {
 using aidl::android::hardware::camera::common::Status;
 
 VirtualCameraDevice::VirtualCameraDevice(const std::string& cameraId,
-                                         std::shared_ptr<VirtualCameraFrameSource> frameSource)
-    : mCameraId(cameraId), mFrameSource(frameSource) {
+                                         std::shared_ptr<VirtualCameraFrameSource> frameSource,
+                                         std::shared_ptr<VirtualCameraFrameSourceV2> frameSourceV2)
+    : mCameraId(cameraId), mFrameSource(frameSource), mFrameSourceV2(frameSourceV2) {
     ALOGI("VirtualCameraDevice created: %s", cameraId.c_str());
     initCharacteristics();
 }
@@ -208,7 +210,8 @@ ndk::ScopedAStatus VirtualCameraDevice::open(
                 static_cast<int32_t>(Status::ILLEGAL_ARGUMENT));
     }
     
-    *_aidl_return = ndk::SharedRefBase::make<VirtualCameraSession>(callback, mFrameSource);
+    *_aidl_return = ndk::SharedRefBase::make<VirtualCameraSession>(
+        callback, mFrameSource, mFrameSourceV2);
     ALOGI("Camera session created successfully");
     return ndk::ScopedAStatus::ok();
 }

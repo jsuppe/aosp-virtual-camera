@@ -98,10 +98,14 @@ Actual latency = **GPU render time only**
 
 ```
 v2-shared-memory/
-├── SharedBufferPool.h    # Buffer pool + lock-free control ring
+├── SharedBufferPool.h    # Buffer pool + lock-free control ring + release ring
 ├── RendererInterface.h   # Renderer-side: EGL images, frame submit
-├── HalInterface.h        # HAL-side: frame acquire, fence wait
+├── HalInterface.h        # HAL-side: frame acquire, fence wait, buffer release
 └── README.md
+
+hal/
+├── VirtualCameraFrameSourceV2.h   # Socket protocol + pool setup
+└── VirtualCameraFrameSourceV2.cpp # Receives AHardwareBuffers, wires HalInterface
 ```
 
 ## Setup Flow (Binder, once)
@@ -167,10 +171,8 @@ if (frame.valid()) {
 
 ## Caveats
 
-1. **Buffer release notification**: HAL needs to tell renderer when buffer is free. Options:
-   - Second ring (HAL→Renderer)
-   - eventfd
-   - Periodic Binder callback (defeats purpose somewhat)
+1. **Buffer release notification**: ✅ Solved via release ring embedded in ControlRing.
+   HAL calls `tryWriteRelease(bufferIndex)`, renderer drains on `beginFrame()`.
 
 2. **Error handling**: If renderer crashes, HAL needs to detect and recover.
 
