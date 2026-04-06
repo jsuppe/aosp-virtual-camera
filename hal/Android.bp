@@ -25,7 +25,6 @@ cc_library_shared {
     apex_available: [
         "//apex_available:platform",
         "com.google.cf.virtual_camera",
-        "com.android.hardware.camera.provider.virtual",
     ],
     min_sdk_version: "30",
 
@@ -97,7 +96,6 @@ cc_binary {
     apex_available: [
         "//apex_available:platform",
         "com.google.cf.virtual_camera",
-        "com.android.hardware.camera.provider.virtual",
     ],
     min_sdk_version: "30",
     
