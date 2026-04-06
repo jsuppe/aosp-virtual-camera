@@ -25,7 +25,7 @@
 
 #include "VirtualCameraFrameSource.h"
 #include "VirtualCameraFrameSourceV2.h"
-#include "../v2-shared-memory/HalInterface.h"
+#include "HalInterface.h"
 
 namespace aidl::android::hardware::camera::provider::implementation {
 

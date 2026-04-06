@@ -13,8 +13,8 @@
  */
 #pragma once
 
-#include "../v2-shared-memory/SharedBufferPool.h"
-#include "../v2-shared-memory/HalInterface.h"
+#include "SharedBufferPool.h"
+#include "HalInterface.h"
 
 #include <android/hardware_buffer.h>
 #include <atomic>

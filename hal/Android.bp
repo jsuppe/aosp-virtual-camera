@@ -71,11 +71,11 @@ cc_library_shared {
     
     include_dirs: [
         "hardware/interfaces/camera/common/default/include",
+        "hardware/interfaces/camera/provider/v2-shared-memory",
     ],
 
     local_include_dirs: [
         ".",
-        "../v2-shared-memory",
     ],
 
     cflags: [
