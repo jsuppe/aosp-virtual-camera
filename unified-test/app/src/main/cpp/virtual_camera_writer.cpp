@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <cerrno>
+#include <cstddef>
 #include <cstring>
 #include <chrono>
 
@@ -115,7 +116,8 @@ bool VirtualCameraWriter::initialize(uint32_t width, uint32_t height) {
 }
 
 bool VirtualCameraWriter::sendFdToHal() {
-    const char* socketPath = "/data/local/tmp/virtual_camera.sock";
+    // HAL uses abstract socket @virtual_camera
+    const char* socketName = "virtual_camera";
 
     int sockFd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (sockFd < 0) {
@@ -126,9 +128,12 @@ bool VirtualCameraWriter::sendFdToHal() {
     struct sockaddr_un addr;
     memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, socketPath, sizeof(addr.sun_path) - 1);
+    // Abstract socket: sun_path[0] = '\0', then name
+    addr.sun_path[0] = '\0';
+    strncpy(addr.sun_path + 1, socketName, sizeof(addr.sun_path) - 2);
+    socklen_t addrLen = offsetof(struct sockaddr_un, sun_path) + 1 + strlen(socketName);
 
-    if (connect(sockFd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+    if (connect(sockFd, (struct sockaddr*)&addr, addrLen) < 0) {
         LOGE("Failed to connect to HAL socket: %s", strerror(errno));
         close(sockFd);
         return false;
