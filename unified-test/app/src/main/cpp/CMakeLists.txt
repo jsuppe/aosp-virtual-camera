@@ -12,13 +12,10 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
     unified_renderer.cpp
     vulkan_cube.cpp
     virtual_camera_writer.cpp
-    virtual_camera_writer_v2.cpp
 )
 
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}
-    # v2 shared memory headers (SharedBufferPool, etc.)
-    ${CMAKE_SOURCE_DIR}/../../../../../v2-shared-memory
 )
 
 target_link_libraries(${CMAKE_PROJECT_NAME}

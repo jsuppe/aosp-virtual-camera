@@ -17,7 +17,8 @@
 #include <vector>
 
 #include "virtual_camera_writer.h"
-#include "virtual_camera_writer_v2.h"
+// V2 writer requires AOSP-internal headers (cutils/ashmem.h), disabled for NDK builds
+// #include "virtual_camera_writer_v2.h"
 
 #define LOG_TAG "UnifiedRenderer"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -26,8 +27,6 @@
 struct UnifiedRenderer {
     ANativeWindow* window = nullptr;
     vcam::VirtualCameraWriter writerV1;
-    vcam::VirtualCameraWriterV2 writerV2;
-    bool usingV2 = false;
 
     std::vector<uint8_t> frameBuffer;  // Used for v1 path and display
     int width = 0;
@@ -208,19 +207,12 @@ Java_com_example_vcamtest_MainActivity_nativeCreateRenderer(
     renderer->camWidth = 640;
     renderer->camHeight = 480;
 
-    // Try v2 first (zero-copy AHardwareBuffer pool)
-    if (renderer->writerV2.initialize(renderer->camWidth, renderer->camHeight)) {
-        renderer->usingV2 = true;
-        LOGI("Using V2 zero-copy writer");
-    } else {
-        LOGI("V2 not available, falling back to V1 shared memory");
-        if (!renderer->writerV1.initialize(renderer->camWidth, renderer->camHeight)) {
-            LOGE("Failed to initialize V1 writer");
-            ANativeWindow_release(renderer->window);
-            delete renderer;
-            return 0;
-        }
-        renderer->usingV2 = false;
+    // V1 shared memory path (v2 zero-copy requires AOSP build)
+    if (!renderer->writerV1.initialize(renderer->camWidth, renderer->camHeight)) {
+        LOGE("Failed to initialize V1 writer");
+        ANativeWindow_release(renderer->window);
+        delete renderer;
+        return 0;
     }
 
     // Frame buffer for v1 path and display rendering
@@ -231,7 +223,7 @@ Java_com_example_vcamtest_MainActivity_nativeCreateRenderer(
         AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM);
 
     renderer->initialized = true;
-    LOGI("Renderer created (v%d)", renderer->usingV2 ? 2 : 1);
+    LOGI("Renderer created (v1 shared memory)");
 
     return reinterpret_cast<jlong>(renderer);
 }
@@ -265,44 +257,12 @@ Java_com_example_vcamtest_MainActivity_nativeRenderFrame(
     int w = renderer->camWidth;
     int h = renderer->camHeight;
 
-    if (renderer->usingV2) {
-        // V2 path: render directly into AHardwareBuffer
-        uint8_t* pixels = renderer->writerV2.beginFrame();
-        if (pixels) {
-            // Render test pattern into the locked AHardwareBuffer
-            renderTestPattern(pixels, w, h, renderer->frameCount,
-                              timestampMs, renderer->currentFps, true);
-
-            // Copy to local frameBuffer for display window
-            memcpy(renderer->frameBuffer.data(), pixels, w * h * 4);
-
-            renderer->writerV2.endFrame();
-        } else {
-            // No buffer available — render to display only
-            renderTestPattern(renderer->frameBuffer.data(), w, h,
-                              renderer->frameCount, timestampMs,
-                              renderer->currentFps, true);
-        }
-
-        // Check for format negotiation
-        vcam::VirtualCameraWriterV2::FormatRequest req;
-        if (renderer->writerV2.checkNegotiation(&req)) {
-            LOGI("HAL requested format change: %dx%d format=%d",
-                 req.width, req.height, req.format);
-            // For now, log it. Full reconnect would be:
-            //   renderer->writerV2.shutdown();
-            //   renderer->writerV2.initialize(req.width, req.height, req.format);
-            //   renderer->camWidth = req.width;
-            //   renderer->camHeight = req.height;
-        }
-    } else {
-        // V1 path: render to frame buffer, copy to shared memory
-        renderTestPattern(renderer->frameBuffer.data(), w, h,
-                          renderer->frameCount, timestampMs,
-                          renderer->currentFps, false);
-        renderer->writerV1.writeFrame(renderer->frameBuffer.data(),
-                                      renderer->frameBuffer.size());
-    }
+    // V1 path: render to frame buffer, copy to shared memory
+    renderTestPattern(renderer->frameBuffer.data(), w, h,
+                      renderer->frameCount, timestampMs,
+                      renderer->currentFps, false);
+    renderer->writerV1.writeFrame(renderer->frameBuffer.data(),
+                                  renderer->frameBuffer.size());
 
     // Render to display window
     ANativeWindow_Buffer buffer;
@@ -323,9 +283,8 @@ Java_com_example_vcamtest_MainActivity_nativeRenderFrame(
     renderer->frameCount++;
 
     if (renderer->frameCount % 60 == 0) {
-        LOGI("Rendered %d frames, %d FPS (v%d)",
-             renderer->frameCount, renderer->currentFps,
-             renderer->usingV2 ? 2 : 1);
+        LOGI("Rendered %d frames, %d FPS (v1)",
+             renderer->frameCount, renderer->currentFps);
     }
 }
 
@@ -335,11 +294,7 @@ Java_com_example_vcamtest_MainActivity_nativeDestroyRenderer(
 
     auto* renderer = reinterpret_cast<UnifiedRenderer*>(rendererPtr);
     if (renderer) {
-        if (renderer->usingV2) {
-            renderer->writerV2.shutdown();
-        } else {
-            renderer->writerV1.shutdown();
-        }
+        renderer->writerV1.shutdown();
         if (renderer->window) {
             ANativeWindow_release(renderer->window);
         }
