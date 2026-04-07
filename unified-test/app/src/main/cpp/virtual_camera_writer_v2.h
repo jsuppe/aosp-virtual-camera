@@ -11,7 +11,7 @@
  */
 #pragma once
 
-#include "../../../../v2-shared-memory/SharedBufferPool.h"
+#include "SharedBufferPool.h"
 
 #include <android/hardware_buffer.h>
 #include <cstdint>
