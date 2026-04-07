@@ -40,6 +40,7 @@ public:
     bool isInitialized() const { return mMappedAddr != nullptr; }
     
 private:
+    bool sendFdToHal();
     int mFd = -1;
     void* mMappedAddr = nullptr;
     size_t mMappedSize = 0;

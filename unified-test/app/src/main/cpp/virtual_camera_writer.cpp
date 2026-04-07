@@ -9,6 +9,8 @@
 #include <android/log.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <cerrno>
@@ -102,6 +104,69 @@ bool VirtualCameraWriter::initialize(uint32_t width, uint32_t height) {
     memset(mFrameData, 0, frameSize);
     
     LOGI("Initialized: %ux%u, %zu bytes at %s", width, height, mMappedSize, path);
+
+    // Send fd to HAL via Unix socket (SCM_RIGHTS)
+    if (!sendFdToHal()) {
+        LOGE("Failed to send fd to HAL (will retry on HAL connection)");
+        // Not fatal — HAL might not be ready yet
+    }
+
+    return true;
+}
+
+bool VirtualCameraWriter::sendFdToHal() {
+    const char* socketPath = "/data/local/tmp/virtual_camera.sock";
+
+    int sockFd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (sockFd < 0) {
+        LOGE("Failed to create socket: %s", strerror(errno));
+        return false;
+    }
+
+    struct sockaddr_un addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, socketPath, sizeof(addr.sun_path) - 1);
+
+    if (connect(sockFd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        LOGE("Failed to connect to HAL socket: %s", strerror(errno));
+        close(sockFd);
+        return false;
+    }
+
+    LOGI("Connected to HAL socket");
+
+    // Send: size (size_t) as iov data + fd via SCM_RIGHTS
+    size_t size = mMappedSize;
+    struct iovec iov;
+    iov.iov_base = &size;
+    iov.iov_len = sizeof(size);
+
+    char cmsgBuf[CMSG_SPACE(sizeof(int))];
+    memset(cmsgBuf, 0, sizeof(cmsgBuf));
+
+    struct msghdr msg;
+    memset(&msg, 0, sizeof(msg));
+    msg.msg_iov = &iov;
+    msg.msg_iovlen = 1;
+    msg.msg_control = cmsgBuf;
+    msg.msg_controllen = sizeof(cmsgBuf);
+
+    struct cmsghdr* cmsg = CMSG_FIRSTHDR(&msg);
+    cmsg->cmsg_level = SOL_SOCKET;
+    cmsg->cmsg_type = SCM_RIGHTS;
+    cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+    *((int*)CMSG_DATA(cmsg)) = mFd;
+
+    ssize_t sent = sendmsg(sockFd, &msg, 0);
+    close(sockFd);
+
+    if (sent < 0) {
+        LOGE("sendmsg failed: %s", strerror(errno));
+        return false;
+    }
+
+    LOGI("Sent fd to HAL (size=%zu)", size);
     return true;
 }
 
