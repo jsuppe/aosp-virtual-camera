@@ -72,6 +72,7 @@ cc_library_shared {
     include_dirs: [
         "hardware/interfaces/camera/common/default/include",
         "hardware/interfaces/camera/provider/v2-shared-memory",
+        "hardware/interfaces/camera/provider/virtual/core",
     ],
 
     local_include_dirs: [
@@ -83,7 +84,10 @@ cc_library_shared {
         "-Wno-unused-parameter",
     ],
 
-    export_include_dirs: ["."],
+    export_include_dirs: [
+        ".",
+        "../core",
+    ],
 }
 
 cc_binary {

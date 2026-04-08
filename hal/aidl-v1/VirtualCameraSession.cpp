@@ -320,14 +320,13 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
             bool filled = false;
             if (mFrameSourceV2 && mFrameSourceV2->isActive()) {
                 filled = virtualcamera::FrameFiller::fillBufferFromV2(
-                    handle, width, height, mFrameSourceV2.get(),
-                    sHandleImporter, mFrameCounter.load());
+                    sHandleImporter, handle, width, height,
+                    mFrameSourceV2.get());
             }
             if (!filled) {
                 virtualcamera::FrameFiller::fillYuvBufferFromRenderer(
-                    handle, width, height, mFrameCounter.load(),
-                    mFrameSource.get(), sHandleImporter,
-                    mLastFrameTimestamp);
+                    sHandleImporter, handle, width, height,
+                    mFrameCounter.load(), mFrameSource.get());
             }
         }
 
