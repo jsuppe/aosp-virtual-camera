@@ -140,8 +140,6 @@ private:
     std::shared_ptr<virtualcamera::VirtualCameraFrameSource> mFrameSource;
     std::shared_ptr<virtualcamera::VirtualCameraFrameSourceV2> mFrameSourceV2;
 
-    // Track last acquired frame timestamp (to avoid re-acquiring same frame)
-    uint64_t mLastFrameTimestamp{0};
 };
 
 }  // namespace aidl::android::hardware::camera::provider::implementation
