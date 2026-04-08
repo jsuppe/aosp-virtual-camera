@@ -1,0 +1,111 @@
+/*
+ * VirtualCameraProvider - AIDL V1 Adapter Implementation
+ */
+
+#define LOG_TAG "VirtualCameraProvider"
+
+#include "VirtualCameraProvider.h"
+#include "VirtualCameraDevice.h"
+
+#include <log/log.h>
+#include <aidl/android/hardware/camera/common/Status.h>
+
+using aidl::android::hardware::camera::common::Status;
+
+namespace aidl::android::hardware::camera::provider::implementation {
+
+VirtualCameraProvider::VirtualCameraProvider() {
+    ALOGI("VirtualCameraProvider created (AIDL V1 adapter)");
+
+    // Create and start the shared FrameSource (v1 - ashmem)
+    mFrameSource = std::make_shared<virtualcamera::VirtualCameraFrameSource>();
+    if (mFrameSource->start()) {
+        ALOGI("FrameSource v1 socket server started");
+    } else {
+        ALOGE("Failed to start FrameSource v1 socket server");
+    }
+
+    // Create and start v2 zero-copy frame source
+    mFrameSourceV2 = std::make_shared<virtualcamera::VirtualCameraFrameSourceV2>();
+    if (mFrameSourceV2->start()) {
+        ALOGI("FrameSource v2 (zero-copy) socket server started");
+    } else {
+        ALOGE("Failed to start FrameSource v2 socket server");
+    }
+}
+
+VirtualCameraProvider::~VirtualCameraProvider() {
+    if (mFrameSource) {
+        mFrameSource->stop();
+    }
+    if (mFrameSourceV2) {
+        mFrameSourceV2->stop();
+    }
+    ALOGI("VirtualCameraProvider destroyed");
+}
+
+ndk::ScopedAStatus VirtualCameraProvider::setCallback(
+        const std::shared_ptr<ICameraProviderCallback>& callback) {
+    std::lock_guard<std::mutex> lock(mLock);
+    mCallback = callback;
+    ALOGI("Provider callback set");
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus VirtualCameraProvider::getVendorTags(
+        std::vector<common::VendorTagSection>* vendorTags) {
+    if (vendorTags) {
+        vendorTags->clear();
+    }
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus VirtualCameraProvider::getCameraIdList(
+        std::vector<std::string>* cameraIds) {
+    if (cameraIds) {
+        cameraIds->clear();
+        cameraIds->push_back(kVirtualCameraId);
+        ALOGI("Returning camera list with: %s", kVirtualCameraId);
+    }
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus VirtualCameraProvider::getCameraDeviceInterface(
+        const std::string& cameraDeviceId,
+        std::shared_ptr<device::ICameraDevice>* device) {
+
+    if (cameraDeviceId != kVirtualCameraId) {
+        ALOGE("Unknown camera ID: %s", cameraDeviceId.c_str());
+        return ndk::ScopedAStatus::fromServiceSpecificError(
+                static_cast<int32_t>(Status::ILLEGAL_ARGUMENT));
+    }
+
+    ALOGI("Creating device interface for: %s", cameraDeviceId.c_str());
+    *device = ndk::SharedRefBase::make<VirtualCameraDevice>(
+        cameraDeviceId, mFrameSource, mFrameSourceV2);
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus VirtualCameraProvider::notifyDeviceStateChange(int64_t deviceState) {
+    ALOGI("Device state changed: %ld", (long)deviceState);
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus VirtualCameraProvider::getConcurrentCameraIds(
+        std::vector<ConcurrentCameraIdCombination>* concurrentCameraIds) {
+    if (concurrentCameraIds) {
+        concurrentCameraIds->clear();
+    }
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus VirtualCameraProvider::isConcurrentStreamCombinationSupported(
+        const std::vector<CameraIdAndStreamCombination>& /*configs*/,
+        bool* supported) {
+    if (supported) {
+        *supported = false;
+    }
+    return ndk::ScopedAStatus::ok();
+}
+
+}  // namespace aidl::android::hardware::camera::provider::implementation

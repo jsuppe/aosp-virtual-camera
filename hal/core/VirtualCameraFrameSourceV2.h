@@ -23,7 +23,7 @@
 #include <mutex>
 #include <thread>
 
-namespace aidl::android::hardware::camera::provider::implementation {
+namespace virtualcamera {
 
 class VirtualCameraFrameSourceV2 {
 public:
@@ -55,7 +55,7 @@ public:
 
     // Access the HalInterface for frame acquisition.
     // Returns nullptr if no renderer is connected.
-    virtualcamera::HalInterface* getHalInterface() {
+    HalInterface* getHalInterface() {
         std::lock_guard<std::mutex> lock(mLock);
         if (!mActive.load(std::memory_order_relaxed)) return nullptr;
         return &mHalInterface;
@@ -77,7 +77,7 @@ public:
      * beginFrame() and can choose to reconnect with a new pool
      * in the requested format.
      *
-     * Called by VirtualCameraSession::configureStreams().
+     * Called by the AIDL adapter's configureStreams().
      */
     void requestFormat(int32_t format, int32_t width, int32_t height,
                        uint64_t usage) {
@@ -104,11 +104,11 @@ private:
     std::thread mAcceptThread;
     std::mutex mLock;
 
-    virtualcamera::SharedBufferPool mPool;
-    virtualcamera::HalInterface mHalInterface;
+    SharedBufferPool mPool;
+    HalInterface mHalInterface;
 
     static constexpr const char* SOCKET_PATH_V2 =
         "/data/local/tmp/virtual_camera_v2.sock";
 };
 
-}  // namespace
+}  // namespace virtualcamera

@@ -1,5 +1,5 @@
 /*
- * Virtual Camera Provider Service
+ * Virtual Camera Provider Service - AIDL V1
  */
 
 #define LOG_TAG "VirtualCameraService"
@@ -13,26 +13,26 @@
 using aidl::android::hardware::camera::provider::implementation::VirtualCameraProvider;
 
 int main() {
-    LOG(INFO) << "Virtual Camera Provider starting...";
-    
+    LOG(INFO) << "Virtual Camera Provider starting (AIDL V1)...";
+
     ABinderProcess_setThreadPoolMaxThreadCount(0);
-    
+
     auto provider = ndk::SharedRefBase::make<VirtualCameraProvider>();
-    const std::string instance = 
+    const std::string instance =
             std::string(VirtualCameraProvider::descriptor) + "/virtual_renderer/0";
-    
+
     LOG(INFO) << "Registering service: " << instance;
-    
+
     binder_status_t status = AServiceManager_addService(
             provider->asBinder().get(), instance.c_str());
-    
+
     if (status != STATUS_OK) {
         LOG(ERROR) << "Failed to register service: " << status;
         return -1;
     }
-    
-    LOG(INFO) << "Virtual Camera Provider service started successfully";
+
+    LOG(INFO) << "Virtual Camera Provider service started successfully (AIDL V1)";
     ABinderProcess_joinThreadPool();
-    
+
     return 0;
 }

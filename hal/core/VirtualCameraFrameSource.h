@@ -1,6 +1,6 @@
 /*
  * VirtualCameraFrameSource - Shared memory interface for renderer frames
- * 
+ *
  * Receives ashmem fd from renderer via Unix socket.
  * Maps and reads frames from the shared memory.
  */
@@ -13,7 +13,7 @@
 #include <atomic>
 #include <memory>
 
-namespace aidl::android::hardware::camera::provider::implementation {
+namespace virtualcamera {
 
 // Forward declaration
 class VirtualCameraSocket;
@@ -31,7 +31,7 @@ struct FrameHeader {
     std::atomic<uint32_t> dataOffset;     // Offset to frame data
     std::atomic<uint32_t> dataSize;       // Size of frame data
     std::atomic<uint32_t> flags;          // RENDERER_ACTIVE = 2
-    // Format negotiation (HAL → Renderer): HAL writes the consumer's
+    // Format negotiation (HAL -> Renderer): HAL writes the consumer's
     // desired format here; renderer polls and switches output format.
     std::atomic<uint32_t> requestedFormat;  // FORMAT_* constant, 0 = no preference
     std::atomic<uint32_t> requestedWidth;
@@ -49,43 +49,43 @@ class VirtualCameraFrameSource {
 public:
     VirtualCameraFrameSource();
     ~VirtualCameraFrameSource();
-    
+
     // Start the socket server to receive renderer connections
     bool start();
-    
+
     // Stop and clean up
     void stop();
-    
+
     // Check if renderer is connected and has frames
     bool isRendererActive();
-    
+
     // Try to acquire latest frame from renderer
     // Returns true if frame available, copies to destBuffer
     bool acquireFrame(void* destBuffer, size_t destSize,
                       uint32_t* outWidth, uint32_t* outHeight,
                       uint64_t* outTimestamp);
-    
+
     // Get frame dimensions without copying
     bool getFrameInfo(uint32_t* width, uint32_t* height, uint32_t* format);
 
-    // Request a specific format from the renderer (HAL → Renderer negotiation)
+    // Request a specific format from the renderer (HAL -> Renderer negotiation)
     void requestFormat(uint32_t format, uint32_t width, uint32_t height);
-    
+
 private:
     void onFdReceived(int fd, size_t size);
     bool mapSharedMemory(int fd, size_t size);
     void unmapSharedMemory();
-    
+
     std::unique_ptr<VirtualCameraSocket> mSocket;
-    
+
     int mShmFd = -1;
     void* mMappedAddr = nullptr;
     size_t mMappedSize = 0;
     FrameHeader* mHeader = nullptr;
     void* mFrameData = nullptr;
     uint64_t mLastReadTimestamp = 0;
-    
+
     std::mutex mLock;
 };
 
-}  // namespace
+}  // namespace virtualcamera

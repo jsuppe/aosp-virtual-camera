@@ -1,43 +1,33 @@
 /*
- * VirtualCameraDevice - Implementation with VirtualCameraSession
+ * MetadataBuilder - Camera metadata construction utilities
  */
 
-#define LOG_TAG "VirtualCameraDevice"
+#define LOG_TAG "VCamMetadataBuilder"
 
-#include "VirtualCameraDevice.h"
-#include "VirtualCameraSession.h"
-#include "VirtualCameraFrameSourceV2.h"
+#include "MetadataBuilder.h"
 
 #include <log/log.h>
 #include <system/camera_metadata.h>
 #include <system/graphics.h>
-#include <aidl/android/hardware/camera/common/Status.h>
 
-namespace aidl::android::hardware::camera::provider::implementation {
+#include <algorithm>
+#include <cstring>
 
-using aidl::android::hardware::camera::common::Status;
+namespace virtualcamera {
 
-VirtualCameraDevice::VirtualCameraDevice(const std::string& cameraId,
-                                         std::shared_ptr<VirtualCameraFrameSource> frameSource,
-                                         std::shared_ptr<VirtualCameraFrameSourceV2> frameSourceV2)
-    : mCameraId(cameraId), mFrameSource(frameSource), mFrameSourceV2(frameSourceV2) {
-    ALOGI("VirtualCameraDevice created: %s", cameraId.c_str());
-    initCharacteristics();
-}
-
-void VirtualCameraDevice::initCharacteristics() {
+std::vector<uint8_t> buildCameraCharacteristics() {
     // Create camera characteristics with enough space for all entries
     camera_metadata_t* meta = allocate_camera_metadata(100, 4000);
-    
+
     // Required characteristics for a basic camera
     uint8_t facing = ANDROID_LENS_FACING_EXTERNAL;
     add_camera_metadata_entry(meta, ANDROID_LENS_FACING, &facing, 1);
-    
+
     int32_t orientation = 0;
     add_camera_metadata_entry(meta, ANDROID_SENSOR_ORIENTATION, &orientation, 1);
-    
+
     // Supported resolutions: 4K, 1080p, 720p, 480p
-    // Each format × resolution is a 4-entry tuple
+    // Each format x resolution is a 4-entry tuple
     struct Res { int32_t w, h; };
     static constexpr Res kResolutions[] = {
         {3840, 2160}, {1920, 1080}, {1280, 720}, {640, 480},
@@ -85,27 +75,27 @@ void VirtualCameraDevice::initCharacteristics() {
                               frameDurations, kNumConfigs * 4);
     add_camera_metadata_entry(meta, ANDROID_SCALER_AVAILABLE_STALL_DURATIONS,
                               stallDurations, kNumConfigs * 4);
-    
+
     // Hardware level
     uint8_t hwLevel = ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL;
     add_camera_metadata_entry(meta, ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL, &hwLevel, 1);
-    
+
     // Available capabilities (required!)
     const uint8_t capabilities[] = {
         ANDROID_REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE,
     };
     add_camera_metadata_entry(meta, ANDROID_REQUEST_AVAILABLE_CAPABILITIES,
                               capabilities, sizeof(capabilities));
-    
+
     // Partial result count (we send single complete result)
     int32_t partialResultCount = 1;
-    add_camera_metadata_entry(meta, ANDROID_REQUEST_PARTIAL_RESULT_COUNT, 
+    add_camera_metadata_entry(meta, ANDROID_REQUEST_PARTIAL_RESULT_COUNT,
                               &partialResultCount, 1);
-    
+
     // Zoom ratio range (1.0x only - no zoom)
     const float zoomRange[] = {1.0f, 1.0f};
     add_camera_metadata_entry(meta, ANDROID_CONTROL_ZOOM_RATIO_RANGE, zoomRange, 2);
-    
+
     // Active array size = max resolution (4K)
     const int32_t activeArray[] = {0, 0, 3840, 2160};
     add_camera_metadata_entry(meta, ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE, activeArray, 4);
@@ -127,16 +117,16 @@ void VirtualCameraDevice::initCharacteristics() {
     };
     add_camera_metadata_entry(meta, ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES,
                               fpsRanges, sizeof(fpsRanges) / sizeof(int32_t));
-    
+
     // Available request keys
     const int32_t requestKeys[] = {
         ANDROID_CONTROL_MODE,
         ANDROID_CONTROL_AE_MODE,
         ANDROID_CONTROL_AWB_MODE,
     };
-    add_camera_metadata_entry(meta, ANDROID_REQUEST_AVAILABLE_REQUEST_KEYS, 
+    add_camera_metadata_entry(meta, ANDROID_REQUEST_AVAILABLE_REQUEST_KEYS,
                               requestKeys, sizeof(requestKeys)/sizeof(int32_t));
-    
+
     // Available result keys
     const int32_t resultKeys[] = {
         ANDROID_SENSOR_TIMESTAMP,
@@ -144,7 +134,7 @@ void VirtualCameraDevice::initCharacteristics() {
     };
     add_camera_metadata_entry(meta, ANDROID_REQUEST_AVAILABLE_RESULT_KEYS,
                               resultKeys, sizeof(resultKeys)/sizeof(int32_t));
-    
+
     // Available characteristics keys
     const int32_t charKeys[] = {
         ANDROID_LENS_FACING,
@@ -155,87 +145,58 @@ void VirtualCameraDevice::initCharacteristics() {
     };
     add_camera_metadata_entry(meta, ANDROID_REQUEST_AVAILABLE_CHARACTERISTICS_KEYS,
                               charKeys, sizeof(charKeys)/sizeof(int32_t));
-    
-    // Copy to our metadata vector
+
+    // Serialize to byte vector
     size_t metaSize = get_camera_metadata_size(meta);
-    mCharacteristics.metadata.resize(metaSize);
-    memcpy(mCharacteristics.metadata.data(), meta, metaSize);
-    
+    std::vector<uint8_t> result(metaSize);
+    memcpy(result.data(), meta, metaSize);
     free_camera_metadata(meta);
-    ALOGI("Camera characteristics initialized");
+
+    ALOGI("Camera characteristics built: %zu bytes", metaSize);
+    return result;
 }
 
-ndk::ScopedAStatus VirtualCameraDevice::getCameraCharacteristics(
-        CameraMetadata* _aidl_return) {
-    if (_aidl_return) {
-        *_aidl_return = mCharacteristics;
-    }
-    return ndk::ScopedAStatus::ok();
+std::vector<uint8_t> buildDefaultRequestSettings() {
+    camera_metadata_t* meta = allocate_camera_metadata(10, 200);
+
+    uint8_t controlMode = ANDROID_CONTROL_MODE_AUTO;
+    add_camera_metadata_entry(meta, ANDROID_CONTROL_MODE, &controlMode, 1);
+
+    uint8_t aeMode = ANDROID_CONTROL_AE_MODE_ON;
+    add_camera_metadata_entry(meta, ANDROID_CONTROL_AE_MODE, &aeMode, 1);
+
+    uint8_t awbMode = ANDROID_CONTROL_AWB_MODE_AUTO;
+    add_camera_metadata_entry(meta, ANDROID_CONTROL_AWB_MODE, &awbMode, 1);
+
+    float zoomRatio = 1.0f;
+    add_camera_metadata_entry(meta, ANDROID_CONTROL_ZOOM_RATIO, &zoomRatio, 1);
+
+    size_t metaSize = get_camera_metadata_size(meta);
+    std::vector<uint8_t> result(metaSize);
+    memcpy(result.data(), meta, metaSize);
+    free_camera_metadata(meta);
+
+    return result;
 }
 
-ndk::ScopedAStatus VirtualCameraDevice::getPhysicalCameraCharacteristics(
-        const std::string& /*physicalCameraId*/,
-        CameraMetadata* /*_aidl_return*/) {
-    return ndk::ScopedAStatus::fromServiceSpecificError(
-            static_cast<int32_t>(Status::ILLEGAL_ARGUMENT));
+std::vector<uint8_t> buildResultMetadata(int64_t timestamp) {
+    camera_metadata_t* meta = allocate_camera_metadata(10, 200);
+
+    int64_t ts = timestamp;
+    add_camera_metadata_entry(meta, ANDROID_SENSOR_TIMESTAMP, &ts, 1);
+
+    float zoomRatio = 1.0f;
+    add_camera_metadata_entry(meta, ANDROID_CONTROL_ZOOM_RATIO, &zoomRatio, 1);
+
+    int32_t cropRegion[] = {0, 0, 3840, 2160};
+    add_camera_metadata_entry(meta, ANDROID_SCALER_CROP_REGION, cropRegion, 4);
+
+    size_t metaSize = get_camera_metadata_size(meta);
+    std::vector<uint8_t> result(metaSize);
+    memcpy(result.data(), meta, metaSize);
+    free_camera_metadata(meta);
+
+    return result;
 }
 
-ndk::ScopedAStatus VirtualCameraDevice::getResourceCost(
-        CameraResourceCost* _aidl_return) {
-    if (_aidl_return) {
-        _aidl_return->resourceCost = 50;  // Low cost
-        _aidl_return->conflictingDevices.clear();
-    }
-    return ndk::ScopedAStatus::ok();
-}
-
-ndk::ScopedAStatus VirtualCameraDevice::isStreamCombinationSupported(
-        const StreamConfiguration& /*streams*/,
-        bool* _aidl_return) {
-    // Accept any reasonable stream config for now
-    if (_aidl_return) {
-        *_aidl_return = true;
-    }
-    return ndk::ScopedAStatus::ok();
-}
-
-ndk::ScopedAStatus VirtualCameraDevice::open(
-        const std::shared_ptr<ICameraDeviceCallback>& callback,
-        std::shared_ptr<ICameraDeviceSession>* _aidl_return) {
-    ALOGI("Camera open requested for %s", mCameraId.c_str());
-    
-    if (!callback) {
-        ALOGE("Callback is null");
-        return ndk::ScopedAStatus::fromServiceSpecificError(
-                static_cast<int32_t>(Status::ILLEGAL_ARGUMENT));
-    }
-    
-    *_aidl_return = ndk::SharedRefBase::make<VirtualCameraSession>(
-        callback, mFrameSource, mFrameSourceV2);
-    ALOGI("Camera session created successfully");
-    return ndk::ScopedAStatus::ok();
-}
-
-ndk::ScopedAStatus VirtualCameraDevice::openInjectionSession(
-        const std::shared_ptr<ICameraDeviceCallback>& /*callback*/,
-        std::shared_ptr<ICameraInjectionSession>* /*_aidl_return*/) {
-    return ndk::ScopedAStatus::fromServiceSpecificError(
-            static_cast<int32_t>(Status::OPERATION_NOT_SUPPORTED));
-}
-
-ndk::ScopedAStatus VirtualCameraDevice::setTorchMode(bool /*on*/) {
-    return ndk::ScopedAStatus::fromServiceSpecificError(
-            static_cast<int32_t>(Status::OPERATION_NOT_SUPPORTED));
-}
-
-ndk::ScopedAStatus VirtualCameraDevice::turnOnTorchWithStrengthLevel(int32_t /*torchStrength*/) {
-    return ndk::ScopedAStatus::fromServiceSpecificError(
-            static_cast<int32_t>(Status::OPERATION_NOT_SUPPORTED));
-}
-
-ndk::ScopedAStatus VirtualCameraDevice::getTorchStrengthLevel(int32_t* /*_aidl_return*/) {
-    return ndk::ScopedAStatus::fromServiceSpecificError(
-            static_cast<int32_t>(Status::OPERATION_NOT_SUPPORTED));
-}
-
-}  // namespace
+}  // namespace virtualcamera

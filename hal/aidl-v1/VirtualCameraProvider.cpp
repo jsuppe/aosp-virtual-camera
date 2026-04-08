@@ -1,13 +1,11 @@
 /*
- * VirtualCameraProvider - Stub Implementation
+ * VirtualCameraProvider - AIDL V1 Adapter Implementation
  */
 
 #define LOG_TAG "VirtualCameraProvider"
 
 #include "VirtualCameraProvider.h"
 #include "VirtualCameraDevice.h"
-#include "VirtualCameraFrameSource.h"
-#include "VirtualCameraFrameSourceV2.h"
 
 #include <log/log.h>
 #include <aidl/android/hardware/camera/common/Status.h>
@@ -17,10 +15,10 @@ using aidl::android::hardware::camera::common::Status;
 namespace aidl::android::hardware::camera::provider::implementation {
 
 VirtualCameraProvider::VirtualCameraProvider() {
-    ALOGI("VirtualCameraProvider created");
-    
+    ALOGI("VirtualCameraProvider created (AIDL V1 adapter)");
+
     // Create and start the shared FrameSource (v1 - ashmem)
-    mFrameSource = std::make_shared<VirtualCameraFrameSource>();
+    mFrameSource = std::make_shared<virtualcamera::VirtualCameraFrameSource>();
     if (mFrameSource->start()) {
         ALOGI("FrameSource v1 socket server started");
     } else {
@@ -28,7 +26,7 @@ VirtualCameraProvider::VirtualCameraProvider() {
     }
 
     // Create and start v2 zero-copy frame source
-    mFrameSourceV2 = std::make_shared<VirtualCameraFrameSourceV2>();
+    mFrameSourceV2 = std::make_shared<virtualcamera::VirtualCameraFrameSourceV2>();
     if (mFrameSourceV2->start()) {
         ALOGI("FrameSource v2 (zero-copy) socket server started");
     } else {
@@ -75,13 +73,13 @@ ndk::ScopedAStatus VirtualCameraProvider::getCameraIdList(
 ndk::ScopedAStatus VirtualCameraProvider::getCameraDeviceInterface(
         const std::string& cameraDeviceId,
         std::shared_ptr<device::ICameraDevice>* device) {
-    
+
     if (cameraDeviceId != kVirtualCameraId) {
         ALOGE("Unknown camera ID: %s", cameraDeviceId.c_str());
         return ndk::ScopedAStatus::fromServiceSpecificError(
                 static_cast<int32_t>(Status::ILLEGAL_ARGUMENT));
     }
-    
+
     ALOGI("Creating device interface for: %s", cameraDeviceId.c_str());
     *device = ndk::SharedRefBase::make<VirtualCameraDevice>(
         cameraDeviceId, mFrameSource, mFrameSourceV2);
@@ -110,4 +108,4 @@ ndk::ScopedAStatus VirtualCameraProvider::isConcurrentStreamCombinationSupported
     return ndk::ScopedAStatus::ok();
 }
 
-}  // namespace
+}  // namespace aidl::android::hardware::camera::provider::implementation

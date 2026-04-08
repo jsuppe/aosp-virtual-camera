@@ -1,0 +1,117 @@
+/*
+ * Virtual Camera HAL - AIDL V2 Adapter (Android 15+)
+ *
+ * Thin adapter that wraps core/ pipeline with Camera AIDL V2 interfaces.
+ * Currently identical to V1 since the Camera AIDL V2-specific methods
+ * (configureStreamsV2, getSessionCharacteristics) are not yet needed.
+ */
+
+package {
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
+// VINTF manifest fragment - exported for APEX
+filegroup {
+    name: "android.hardware.camera.provider-virtual-service-v2.xml",
+    srcs: ["android.hardware.camera.provider-virtual-service.xml"],
+}
+
+cc_library_shared {
+    name: "android.hardware.camera.provider-V2-virtual-impl",
+    defaults: [
+        "hidl_defaults",
+        "android.hardware.graphics.common-ndk_shared",
+    ],
+    vendor: true,
+    relative_install_path: "hw",
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.google.cf.virtual_camera",
+    ],
+    min_sdk_version: "30",
+
+    srcs: [
+        "VirtualCameraProvider.cpp",
+        "VirtualCameraDevice.cpp",
+        "VirtualCameraSession.cpp",
+    ],
+
+    shared_libs: [
+        "android.hardware.camera.common-V1-ndk",
+        "android.hardware.camera.device-V1-ndk",
+        "android.hardware.camera.provider-V1-ndk",
+        "android.hardware.common-V2-ndk",
+        "android.hardware.common.fmq-V1-ndk",
+        "android.hardware.graphics.allocator-V2-ndk",
+        "android.hardware.graphics.mapper@2.0",
+        "android.hardware.graphics.mapper@3.0",
+        "android.hardware.graphics.mapper@4.0",
+        "android.hidl.allocator@1.0",
+        "android.hidl.memory@1.0",
+        "libbinder_ndk",
+        "libcamera_metadata",
+        "libcutils",
+        "libfmq",
+        "libgralloctypes",
+        "libhardware",
+        "libhidlbase",
+        "liblog",
+        "libui",
+        "libutils",
+        "libbase",
+        "libnativewindow",
+        "libsync",
+    ],
+
+    static_libs: [
+        "android.hardware.camera.common-helper",
+        "libaidlcommonsupport",
+        "virtual-camera-core",
+    ],
+
+    include_dirs: [
+        "hardware/interfaces/camera/common/default/include",
+        "hardware/interfaces/camera/provider/v2-shared-memory",
+    ],
+
+    local_include_dirs: [
+        ".",
+    ],
+
+    cflags: [
+        "-Wall",
+        "-Wno-unused-parameter",
+    ],
+
+    export_include_dirs: ["."],
+}
+
+cc_binary {
+    name: "android.hardware.camera.provider-virtual-service-v2",
+    defaults: ["hidl_defaults"],
+    vendor: true,
+    relative_install_path: "hw",
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.google.cf.virtual_camera",
+    ],
+    min_sdk_version: "30",
+
+    init_rc: ["android.hardware.camera.provider-virtual-service.rc"],
+    vintf_fragments: ["android.hardware.camera.provider-virtual-service.xml"],
+
+    srcs: ["service.cpp"],
+
+    shared_libs: [
+        "android.hardware.camera.common-V1-ndk",
+        "android.hardware.camera.device-V1-ndk",
+        "android.hardware.camera.provider-V1-ndk",
+        "android.hardware.camera.provider-V2-virtual-impl",
+        "libbinder_ndk",
+        "liblog",
+        "libutils",
+        "libbase",
+    ],
+}

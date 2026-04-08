@@ -35,41 +35,40 @@ if [[ ! -f "$AOSP_ROOT/build/envsetup.sh" ]]; then
     exit 1
 fi
 
-# 1. Copy HAL source + v2 shared memory headers
+# Determine AIDL version: v1 for Android 13-14, v2 for Android 15+
+AIDL_VERSION="${AIDL_VERSION:-v2}"
+if [[ -f "$AOSP_ROOT/.repo/manifests/default.xml" ]]; then
+    if grep -q "android-13\|android-14" "$AOSP_ROOT/.repo/manifests/default.xml"; then
+        AIDL_VERSION="v1"
+    fi
+fi
+echo "AIDL Version: $AIDL_VERSION"
+
+# 1. Copy HAL source (core + selected adapter) + v2 shared memory headers
 echo "[1/4] Copying HAL source..."
-mkdir -p "$HAL_DEST"
-cp "$SCRIPT_DIR/../hal/"*.cpp "$HAL_DEST/"
-cp "$SCRIPT_DIR/../hal/"*.h "$HAL_DEST/"
+mkdir -p "$HAL_DEST/core" "$HAL_DEST/aidl"
+
+# Core pipeline (shared, AIDL-independent)
+cp "$SCRIPT_DIR/../hal/core/"*.cpp "$HAL_DEST/core/"
+cp "$SCRIPT_DIR/../hal/core/"*.h "$HAL_DEST/core/"
+cp "$SCRIPT_DIR/../hal/core/Android.bp" "$HAL_DEST/core/"
+
+# AIDL adapter (version-specific)
+cp "$SCRIPT_DIR/../hal/aidl-${AIDL_VERSION}/"*.cpp "$HAL_DEST/aidl/"
+cp "$SCRIPT_DIR/../hal/aidl-${AIDL_VERSION}/"*.h "$HAL_DEST/aidl/"
+cp "$SCRIPT_DIR/../hal/aidl-${AIDL_VERSION}/Android.bp" "$HAL_DEST/aidl/"
+cp "$SCRIPT_DIR/../hal/aidl-${AIDL_VERSION}/"*.rc "$HAL_DEST/aidl/"
+cp "$SCRIPT_DIR/../hal/aidl-${AIDL_VERSION}/"*.xml "$HAL_DEST/aidl/"
+
+# Top-level Android.bp (empty, Soong discovers subdirectories)
 cp "$SCRIPT_DIR/../hal/Android.bp" "$HAL_DEST/"
 
-# Copy v2 shared memory headers (included by HAL via ../v2-shared-memory)
+# Copy v2 shared memory headers (included by core via include_dirs)
 V2_DEST="$(dirname "$HAL_DEST")/v2-shared-memory"
 mkdir -p "$V2_DEST"
 cp "$SCRIPT_DIR/../v2-shared-memory/"*.h "$V2_DEST/"
 
-# Create VINTF manifest
-cat > "$HAL_DEST/android.hardware.camera.provider-virtual-service.xml" << 'EOF'
-<manifest version="1.0" type="device">
-    <hal format="aidl">
-        <name>android.hardware.camera.provider</name>
-        <version>2</version>
-        <fqname>ICameraProvider/virtual_renderer/0</fqname>
-    </hal>
-</manifest>
-EOF
-
-# Create init.rc
-cat > "$HAL_DEST/android.hardware.camera.provider-virtual-service.rc" << 'EOF'
-service vendor.camera.provider-virtual /vendor/bin/hw/android.hardware.camera.provider-virtual-service
-    class hal
-    user cameraserver
-    group audio camera input drmrpc
-    ioprio rt 4
-    capabilities SYS_NICE
-    task_profiles CameraServiceCapacity MaxPerformance
-EOF
-
-echo "   ✓ HAL source copied"
+echo "   ✓ HAL source copied (core + aidl-${AIDL_VERSION})"
 
 # 2. Add service_contexts
 echo "[2/4] Adding SELinux service_contexts..."

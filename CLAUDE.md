@@ -4,7 +4,9 @@ Virtual camera HAL for AOSP that lets renderer apps provide frames to consumer a
 
 ## Project Structure
 
-- `hal/` — Camera HAL implementation (C++, builds with Android.bp)
+- `hal/core/` — Shared frame pipeline (FrameFiller, MetadataBuilder, FrameSource, Socket) — no AIDL deps
+- `hal/aidl-v1/` — Camera AIDL V1 adapter (Android 13-14): Provider, Device, Session, service
+- `hal/aidl-v2/` — Camera AIDL V2 adapter (Android 15+): Provider, Device, Session, service
 - `service/` — Java system service (VirtualCameraService)
 - `aidl/` — AIDL interfaces
 - `v2-shared-memory/` — Zero-copy buffer pool headers (SharedBufferPool, HalInterface, RendererInterface)

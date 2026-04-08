@@ -1,0 +1,64 @@
+/*
+ * Virtual Camera Core - Shared pipeline library (AIDL-independent)
+ *
+ * Contains frame sources, buffer utilities, metadata builders, and
+ * socket communication. Used by both AIDL v1 and v2 adapters.
+ */
+
+package {
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
+cc_library_static {
+    name: "virtual-camera-core",
+    vendor: true,
+    apex_available: [
+        "//apex_available:platform",
+        "com.google.cf.virtual_camera",
+    ],
+    min_sdk_version: "30",
+
+    srcs: [
+        "VirtualCameraFrameSource.cpp",
+        "VirtualCameraFrameSourceV2.cpp",
+        "VirtualCameraSocket.cpp",
+        "FrameFiller.cpp",
+        "MetadataBuilder.cpp",
+    ],
+
+    shared_libs: [
+        "android.hardware.graphics.mapper@2.0",
+        "android.hardware.graphics.mapper@3.0",
+        "android.hardware.graphics.mapper@4.0",
+        "android.hidl.allocator@1.0",
+        "android.hidl.memory@1.0",
+        "libcamera_metadata",
+        "libcutils",
+        "libgralloctypes",
+        "libhardware",
+        "libhidlbase",
+        "liblog",
+        "libui",
+        "libutils",
+        "libbase",
+        "libnativewindow",
+        "libsync",
+    ],
+
+    static_libs: [
+        "android.hardware.camera.common-helper",
+    ],
+
+    include_dirs: [
+        "hardware/interfaces/camera/common/default/include",
+        "hardware/interfaces/camera/provider/v2-shared-memory",
+    ],
+
+    local_include_dirs: ["."],
+    export_include_dirs: ["."],
+
+    cflags: [
+        "-Wall",
+        "-Wno-unused-parameter",
+    ],
+}

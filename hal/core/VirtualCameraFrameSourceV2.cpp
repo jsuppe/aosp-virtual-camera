@@ -14,7 +14,7 @@
 #include <cerrno>
 #include <cstring>
 
-namespace aidl::android::hardware::camera::provider::implementation {
+namespace virtualcamera {
 
 VirtualCameraFrameSourceV2::VirtualCameraFrameSourceV2() {
     ALOGI("VirtualCameraFrameSourceV2 created");
@@ -132,7 +132,7 @@ bool VirtualCameraFrameSourceV2::handleConnection(int clientFd) {
         return false;
     }
 
-    if (header.bufferCount <= 0 || header.bufferCount > virtualcamera::MAX_BUFFERS) {
+    if (header.bufferCount <= 0 || header.bufferCount > MAX_BUFFERS) {
         ALOGE("Invalid buffer count: %d", header.bufferCount);
         return false;
     }
@@ -165,7 +165,7 @@ bool VirtualCameraFrameSourceV2::handleConnection(int clientFd) {
     close(controlRingFd);  // pool dup'd it
 
     // Step 4: Receive AHardwareBuffers
-    virtualcamera::BufferPoolConfig config;
+    BufferPoolConfig config;
     config.width = header.width;
     config.height = header.height;
     config.format = header.format;
@@ -235,4 +235,4 @@ int VirtualCameraFrameSourceV2::receiveFdViaSCM(int clientFd) {
     return fd;
 }
 
-}  // namespace
+}  // namespace virtualcamera
