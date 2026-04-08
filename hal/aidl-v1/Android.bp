@@ -84,10 +84,7 @@ cc_library_shared {
         "-Wno-unused-parameter",
     ],
 
-    export_include_dirs: [
-        ".",
-        "../core",
-    ],
+    export_include_dirs: ["."],
 }
 
 cc_binary {
@@ -108,6 +105,10 @@ cc_binary {
     vintf_fragments: ["android.hardware.camera.provider-virtual-service.xml"],
 
     srcs: ["service.cpp"],
+
+    include_dirs: [
+        "hardware/interfaces/camera/provider/virtual/core",
+    ],
 
     shared_libs: [
         "android.hardware.camera.common-V1-ndk",
