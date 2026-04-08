@@ -63,7 +63,7 @@ void VirtualCameraFrameSource::onFdReceived(int fd, size_t size) {
 }
 
 bool VirtualCameraFrameSource::mapSharedMemory(int fd, size_t size) {
-    mMappedAddr = mmap(nullptr, size, PROT_READ, MAP_SHARED, fd, 0);
+    mMappedAddr = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (mMappedAddr == MAP_FAILED) {
         ALOGE("Failed to mmap: %s", strerror(errno));
         mMappedAddr = nullptr;
