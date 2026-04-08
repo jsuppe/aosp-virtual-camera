@@ -13,6 +13,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
     vulkan_cube.cpp
     virtual_camera_writer.cpp
     virtual_camera_writer_v2.cpp
+    gpu_renderer.cpp
 )
 
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
@@ -27,4 +28,6 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
     Vulkan::Vulkan
     nativewindow   # For AHardwareBuffer APIs
     sync           # For sync fence APIs
+    EGL
+    GLESv3
 )

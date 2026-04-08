@@ -19,6 +19,7 @@
 
 #include "virtual_camera_writer.h"
 #include "virtual_camera_writer_v2.h"
+#include "gpu_renderer.h"
 
 #define LOG_TAG "UnifiedRenderer"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -30,6 +31,7 @@ struct UnifiedRenderer {
     vcam::VirtualCameraWriterV2 writerV2;
     bool usingV2 = false;
 
+    GpuRenderer gpuRenderer;
     std::vector<uint8_t> frameBuffer;  // RGBA for display
     std::vector<uint8_t> yuvBuffer;   // NV12 for HAL (when YUV negotiated)
     int width = 0;
@@ -346,17 +348,26 @@ Java_com_example_vcamtest_MainActivity_nativeRenderFrame(
         }
 
         if (renderer->writerV1.getFormat() == vcam::FORMAT_YUV_420) {
-            // Single-pass: render RGBA + NV12 simultaneously
+            // GPU path: render test pattern directly as NV12 + RGBA
+            // Zero CPU pixel work — all color math runs on GPU shaders
+            if (!renderer->gpuRenderer.isInitialized()) {
+                if (!renderer->gpuRenderer.initialize(w, h)) {
+                    LOGE("GPU renderer init failed, falling back to CPU");
+                    renderer->writerV1.setOutputFormat(vcam::FORMAT_RGBA_8888);
+                    goto cpu_rgba_path;
+                }
+                LOGI("GPU renderer active — zero CPU color conversion");
+            }
+
             if (renderer->yuvBuffer.empty()) {
                 renderer->yuvBuffer.resize(w * h * 3 / 2);
             }
-            renderTestPatternDual(renderer->frameBuffer.data(),
-                                  renderer->yuvBuffer.data(),
-                                  w, h, renderer->frameCount, timestampMs,
-                                  renderer->currentFps, false);
+            renderer->gpuRenderer.renderFrame(renderer->frameCount,
+                                              renderer->frameBuffer.data(),
+                                              renderer->yuvBuffer.data());
             renderer->writerV1.writeFrame(renderer->yuvBuffer.data(),
                                           renderer->yuvBuffer.size());
-        } else {
+        } else { cpu_rgba_path:
             // RGBA path (default)
             renderTestPattern(renderer->frameBuffer.data(), w, h,
                               renderer->frameCount, timestampMs,
@@ -397,6 +408,7 @@ Java_com_example_vcamtest_MainActivity_nativeDestroyRenderer(
 
     auto* renderer = reinterpret_cast<UnifiedRenderer*>(rendererPtr);
     if (renderer) {
+        renderer->gpuRenderer.shutdown();
         if (renderer->usingV2) {
             renderer->writerV2.shutdown();
         } else {
