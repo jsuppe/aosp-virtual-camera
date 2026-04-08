@@ -120,8 +120,14 @@ cc_binary {
         "android.hardware.camera.provider-V1-ndk",
         "android.hardware.camera.provider-V1-virtual-impl",
         "libbinder_ndk",
+        "libhidlbase",
         "liblog",
+        "libnativewindow",
         "libutils",
         "libbase",
+    ],
+
+    static_libs: [
+        "android.hardware.camera.common-helper",
     ],
 }
