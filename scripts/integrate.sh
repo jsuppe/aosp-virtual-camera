@@ -73,13 +73,13 @@ if [[ "$AIDL_VERSION" == "v1" ]]; then
     # A13 uses HIDL naming for camera common helper
     sed -i 's/android.hardware.camera.common-helper/android.hardware.camera.common@1.0-helper/g' \
         "$HAL_DEST/core/Android.bp" "$HAL_DEST/aidl/Android.bp"
-    # A13 may not have these AIDL libs — remove if missing
-    for lib in "android.hardware.graphics.allocator-V2-ndk" "android.hardware.common-V2-ndk" "android.hardware.common.fmq-V1-ndk"; do
-        if ! find "$AOSP_ROOT/hardware/interfaces" -name "Android.bp" -exec grep -l "\"$lib\"" {} + 2>/dev/null | head -1 | grep -q .; then
-            sed -i "/\"$lib\"/d" "$HAL_DEST/aidl/Android.bp"
-            echo "   ⚠ Removed unavailable lib: $lib"
-        fi
+    # A13 doesn't have these unstable/newer AIDL libs — remove them
+    for lib in "android.hardware.graphics.allocator-V2-ndk" \
+               "android.hardware.common-V2-ndk" \
+               "android.hardware.common.fmq-V1-ndk"; do
+        sed -i "/\"$lib\"/d" "$HAL_DEST/aidl/Android.bp"
     done
+    echo "   ✓ Removed A15-only AIDL libs from v1 adapter"
 fi
 
 echo "   ✓ HAL source copied (core + aidl-${AIDL_VERSION})"
