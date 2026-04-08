@@ -12,7 +12,7 @@ package {
 
 // VINTF manifest fragment - exported for APEX
 filegroup {
-    name: "android.hardware.camera.provider-virtual-service-v2.xml",
+    name: "android.hardware.camera.provider-virtual-service.xml",
     srcs: ["android.hardware.camera.provider-virtual-service.xml"],
 }
 
