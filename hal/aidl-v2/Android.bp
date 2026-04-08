@@ -17,7 +17,8 @@ filegroup {
 }
 
 cc_library_shared {
-    name: "android.hardware.camera.provider-V2-virtual-impl",
+    // Keep V1 name for backward compat with device makefiles and APEX configs
+    name: "android.hardware.camera.provider-V1-virtual-impl",
     defaults: [
         "hidl_defaults",
         "android.hardware.graphics.common-ndk_shared",
@@ -88,7 +89,8 @@ cc_library_shared {
 }
 
 cc_binary {
-    name: "android.hardware.camera.provider-virtual-service-v2",
+    // Keep original name for backward compat with device makefiles
+    name: "android.hardware.camera.provider-virtual-service",
     defaults: ["hidl_defaults"],
     vendor: true,
     relative_install_path: "hw",
@@ -108,7 +110,7 @@ cc_binary {
         "android.hardware.camera.common-V1-ndk",
         "android.hardware.camera.device-V1-ndk",
         "android.hardware.camera.provider-V1-ndk",
-        "android.hardware.camera.provider-V2-virtual-impl",
+        "android.hardware.camera.provider-V1-virtual-impl",
         "libbinder_ndk",
         "liblog",
         "libutils",
