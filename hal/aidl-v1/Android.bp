@@ -18,7 +18,6 @@ cc_library_shared {
     name: "android.hardware.camera.provider-V1-virtual-impl",
     defaults: [
         "hidl_defaults",
-        "android.hardware.graphics.common-ndk_shared",
     ],
     vendor: true,
     relative_install_path: "hw",
