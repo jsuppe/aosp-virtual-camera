@@ -37,6 +37,7 @@ bool VirtualCameraWriterV2::initialize(uint32_t width, uint32_t height,
 
     // Allocate the buffer pool
     uint64_t usage = AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN
+                   | AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN
                    | AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE
                    | AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT;
 
