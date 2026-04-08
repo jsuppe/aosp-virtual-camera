@@ -11,9 +11,11 @@
 #include <mutex>
 #include <memory>
 
-// Core frame sources
-#include "VirtualCameraFrameSource.h"
-#include "VirtualCameraFrameSourceV2.h"
+// Forward declarations (avoid pulling heavy core headers into service.cpp)
+namespace virtualcamera {
+class VirtualCameraFrameSource;
+class VirtualCameraFrameSourceV2;
+}
 
 namespace aidl::android::hardware::camera::provider::implementation {
 
