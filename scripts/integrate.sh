@@ -80,6 +80,9 @@ if [[ "$AIDL_VERSION" == "v1" ]]; then
         sed -i "/\"$lib\"/d" "$HAL_DEST/aidl/Android.bp"
     done
     echo "   ✓ Removed A15-only AIDL libs from v1 adapter"
+    # A13 uses different include path for HandleImporter
+    sed -i 's|camera/common/default/include|camera/common/1.0/default/include|g' \
+        "$HAL_DEST/core/Android.bp" "$HAL_DEST/aidl/Android.bp"
 fi
 
 echo "   ✓ HAL source copied (core + aidl-${AIDL_VERSION})"
