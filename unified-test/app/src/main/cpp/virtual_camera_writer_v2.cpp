@@ -35,6 +35,21 @@ bool VirtualCameraWriterV2::initialize(uint32_t width, uint32_t height,
     mHeight = height;
     mFormat = format;
 
+    // Check for Cuttlefish/virtual GPU where cross-process AHB CPU
+    // access doesn't work (virtio-gpu doesn't sync CPU buffer contents)
+    FILE* fp = fopen("/proc/device-tree/compatible", "r");
+    if (!fp) fp = fopen("/sys/class/dmi/id/product_name", "r");
+    if (fp) {
+        char buf[256] = {};
+        fread(buf, 1, sizeof(buf) - 1, fp);
+        fclose(fp);
+        if (strstr(buf, "Cuttlefish") || strstr(buf, "vsoc")) {
+            LOGE("Cuttlefish detected — v2 cross-process AHB CPU access "
+                 "not supported by virtio-gpu, falling back to v1");
+            return false;
+        }
+    }
+
     // Allocate the buffer pool
     uint64_t usage = AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN
                    | AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN
