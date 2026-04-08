@@ -30,7 +30,8 @@ struct UnifiedRenderer {
     vcam::VirtualCameraWriterV2 writerV2;
     bool usingV2 = false;
 
-    std::vector<uint8_t> frameBuffer;  // Used for v1 path and display
+    std::vector<uint8_t> frameBuffer;  // RGBA for display
+    std::vector<uint8_t> yuvBuffer;   // NV12 for HAL (when YUV negotiated)
     int width = 0;
     int height = 0;
     int camWidth = 0;
@@ -149,6 +150,27 @@ static void drawOverlay(uint8_t* buffer, int width, int height, int frame,
     drawChar(buffer, width, height, x, y, 5, 0, 255, 0);   // S
 }
 
+static inline void computePixel(int x, int y, int width, int height, float time,
+                                uint8_t* r, uint8_t* g, uint8_t* b) {
+    float fx = (float)x / width - 0.5f;
+    float fy = (float)y / height - 0.5f;
+
+    float angle = time;
+    float rx = fx * cosf(angle) - fy * sinf(angle);
+    float ry = fx * sinf(angle) + fy * cosf(angle);
+
+    float dist = sqrtf(rx * rx + ry * ry);
+    float wave = sinf(dist * 10.0f - time * 2.0f) * 0.5f + 0.5f;
+
+    *r = (uint8_t)(200 * wave + 55);
+    *g = (uint8_t)(150 * wave + 50);
+    *b = (uint8_t)(50 * wave + 20);
+
+    if ((x % 64 < 2) || (y % 64 < 2)) {
+        *r = 255; *g = 255; *b = 255;
+    }
+}
+
 static void renderTestPattern(uint8_t* buffer, int width, int height, int frame,
                                int64_t timestampMs, int fps, bool v2Active) {
     float time = frame * 0.05f;
@@ -156,25 +178,8 @@ static void renderTestPattern(uint8_t* buffer, int width, int height, int frame,
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             int idx = (y * width + x) * 4;
-
-            float fx = (float)x / width - 0.5f;
-            float fy = (float)y / height - 0.5f;
-
-            float angle = time;
-            float rx = fx * cosf(angle) - fy * sinf(angle);
-            float ry = fx * sinf(angle) + fy * cosf(angle);
-
-            float dist = sqrtf(rx * rx + ry * ry);
-            float wave = sinf(dist * 10.0f - time * 2.0f) * 0.5f + 0.5f;
-
-            uint8_t r = (uint8_t)(200 * wave + 55);
-            uint8_t g = (uint8_t)(150 * wave + 50);
-            uint8_t b = (uint8_t)(50 * wave + 20);
-
-            if ((x % 64 < 2) || (y % 64 < 2)) {
-                r = 255; g = 255; b = 255;
-            }
-
+            uint8_t r, g, b;
+            computePixel(x, y, width, height, time, &r, &g, &b);
             buffer[idx + 0] = r;
             buffer[idx + 1] = g;
             buffer[idx + 2] = b;
@@ -183,6 +188,47 @@ static void renderTestPattern(uint8_t* buffer, int width, int height, int frame,
     }
 
     drawOverlay(buffer, width, height, frame, timestampMs, fps, v2Active);
+}
+
+/**
+ * Single-pass dual render: writes both RGBA (for display) and NV12 (for HAL)
+ * in one pass over the pixel grid. No intermediate buffer or second pass.
+ */
+static void renderTestPatternDual(uint8_t* rgbaOut, uint8_t* yuvOut,
+                                   int width, int height, int frame,
+                                   int64_t timestampMs, int fps, bool v2Active) {
+    float time = frame * 0.05f;
+    uint8_t* yPlane = yuvOut;
+    uint8_t* uvPlane = yuvOut + width * height;
+
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            uint8_t r, g, b;
+            computePixel(x, y, width, height, time, &r, &g, &b);
+
+            // Write RGBA for display
+            int rgbaIdx = (y * width + x) * 4;
+            rgbaOut[rgbaIdx + 0] = r;
+            rgbaOut[rgbaIdx + 1] = g;
+            rgbaOut[rgbaIdx + 2] = b;
+            rgbaOut[rgbaIdx + 3] = 255;
+
+            // Write Y
+            yPlane[y * width + x] = static_cast<uint8_t>(
+                std::clamp(((66*r + 129*g + 25*b + 128) >> 8) + 16, 0, 255));
+
+            // Write UV at 2x2 subsampled positions
+            if ((x & 1) == 0 && (y & 1) == 0) {
+                int uvIdx = (y / 2) * width + x;
+                uvPlane[uvIdx]     = static_cast<uint8_t>(
+                    std::clamp(((-38*r - 74*g + 112*b + 128) >> 8) + 128, 0, 255));
+                uvPlane[uvIdx + 1] = static_cast<uint8_t>(
+                    std::clamp(((112*r - 94*g - 18*b + 128) >> 8) + 128, 0, 255));
+            }
+        }
+    }
+
+    drawOverlay(rgbaOut, width, height, frame, timestampMs, fps, v2Active);
 }
 
 extern "C" {
@@ -300,41 +346,16 @@ Java_com_example_vcamtest_MainActivity_nativeRenderFrame(
         }
 
         if (renderer->writerV1.getFormat() == vcam::FORMAT_YUV_420) {
-            // Render test pattern to RGBA first (reuse frameBuffer)
-            renderTestPattern(renderer->frameBuffer.data(), w, h,
-                              renderer->frameCount, timestampMs,
-                              renderer->currentFps, false);
-
-            // Convert RGBA to NV12 in-place for the writer
-            // Y plane: w*h bytes, UV plane: w*h/2 bytes (interleaved CbCr)
-            size_t yuvSize = w * h * 3 / 2;
-            std::vector<uint8_t> yuvBuf(yuvSize);
-            const uint8_t* rgba = renderer->frameBuffer.data();
-            uint8_t* yPlane = yuvBuf.data();
-            uint8_t* uvPlane = yPlane + w * h;
-
-            // Y plane
-            for (int y = 0; y < h; y++) {
-                for (int x = 0; x < w; x++) {
-                    int i = (y * w + x) * 4;
-                    int r = rgba[i], g = rgba[i+1], b = rgba[i+2];
-                    yPlane[y * w + x] = static_cast<uint8_t>(
-                        std::clamp(((66*r + 129*g + 25*b + 128) >> 8) + 16, 0, 255));
-                }
+            // Single-pass: render RGBA + NV12 simultaneously
+            if (renderer->yuvBuffer.empty()) {
+                renderer->yuvBuffer.resize(w * h * 3 / 2);
             }
-            // UV plane (NV12: interleaved Cb, Cr)
-            for (int cy = 0; cy < h/2; cy++) {
-                for (int cx = 0; cx < w/2; cx++) {
-                    int i = (cy*2 * w + cx*2) * 4;
-                    int r = rgba[i], g = rgba[i+1], b = rgba[i+2];
-                    int cb = std::clamp(((-38*r - 74*g + 112*b + 128) >> 8) + 128, 0, 255);
-                    int cr = std::clamp(((112*r - 94*g - 18*b + 128) >> 8) + 128, 0, 255);
-                    uvPlane[cy * w + cx * 2]     = static_cast<uint8_t>(cb);
-                    uvPlane[cy * w + cx * 2 + 1] = static_cast<uint8_t>(cr);
-                }
-            }
-
-            renderer->writerV1.writeFrame(yuvBuf.data(), yuvSize);
+            renderTestPatternDual(renderer->frameBuffer.data(),
+                                  renderer->yuvBuffer.data(),
+                                  w, h, renderer->frameCount, timestampMs,
+                                  renderer->currentFps, false);
+            renderer->writerV1.writeFrame(renderer->yuvBuffer.data(),
+                                          renderer->yuvBuffer.size());
         } else {
             // RGBA path (default)
             renderTestPattern(renderer->frameBuffer.data(), w, h,
