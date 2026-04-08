@@ -11,7 +11,11 @@
 #pragma once
 
 #include <android/hardware_buffer.h>
-#include <cutils/ashmem.h>
+#ifdef __ANDROID__
+  #include <android/sharedmem.h>
+#else
+  #include <cutils/ashmem.h>
+#endif
 #include <sys/mman.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -218,7 +222,11 @@ public:
                               | AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT;
 
         // Allocate control ring in shared memory
+#ifdef __ANDROID__
+        mControlRingFd = ASharedMemory_create("vcam_ring", sizeof(ControlRing));
+#else
         mControlRingFd = ashmem_create_region("vcam_ring", sizeof(ControlRing));
+#endif
         if (mControlRingFd < 0) return false;
 
         mControlRing = static_cast<ControlRing*>(
