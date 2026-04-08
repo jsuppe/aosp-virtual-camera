@@ -365,7 +365,7 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
     float zoomRatio = 1.0f;
     add_camera_metadata_entry(meta, ANDROID_CONTROL_ZOOM_RATIO, &zoomRatio, 1);
     
-    int32_t cropRegion[] = {0, 0, 1920, 1080};
+    int32_t cropRegion[] = {0, 0, 3840, 2160};
     add_camera_metadata_entry(meta, ANDROID_SCALER_CROP_REGION, cropRegion, 4);
     
     // Build capture result
