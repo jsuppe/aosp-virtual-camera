@@ -110,6 +110,8 @@ cc_binary {
 
     include_dirs: [
         "hardware/interfaces/camera/provider/virtual/core",
+        "hardware/interfaces/camera/provider/v2-shared-memory",
+        "hardware/interfaces/camera/common/default/include",
     ],
 
     shared_libs: [
