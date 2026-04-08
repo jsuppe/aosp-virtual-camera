@@ -37,78 +37,35 @@ static inline void rgbaToYuv(uint8_t r, uint8_t g, uint8_t b,
 
 using HandleImporter = ::android::hardware::camera::common::V1_0::helper::HandleImporter;
 
-/**
- * Fill a YUV gralloc buffer from the v1 renderer (shared memory).
- *
- * Acquires the latest frame from the frame source, detects format
- * (YUV passthrough vs RGBA conversion), and writes into the locked
- * gralloc buffer.
- *
- * @param importer    HandleImporter for buffer locking/unlocking
- * @param handle      Destination gralloc buffer handle
- * @param width       Buffer width
- * @param height      Buffer height
- * @param frameNumber Current frame number (for periodic logging)
- * @param frameSource V1 frame source to acquire from
- * @return true if renderer frame was used, false if filled with black
- */
-bool fillYuvBufferFromRenderer(
-        HandleImporter& importer,
-        buffer_handle_t handle,
-        int width, int height,
-        int frameNumber,
-        VirtualCameraFrameSource* frameSource);
+struct FrameFiller {
+    /** Fill YUV gralloc buffer from v1 renderer shared memory */
+    static bool fillYuvBufferFromRenderer(
+            HandleImporter& importer,
+            buffer_handle_t handle,
+            int width, int height,
+            int frameNumber,
+            VirtualCameraFrameSource* frameSource);
 
-/**
- * Fill a gralloc buffer from the v2 zero-copy source.
- *
- * Acquires the latest AHardwareBuffer from the HalInterface,
- * dispatches to YUV passthrough or RGBA->YUV conversion based
- * on source format.
- *
- * @param importer      HandleImporter for buffer locking/unlocking
- * @param handle        Destination gralloc buffer handle
- * @param width         Buffer width
- * @param height        Buffer height
- * @param frameSourceV2 V2 frame source to acquire from
- * @return true if frame was filled successfully
- */
-bool fillBufferFromV2(
-        HandleImporter& importer,
-        buffer_handle_t handle,
-        int width, int height,
-        VirtualCameraFrameSourceV2* frameSourceV2);
+    /** Fill gralloc buffer from v2 zero-copy source (auto-detects YUV vs RGBA) */
+    static bool fillBufferFromV2(
+            HandleImporter& importer,
+            buffer_handle_t handle,
+            int width, int height,
+            VirtualCameraFrameSourceV2* frameSourceV2);
 
-/**
- * Fill a YUV gralloc buffer from a v2 YUV AHardwareBuffer (direct plane copy).
- *
- * @param importer HandleImporter for buffer locking/unlocking
- * @param handle   Destination gralloc buffer handle
- * @param width    Buffer width
- * @param height   Buffer height
- * @param frame    Acquired frame from HalInterface
- * @return true on success
- */
-bool fillBufferFromV2Yuv(
-        HandleImporter& importer,
-        buffer_handle_t handle,
-        int width, int height,
-        const HalInterface::AcquiredFrame& frame);
+    /** Direct YUV plane copy from v2 AHardwareBuffer */
+    static bool fillBufferFromV2Yuv(
+            HandleImporter& importer,
+            buffer_handle_t handle,
+            int width, int height,
+            const HalInterface::AcquiredFrame& frame);
 
-/**
- * Fill a YUV gralloc buffer from a v2 RGBA AHardwareBuffer (BT.601 conversion).
- *
- * @param importer HandleImporter for buffer locking/unlocking
- * @param handle   Destination gralloc buffer handle
- * @param width    Buffer width
- * @param height   Buffer height
- * @param frame    Acquired frame from HalInterface
- * @return true on success
- */
-bool fillBufferFromV2Rgba(
-        HandleImporter& importer,
-        buffer_handle_t handle,
-        int width, int height,
-        const HalInterface::AcquiredFrame& frame);
+    /** RGBA→YUV conversion from v2 AHardwareBuffer */
+    static bool fillBufferFromV2Rgba(
+            HandleImporter& importer,
+            buffer_handle_t handle,
+            int width, int height,
+            const HalInterface::AcquiredFrame& frame);
+};
 
 }  // namespace virtualcamera

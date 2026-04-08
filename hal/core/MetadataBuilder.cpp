@@ -15,7 +15,7 @@
 
 namespace virtualcamera {
 
-std::vector<uint8_t> buildCameraCharacteristics() {
+std::vector<uint8_t> MetadataBuilder::buildCameraCharacteristics() {
     // Create camera characteristics with enough space for all entries
     camera_metadata_t* meta = allocate_camera_metadata(100, 4000);
 
@@ -156,7 +156,7 @@ std::vector<uint8_t> buildCameraCharacteristics() {
     return result;
 }
 
-std::vector<uint8_t> buildDefaultRequestSettings() {
+std::vector<uint8_t> MetadataBuilder::buildDefaultRequestSettings() {
     camera_metadata_t* meta = allocate_camera_metadata(10, 200);
 
     uint8_t controlMode = ANDROID_CONTROL_MODE_AUTO;
@@ -179,7 +179,7 @@ std::vector<uint8_t> buildDefaultRequestSettings() {
     return result;
 }
 
-std::vector<uint8_t> buildResultMetadata(int64_t timestamp) {
+std::vector<uint8_t> MetadataBuilder::buildResultMetadata(int64_t timestamp) {
     camera_metadata_t* meta = allocate_camera_metadata(10, 200);
 
     int64_t ts = timestamp;

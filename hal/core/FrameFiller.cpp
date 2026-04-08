@@ -18,7 +18,7 @@
 
 namespace virtualcamera {
 
-bool fillYuvBufferFromRenderer(
+bool FrameFiller::fillYuvBufferFromRenderer(
         HandleImporter& importer,
         buffer_handle_t handle,
         int width, int height,
@@ -183,7 +183,7 @@ bool fillYuvBufferFromRenderer(
     return usedRendererFrame;
 }
 
-bool fillBufferFromV2(
+bool FrameFiller::fillBufferFromV2(
         HandleImporter& importer,
         buffer_handle_t handle,
         int width, int height,
@@ -223,7 +223,7 @@ bool fillBufferFromV2(
     return success;
 }
 
-bool fillBufferFromV2Yuv(
+bool FrameFiller::fillBufferFromV2Yuv(
         HandleImporter& importer,
         buffer_handle_t handle,
         int width, int height,
@@ -316,7 +316,7 @@ bool fillBufferFromV2Yuv(
     return true;
 }
 
-bool fillBufferFromV2Rgba(
+bool FrameFiller::fillBufferFromV2Rgba(
         HandleImporter& importer,
         buffer_handle_t handle,
         int width, int height,
