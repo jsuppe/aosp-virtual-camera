@@ -5,12 +5,12 @@
 #define LOG_TAG "VCamFrameFiller"
 
 #include "FrameFiller.h"
+#include "HandleImporterCompat.h"
 #include "VirtualCameraFrameSource.h"
 #include "VirtualCameraFrameSourceV2.h"
 
 #include <android/hardware_buffer.h>
 #include <log/log.h>
-#include <ui/Rect.h>
 
 #include <algorithm>
 #include <cstring>
@@ -30,11 +30,8 @@ bool FrameFiller::fillYuvBufferFromRenderer(
     }
 
     // Lock buffer for CPU write access (YCbCr format)
-    ::android::Rect region(0, 0, width, height);
-    android_ycbcr ycbcr = importer.lockYCbCr(
-            handle,
-            0x00000030U,  // GRALLOC_USAGE_SW_WRITE_OFTEN
-            region);
+    auto ycbcr = lockYCbCrCompat(importer, handle,
+            0x00000030U, width, height);  // GRALLOC_USAGE_SW_WRITE_OFTEN
 
     if (ycbcr.y == nullptr) {
         ALOGE("fillYuvBufferFromRenderer: Failed to lock buffer for CPU access");
@@ -244,9 +241,8 @@ bool FrameFiller::fillBufferFromV2Yuv(
     }
 
     // Lock destination gralloc buffer as YCbCr
-    ::android::Rect region(0, 0, width, height);
-    android_ycbcr dstYcbcr = importer.lockYCbCr(
-        handle, 0x00000030U, region);
+    auto dstYcbcr = lockYCbCrCompat(importer, handle,
+        0x00000030U, width, height);
     if (dstYcbcr.y == nullptr) {
         ALOGE("fillBufferFromV2Yuv: Failed to lock output buffer");
         AHardwareBuffer_unlock(frame.buffer, nullptr);
@@ -337,9 +333,8 @@ bool FrameFiller::fillBufferFromV2Rgba(
     }
 
     // Lock destination gralloc buffer as YCbCr
-    ::android::Rect region(0, 0, width, height);
-    android_ycbcr ycbcr = importer.lockYCbCr(
-        handle, 0x00000030U, region);
+    auto ycbcr = lockYCbCrCompat(importer, handle,
+        0x00000030U, width, height);
     if (ycbcr.y == nullptr) {
         ALOGE("fillBufferFromV2Rgba: Failed to lock output buffer");
         AHardwareBuffer_unlock(frame.buffer, nullptr);

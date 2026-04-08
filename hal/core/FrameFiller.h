@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include <HandleImporter.h>
+#include "HandleImporterCompat.h"
 #include <cutils/native_handle.h>
 #include <algorithm>
 #include <cstdint>
@@ -34,8 +34,6 @@ static inline void rgbaToYuv(uint8_t r, uint8_t g, uint8_t b,
     *cb = static_cast<uint8_t>(std::clamp(cbVal, 0, 255));
     *cr = static_cast<uint8_t>(std::clamp(crVal, 0, 255));
 }
-
-using HandleImporter = ::android::hardware::camera::common::V1_0::helper::HandleImporter;
 
 struct FrameFiller {
     /** Fill YUV gralloc buffer from v1 renderer shared memory */

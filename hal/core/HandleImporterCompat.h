@@ -1,0 +1,74 @@
+/*
+ * HandleImporterCompat - Compatibility shim for HandleImporter across Android versions
+ *
+ * A13 (camera.common@1.0-helper) uses IMapper::Rect and YCbCrLayout.
+ * A15 (camera.common-helper) uses android::Rect and android_ycbcr.
+ *
+ * This header provides unified types and a lockYCbCr wrapper.
+ */
+#pragma once
+
+#include <HandleImporter.h>
+
+// Detect which HandleImporter version we're building against
+#if __has_include(<ui/Rect.h>)
+    // A15+ (AIDL camera.common-helper) — uses android::Rect and android_ycbcr
+    #include <ui/Rect.h>
+    #define VCAM_COMPAT_A15 1
+#else
+    // A13 (HIDL camera.common@1.0-helper) — uses IMapper::Rect and YCbCrLayout
+    #include <android/hardware/graphics/mapper/4.0/IMapper.h>
+    #define VCAM_COMPAT_A13 1
+#endif
+
+namespace virtualcamera {
+
+using HandleImporter = ::android::hardware::camera::common::V1_0::helper::HandleImporter;
+
+/**
+ * YCbCr buffer layout — normalized across versions.
+ * Both A13's YCbCrLayout and A15's android_ycbcr have the same fields.
+ */
+struct YCbCrBuffer {
+    void* y = nullptr;
+    void* cb = nullptr;
+    void* cr = nullptr;
+    int ystride = 0;
+    int cstride = 0;
+    int chroma_step = 0;
+};
+
+/**
+ * Lock a gralloc buffer as YCbCr, returning a unified YCbCrBuffer.
+ */
+inline YCbCrBuffer lockYCbCrCompat(HandleImporter& importer,
+                                    buffer_handle_t handle,
+                                    uint64_t usage,
+                                    int width, int height) {
+    YCbCrBuffer result;
+
+#ifdef VCAM_COMPAT_A15
+    ::android::Rect region(0, 0, width, height);
+    android_ycbcr ycbcr = importer.lockYCbCr(handle, usage, region);
+    result.y = ycbcr.y;
+    result.cb = ycbcr.cb;
+    result.cr = ycbcr.cr;
+    result.ystride = ycbcr.ystride;
+    result.cstride = ycbcr.cstride;
+    result.chroma_step = ycbcr.chroma_step;
+#else
+    using IMapper = ::android::hardware::graphics::mapper::V4_0::IMapper;
+    IMapper::Rect region{0, 0, width, height};
+    auto layout = importer.lockYCbCr(handle, usage, region);
+    result.y = layout.y;
+    result.cb = layout.cb;
+    result.cr = layout.cr;
+    result.ystride = layout.yStride;
+    result.cstride = layout.cStride;
+    result.chroma_step = layout.chromaStep;
+#endif
+
+    return result;
+}
+
+}  // namespace virtualcamera
