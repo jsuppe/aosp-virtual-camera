@@ -24,19 +24,26 @@ struct FrameHeader {
     std::atomic<uint32_t> version;        // Protocol version
     std::atomic<uint32_t> width;
     std::atomic<uint32_t> height;
-    std::atomic<uint32_t> format;         // HAL pixel format
+    std::atomic<uint32_t> format;         // Renderer's output pixel format
     std::atomic<uint32_t> stride;
     std::atomic<uint64_t> frameNumber;
     std::atomic<uint64_t> timestamp;
     std::atomic<uint32_t> dataOffset;     // Offset to frame data
     std::atomic<uint32_t> dataSize;       // Size of frame data
     std::atomic<uint32_t> flags;          // RENDERER_ACTIVE = 2
+    // Format negotiation (HAL → Renderer): HAL writes the consumer's
+    // desired format here; renderer polls and switches output format.
+    std::atomic<uint32_t> requestedFormat;  // FORMAT_* constant, 0 = no preference
+    std::atomic<uint32_t> requestedWidth;
+    std::atomic<uint32_t> requestedHeight;
 };
 
 static constexpr uint32_t VCMF_MAGIC = 0x56434D46;
 static constexpr uint32_t VCMF_VERSION = 1;
 static constexpr uint32_t FLAG_NEW_FRAME = 1;
 static constexpr uint32_t FLAG_RENDERER_ACTIVE = 2;
+static constexpr uint32_t FORMAT_RGBA_8888 = 1;
+static constexpr uint32_t FORMAT_YUV_420 = 2;  // NV12 layout: Y plane, then interleaved UV
 
 class VirtualCameraFrameSource {
 public:
@@ -60,6 +67,9 @@ public:
     
     // Get frame dimensions without copying
     bool getFrameInfo(uint32_t* width, uint32_t* height, uint32_t* format);
+
+    // Request a specific format from the renderer (HAL → Renderer negotiation)
+    void requestFormat(uint32_t format, uint32_t width, uint32_t height);
     
 private:
     void onFdReceived(int fd, size_t size);

@@ -183,4 +183,15 @@ bool VirtualCameraFrameSource::getFrameInfo(
     return true;
 }
 
+void VirtualCameraFrameSource::requestFormat(uint32_t format,
+                                              uint32_t width, uint32_t height) {
+    std::lock_guard<std::mutex> lock(mLock);
+    if (mHeader) {
+        mHeader->requestedFormat.store(format, std::memory_order_relaxed);
+        mHeader->requestedWidth.store(width, std::memory_order_relaxed);
+        mHeader->requestedHeight.store(height, std::memory_order_release);
+        ALOGI("V1 format negotiation: requested format=%u %ux%u", format, width, height);
+    }
+}
+
 }  // namespace

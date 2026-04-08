@@ -10,6 +10,7 @@
 #include <android/native_window_jni.h>
 #include <android/hardware_buffer.h>
 #include <android/log.h>
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -290,12 +291,58 @@ Java_com_example_vcamtest_MainActivity_nativeRenderFrame(
                  req.width, req.height, req.format);
         }
     } else {
-        // V1 path: render to frame buffer, copy to shared memory
-        renderTestPattern(renderer->frameBuffer.data(), w, h,
-                          renderer->frameCount, timestampMs,
-                          renderer->currentFps, false);
-        renderer->writerV1.writeFrame(renderer->frameBuffer.data(),
-                                      renderer->frameBuffer.size());
+        // V1 path: check if HAL wants a different format
+        uint32_t reqFmt = renderer->writerV1.getRequestedFormat();
+        if (reqFmt == vcam::FORMAT_YUV_420 &&
+            renderer->writerV1.getFormat() != vcam::FORMAT_YUV_420) {
+            renderer->writerV1.setOutputFormat(vcam::FORMAT_YUV_420);
+            LOGI("Switched to YUV 420 output (HAL negotiation)");
+        }
+
+        if (renderer->writerV1.getFormat() == vcam::FORMAT_YUV_420) {
+            // Render test pattern to RGBA first (reuse frameBuffer)
+            renderTestPattern(renderer->frameBuffer.data(), w, h,
+                              renderer->frameCount, timestampMs,
+                              renderer->currentFps, false);
+
+            // Convert RGBA to NV12 in-place for the writer
+            // Y plane: w*h bytes, UV plane: w*h/2 bytes (interleaved CbCr)
+            size_t yuvSize = w * h * 3 / 2;
+            std::vector<uint8_t> yuvBuf(yuvSize);
+            const uint8_t* rgba = renderer->frameBuffer.data();
+            uint8_t* yPlane = yuvBuf.data();
+            uint8_t* uvPlane = yPlane + w * h;
+
+            // Y plane
+            for (int y = 0; y < h; y++) {
+                for (int x = 0; x < w; x++) {
+                    int i = (y * w + x) * 4;
+                    int r = rgba[i], g = rgba[i+1], b = rgba[i+2];
+                    yPlane[y * w + x] = static_cast<uint8_t>(
+                        std::clamp(((66*r + 129*g + 25*b + 128) >> 8) + 16, 0, 255));
+                }
+            }
+            // UV plane (NV12: interleaved Cb, Cr)
+            for (int cy = 0; cy < h/2; cy++) {
+                for (int cx = 0; cx < w/2; cx++) {
+                    int i = (cy*2 * w + cx*2) * 4;
+                    int r = rgba[i], g = rgba[i+1], b = rgba[i+2];
+                    int cb = std::clamp(((-38*r - 74*g + 112*b + 128) >> 8) + 128, 0, 255);
+                    int cr = std::clamp(((112*r - 94*g - 18*b + 128) >> 8) + 128, 0, 255);
+                    uvPlane[cy * w + cx * 2]     = static_cast<uint8_t>(cb);
+                    uvPlane[cy * w + cx * 2 + 1] = static_cast<uint8_t>(cr);
+                }
+            }
+
+            renderer->writerV1.writeFrame(yuvBuf.data(), yuvSize);
+        } else {
+            // RGBA path (default)
+            renderTestPattern(renderer->frameBuffer.data(), w, h,
+                              renderer->frameCount, timestampMs,
+                              renderer->currentFps, false);
+            renderer->writerV1.writeFrame(renderer->frameBuffer.data(),
+                                          renderer->frameBuffer.size());
+        }
     }
 
     // Render to display window

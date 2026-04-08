@@ -194,19 +194,40 @@ void VirtualCameraWriter::shutdown() {
     LOGI("Shutdown complete");
 }
 
-void VirtualCameraWriter::writeFrame(const uint8_t* rgbaData, size_t size) {
+uint32_t VirtualCameraWriter::getRequestedFormat() const {
+    if (!mHeader) return 0;
+    return mHeader->requestedFormat.load(std::memory_order_acquire);
+}
+
+void VirtualCameraWriter::setOutputFormat(uint32_t format) {
+    mFormat = format;
+    if (mHeader) {
+        mHeader->format.store(format, std::memory_order_release);
+        // Update data size for the new format
+        size_t dataSize = (format == FORMAT_YUV_420)
+            ? (mWidth * mHeight * 3 / 2)
+            : (mWidth * mHeight * 4);
+        mHeader->dataSize.store(dataSize, std::memory_order_release);
+        mHeader->stride.store(mWidth, std::memory_order_release);
+        LOGI("Output format switched to %u, dataSize=%zu", format, dataSize);
+    }
+}
+
+void VirtualCameraWriter::writeFrame(const uint8_t* data, size_t size) {
     if (mFrameData == nullptr || mHeader == nullptr) {
         return;
     }
-    
-    size_t expectedSize = mWidth * mHeight * 4;
+
+    size_t expectedSize = (mFormat == FORMAT_YUV_420)
+        ? (mWidth * mHeight * 3 / 2)
+        : (mWidth * mHeight * 4);
     if (size != expectedSize) {
         LOGE("Frame size mismatch: %zu vs expected %zu", size, expectedSize);
         return;
     }
-    
+
     // Copy frame data
-    memcpy(mFrameData, rgbaData, size);
+    memcpy(mFrameData, data, size);
     
     // Update header
     auto now = std::chrono::steady_clock::now();

@@ -144,6 +144,14 @@ ndk::ScopedAStatus VirtualCameraSession::configureStreams(
               ahbFormat, primary.width, primary.height);
     }
 
+    // Also publish format request to v1 renderer via shared memory header
+    if (mFrameSource && !requestedConfiguration.streams.empty()) {
+        const auto& primary = requestedConfiguration.streams[0];
+        // Request YUV from v1 renderer to avoid RGBA→YUV conversion
+        mFrameSource->requestFormat(FORMAT_YUV_420,
+                                    primary.width, primary.height);
+    }
+
     ALOGI("Streams configured successfully");
     return ndk::ScopedAStatus::ok();
 }
@@ -641,74 +649,107 @@ void VirtualCameraSession::fillYuvBuffer(
     // Try to get frame from renderer first
     bool usedRendererFrame = false;
     if (mFrameSource && mFrameSource->isRendererActive()) {
-        // Allocate temp buffer for RGBA data from renderer
-        size_t rgbaSize = width * height * 4;
-        std::vector<uint8_t> rgbaBuffer(rgbaSize);
-        
+        uint32_t srcFormat = 0;
+        mFrameSource->getFrameInfo(nullptr, nullptr, &srcFormat);
+
+        // Allocate temp buffer for frame data from renderer
+        size_t bufSize = (srcFormat == FORMAT_YUV_420)
+            ? (width * height * 3 / 2)  // YUV420: Y + UV/2
+            : (width * height * 4);     // RGBA
+        std::vector<uint8_t> frameData(bufSize);
+
         uint32_t srcWidth, srcHeight;
         uint64_t timestamp;
-        
-        if (mFrameSource->acquireFrame(rgbaBuffer.data(), rgbaSize,
+
+        if (mFrameSource->acquireFrame(frameData.data(), bufSize,
                                        &srcWidth, &srcHeight, &timestamp)) {
             // Check dimensions match
-            if (srcWidth == static_cast<uint32_t>(width) && 
+            if (srcWidth == static_cast<uint32_t>(width) &&
                 srcHeight == static_cast<uint32_t>(height)) {
-                
-                // Convert RGBA to YUV
-                const uint8_t* rgba = rgbaBuffer.data();
-                
-                // Fill Y plane
-                for (int y = 0; y < height; y++) {
-                    for (int x = 0; x < width; x++) {
-                        int rgbaIdx = (y * width + x) * 4;
-                        uint8_t r = rgba[rgbaIdx + 0];
-                        uint8_t g = rgba[rgbaIdx + 1];
-                        uint8_t b = rgba[rgbaIdx + 2];
-                        // alpha at rgbaIdx + 3 ignored
-                        
-                        uint8_t yVal, cbVal, crVal;
-                        rgbaToYuv(r, g, b, &yVal, &cbVal, &crVal);
-                        
-                        yPlane[y * yStride + x] = yVal;
+
+                if (srcFormat == FORMAT_YUV_420) {
+                    // YUV passthrough — direct plane copy, no conversion!
+                    const uint8_t* srcY = frameData.data();
+                    const uint8_t* srcUV = srcY + width * height;
+
+                    // Copy Y plane
+                    for (int y = 0; y < height; y++) {
+                        memcpy(yPlane + y * yStride, srcY + y * width, width);
                     }
-                }
-                
-                // Fill UV planes (subsampled 2x2)
-                int chromaHeight = height / 2;
-                int chromaWidth = width / 2;
-                
-                for (int cy = 0; cy < chromaHeight; cy++) {
-                    for (int cx = 0; cx < chromaWidth; cx++) {
-                        // Sample center of 2x2 block
-                        int sx = cx * 2;
-                        int sy = cy * 2;
-                        int rgbaIdx = (sy * width + sx) * 4;
-                        
-                        uint8_t r = rgba[rgbaIdx + 0];
-                        uint8_t g = rgba[rgbaIdx + 1];
-                        uint8_t b = rgba[rgbaIdx + 2];
-                        
-                        uint8_t yVal, cbVal, crVal;
-                        rgbaToYuv(r, g, b, &yVal, &cbVal, &crVal);
-                        
-                        if (chromaStep == 2) {
-                            // Interleaved (NV12/NV21)
-                            cbPlane[cy * cStride + cx * 2] = cbVal;
-                            crPlane[cy * cStride + cx * 2] = crVal;
-                        } else {
-                            // Planar (I420)
-                            cbPlane[cy * cStride + cx] = cbVal;
-                            crPlane[cy * cStride + cx] = crVal;
+
+                    // Copy UV (source is interleaved NV12: CbCr pairs)
+                    int chromaHeight = height / 2;
+                    int chromaWidth = width / 2;
+                    if (chromaStep == 2) {
+                        // Dest is also interleaved — direct row copy
+                        for (int cy = 0; cy < chromaHeight; cy++) {
+                            memcpy(cbPlane + cy * cStride,
+                                   srcUV + cy * width, width);
+                        }
+                    } else {
+                        // Dest is planar (I420) — deinterleave
+                        for (int cy = 0; cy < chromaHeight; cy++) {
+                            for (int cx = 0; cx < chromaWidth; cx++) {
+                                cbPlane[cy * cStride + cx] = srcUV[cy * width + cx * 2];
+                                crPlane[cy * cStride + cx] = srcUV[cy * width + cx * 2 + 1];
+                            }
                         }
                     }
+
+                    if (frameNumber % 100 == 0) {
+                        ALOGI("YUV passthrough frame %lu (zero conversion)",
+                              (unsigned long)timestamp);
+                    }
+                } else {
+                    // RGBA → YUV conversion (fallback)
+                    const uint8_t* rgba = frameData.data();
+
+                    for (int y = 0; y < height; y++) {
+                        for (int x = 0; x < width; x++) {
+                            int rgbaIdx = (y * width + x) * 4;
+                            uint8_t r = rgba[rgbaIdx + 0];
+                            uint8_t g = rgba[rgbaIdx + 1];
+                            uint8_t b = rgba[rgbaIdx + 2];
+
+                            uint8_t yVal, cbVal, crVal;
+                            rgbaToYuv(r, g, b, &yVal, &cbVal, &crVal);
+
+                            yPlane[y * yStride + x] = yVal;
+                        }
+                    }
+
+                    int chromaHeight = height / 2;
+                    int chromaWidth = width / 2;
+                    for (int cy = 0; cy < chromaHeight; cy++) {
+                        for (int cx = 0; cx < chromaWidth; cx++) {
+                            int sx = cx * 2;
+                            int sy = cy * 2;
+                            int rgbaIdx = (sy * width + sx) * 4;
+                            uint8_t r = rgba[rgbaIdx + 0];
+                            uint8_t g = rgba[rgbaIdx + 1];
+                            uint8_t b = rgba[rgbaIdx + 2];
+
+                            uint8_t yVal, cbVal, crVal;
+                            rgbaToYuv(r, g, b, &yVal, &cbVal, &crVal);
+
+                            if (chromaStep == 2) {
+                                cbPlane[cy * cStride + cx * 2] = cbVal;
+                                crPlane[cy * cStride + cx * 2] = crVal;
+                            } else {
+                                cbPlane[cy * cStride + cx] = cbVal;
+                                crPlane[cy * cStride + cx] = crVal;
+                            }
+                        }
+                    }
+
+                    if (frameNumber % 100 == 0) {
+                        ALOGI("Using renderer frame %lu (RGBA→YUV)",
+                              (unsigned long)timestamp);
+                    }
                 }
-                
+
                 usedRendererFrame = true;
                 mLastFrameTimestamp = timestamp;
-                
-                if (frameNumber % 100 == 0) {
-                    ALOGI("Using renderer frame %lu", (unsigned long)timestamp);
-                }
             } else {
                 ALOGW("Renderer frame size mismatch: %ux%u vs %dx%d",
                       srcWidth, srcHeight, width, height);
