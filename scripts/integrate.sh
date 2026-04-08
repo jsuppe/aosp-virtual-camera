@@ -83,6 +83,8 @@ if [[ "$AIDL_VERSION" == "v1" ]]; then
     # A13 uses different include path for HandleImporter
     sed -i 's|camera/common/default/include|camera/common/1.0/default/include|g' \
         "$HAL_DEST/core/Android.bp" "$HAL_DEST/aidl/Android.bp"
+    # Set A13 compat flag so HandleImporterCompat.h uses HIDL types
+    sed -i 's/"-Wall"/"-Wall", "-DVCAM_COMPAT_A13=1"/' "$HAL_DEST/core/Android.bp"
 fi
 
 echo "   ✓ HAL source copied (core + aidl-${AIDL_VERSION})"

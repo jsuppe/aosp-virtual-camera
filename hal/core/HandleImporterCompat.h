@@ -10,15 +10,14 @@
 
 #include <HandleImporter.h>
 
-// Detect which HandleImporter version we're building against
-#if __has_include(<ui/Rect.h>)
-    // A15+ (AIDL camera.common-helper) — uses android::Rect and android_ycbcr
-    #include <ui/Rect.h>
-    #define VCAM_COMPAT_A15 1
-#else
+// VCAM_COMPAT_A13 is set via cflags by integrate.sh for A13 builds.
+// If not set, assume A15+ (AIDL camera.common-helper).
+#ifdef VCAM_COMPAT_A13
     // A13 (HIDL camera.common@1.0-helper) — uses V2.0 IMapper types
     #include <android/hardware/graphics/mapper/2.0/IMapper.h>
-    #define VCAM_COMPAT_A13 1
+#else
+    // A15+ (AIDL camera.common-helper) — uses android::Rect and android_ycbcr
+    #include <ui/Rect.h>
 #endif
 
 namespace virtualcamera {
@@ -47,16 +46,7 @@ inline YCbCrBuffer lockYCbCrCompat(HandleImporter& importer,
                                     int width, int height) {
     YCbCrBuffer result;
 
-#ifdef VCAM_COMPAT_A15
-    ::android::Rect region(0, 0, width, height);
-    android_ycbcr ycbcr = importer.lockYCbCr(handle, usage, region);
-    result.y = ycbcr.y;
-    result.cb = ycbcr.cb;
-    result.cr = ycbcr.cr;
-    result.ystride = ycbcr.ystride;
-    result.cstride = ycbcr.cstride;
-    result.chroma_step = ycbcr.chroma_step;
-#else
+#ifdef VCAM_COMPAT_A13
     using IMapper = ::android::hardware::graphics::mapper::V2_0::IMapper;
     IMapper::Rect region{0, 0, static_cast<int32_t>(width), static_cast<int32_t>(height)};
     auto layout = importer.lockYCbCr(handle, usage, region);
@@ -66,6 +56,15 @@ inline YCbCrBuffer lockYCbCrCompat(HandleImporter& importer,
     result.ystride = layout.yStride;
     result.cstride = layout.cStride;
     result.chroma_step = layout.chromaStep;
+#else
+    ::android::Rect region(0, 0, width, height);
+    android_ycbcr ycbcr = importer.lockYCbCr(handle, usage, region);
+    result.y = ycbcr.y;
+    result.cb = ycbcr.cb;
+    result.cr = ycbcr.cr;
+    result.ystride = ycbcr.ystride;
+    result.cstride = ycbcr.cstride;
+    result.chroma_step = ycbcr.chroma_step;
 #endif
 
     return result;
