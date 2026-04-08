@@ -16,8 +16,8 @@
     #include <ui/Rect.h>
     #define VCAM_COMPAT_A15 1
 #else
-    // A13 (HIDL camera.common@1.0-helper) — uses IMapper::Rect and YCbCrLayout
-    #include <android/hardware/graphics/mapper/4.0/IMapper.h>
+    // A13 (HIDL camera.common@1.0-helper) — uses V2.0 IMapper types
+    #include <android/hardware/graphics/mapper/2.0/IMapper.h>
     #define VCAM_COMPAT_A13 1
 #endif
 
@@ -57,8 +57,8 @@ inline YCbCrBuffer lockYCbCrCompat(HandleImporter& importer,
     result.cstride = ycbcr.cstride;
     result.chroma_step = ycbcr.chroma_step;
 #else
-    using IMapper = ::android::hardware::graphics::mapper::V4_0::IMapper;
-    IMapper::Rect region{0, 0, width, height};
+    using IMapper = ::android::hardware::graphics::mapper::V2_0::IMapper;
+    IMapper::Rect region{0, 0, static_cast<int32_t>(width), static_cast<int32_t>(height)};
     auto layout = importer.lockYCbCr(handle, usage, region);
     result.y = layout.y;
     result.cb = layout.cb;
