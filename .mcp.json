@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "zoekt-aosp": {
+      "command": "ssh",
+      "args": [
+        "melchior",
+        "/home/jsuppe/zoekt-mcp-venv/bin/python3",
+        "/home/jsuppe/zoekt-mcp-server.py"
+      ]
+    },
+    "sepolicy-aosp": {
+      "command": "ssh",
+      "args": [
+        "melchior",
+        "AOSP_TREE_A15=/mnt/micron/aosp",
+        "AOSP_TREE_A13=/mnt/micron/aosp-a13",
+        "AOSP_DEFAULT_TREE=a15",
+        "/home/jsuppe/sepolicy-mcp/venv/bin/python3",
+        "/home/jsuppe/sepolicy-mcp/sepolicy_mcp/server.py"
+      ]
+    }
+  }
+}
