@@ -4,8 +4,13 @@
       "command": "ssh",
       "args": [
         "melchior",
+        "ZOEKT_INDEX_DIR=/mnt/micron/zoekt-ctags-idx",
+        "ZOEKT_BIN=/mnt/micron/zoekt-index/zoekt",
+        "ZOEKT_TREE_A15=/mnt/micron/aosp",
+        "ZOEKT_TREE_A13=/mnt/micron/aosp-a13",
+        "ZOEKT_DEFAULT_TREE=a15",
         "/home/jsuppe/zoekt-mcp-venv/bin/python3",
-        "/home/jsuppe/zoekt-mcp-server.py"
+        "/home/jsuppe/zoekt-mcp/zoekt_mcp_server.py"
       ]
     },
     "sepolicy-aosp": {
@@ -17,6 +22,17 @@
         "AOSP_DEFAULT_TREE=a15",
         "/home/jsuppe/sepolicy-mcp/venv/bin/python3",
         "/home/jsuppe/sepolicy-mcp/sepolicy_mcp/server.py"
+      ]
+    },
+    "aosp-devtools": {
+      "command": "ssh",
+      "args": [
+        "melchior",
+        "AOSP_TREE=/mnt/micron/aosp",
+        "AOSP_LUNCH=aosp_cf_x86_64_only_phone-trunk_staging-userdebug",
+        "AOSP_BUILD_SESSION=vcam_build",
+        "/home/jsuppe/aosp-devtools-mcp/venv/bin/python3",
+        "/home/jsuppe/aosp-devtools-mcp/aosp_devtools/server.py"
       ]
     }
   }
