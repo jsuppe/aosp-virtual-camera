@@ -24,6 +24,17 @@
         "/home/jsuppe/sepolicy-mcp/sepolicy_mcp/server.py"
       ]
     },
+    "soong-aosp": {
+      "command": "ssh",
+      "args": [
+        "melchior",
+        "AOSP_TREE_A15=/mnt/micron/aosp",
+        "AOSP_TREE_A13=/mnt/micron/aosp-a13",
+        "AOSP_DEFAULT_TREE=a15",
+        "/home/jsuppe/soong-mcp/venv/bin/python3",
+        "/home/jsuppe/soong-mcp/soong_mcp/server.py"
+      ]
+    },
     "aosp-devtools": {
       "command": "ssh",
       "args": [
