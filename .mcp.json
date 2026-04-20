@@ -25,26 +25,14 @@
       ]
     },
     "soong-aosp": {
+      "disabled": true,
       "command": "ssh",
-      "args": [
-        "melchior",
-        "AOSP_TREE_A15=/mnt/micron/aosp",
-        "AOSP_TREE_A13=/mnt/micron/aosp-a13",
-        "AOSP_DEFAULT_TREE=a15",
-        "/home/jsuppe/soong-mcp/venv/bin/python3",
-        "/home/jsuppe/soong-mcp/soong_mcp/server.py"
-      ]
+      "args": ["melchior", "/home/jsuppe/soong-mcp/venv/bin/python3", "/home/jsuppe/soong-mcp/soong_mcp/server.py"]
     },
     "aosp-devtools": {
+      "disabled": true,
       "command": "ssh",
-      "args": [
-        "melchior",
-        "AOSP_TREE=/mnt/micron/aosp",
-        "AOSP_LUNCH=aosp_cf_x86_64_only_phone-trunk_staging-userdebug",
-        "AOSP_BUILD_SESSION=vcam_build",
-        "/home/jsuppe/aosp-devtools-mcp/venv/bin/python3",
-        "/home/jsuppe/aosp-devtools-mcp/aosp_devtools/server.py"
-      ]
+      "args": ["melchior", "/home/jsuppe/aosp-devtools-mcp/venv/bin/python3", "/home/jsuppe/aosp-devtools-mcp/aosp_devtools/server.py"]
     }
   }
 }
