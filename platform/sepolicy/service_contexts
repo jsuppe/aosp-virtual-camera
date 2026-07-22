@@ -1,2 +1,3 @@
 virtual_camera                            u:object_r:virtual_camera_user_service:s0
 virtual_camera_manager                    u:object_r:virtual_camera_manager_service:s0
+android.hardware.camera.provider.ICameraProvider/virtual_renderer/0 u:object_r:virtual_camera_provider_service:s0

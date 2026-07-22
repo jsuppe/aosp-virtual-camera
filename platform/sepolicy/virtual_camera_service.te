@@ -3,4 +3,4 @@ type virtual_camera_user_service, app_api_service, system_server_service, servic
 type virtual_camera_manager_service, system_server_service, service_manager_type;
 
 # Producer apps look up "virtual_camera"
-allow appdomain virtual_camera_user_service:service_manager find;
+allow { appdomain -isolated_app } virtual_camera_user_service:service_manager find;

@@ -118,6 +118,14 @@ done < "$SCRIPT_DIR/platform/sepolicy/service_contexts"
 grep -q "virtual_camera_hal_exec" "$SEPOLICY_DEST/file_contexts" 2>/dev/null || \
     cat "$SCRIPT_DIR/platform/sepolicy/file_contexts_fragment" >> "$SEPOLICY_DEST/file_contexts"
 
+# Remove stale vendor-side service_contexts entry (provider is system_ext now,
+# labeled virtual_camera_provider_service from system_ext service_contexts)
+VENDOR_SC="$AOSP_ROOT/device/google/cuttlefish/shared/sepolicy/vendor/service_contexts"
+if grep -q "virtual_renderer" "$VENDOR_SC" 2>/dev/null; then
+    sed -i "\#virtual_renderer#d" "$VENDOR_SC"
+    echo "removed vendor service_contexts entry"
+fi
+
 echo "=== [7/7] PRODUCT_PACKAGES ==="
 grep -q "VCamProducer" "$DEVICE_MK" || cat >> "$DEVICE_MK" << "EOF"
 

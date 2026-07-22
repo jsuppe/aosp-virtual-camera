@@ -16,8 +16,11 @@ binder_call(system_server, virtual_camera_hal)
 binder_call(virtual_camera_hal, appdomain)
 binder_call(appdomain, virtual_camera_hal)
 
-# Serve ICameraProvider/virtual_renderer/0 (instance labeled hal_camera_service)
-hal_server_domain(virtual_camera_hal, hal_camera)
+# Serve ICameraProvider/virtual_renderer/0 under a dedicated service type.
+# (Cannot reuse hal_camera_service: neverallow coredomain vendor_service:add.)
+type virtual_camera_provider_service, service_manager_type;
+add_service(virtual_camera_hal, virtual_camera_provider_service)
+allow cameraserver virtual_camera_provider_service:service_manager find;
 
 # Reach VirtualCameraService (system_server) manager interface
 allow virtual_camera_hal virtual_camera_manager_service:service_manager find;
