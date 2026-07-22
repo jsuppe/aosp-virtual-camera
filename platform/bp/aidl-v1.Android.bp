@@ -11,7 +11,8 @@ cc_library_shared {
     name: "android.hardware.camera.provider-V1-virtual-impl",
     defaults: ["hidl_defaults"],
     system_ext_specific: true,
-    relative_install_path: "hw",
+    // no relative_install_path: /system_ext/lib64/hw is not in the system
+    // linker search path (unlike the vendor namespace)
 
     srcs: [
         "VirtualCameraProvider.cpp",
