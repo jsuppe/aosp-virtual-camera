@@ -2,10 +2,10 @@
  * Virtual Camera Service - AIDL Interface
  * @hide
  */
-package android.hardware.camera.virtual;
+package android.hardware.virtualcamera;
 
-import android.hardware.camera.virtual.IVirtualCameraCallback;
-import android.hardware.camera.virtual.VirtualCameraConfig;
+import android.hardware.virtualcamera.IVirtualCameraCallback;
+import android.hardware.virtualcamera.VirtualCameraConfig;
 
 /**
  * System service interface for virtual camera management.

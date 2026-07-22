@@ -1,0 +1,48 @@
+// Virtual camera platform AIDL — built two ways:
+//  - java lib: linked into services.core (system_server) and the test apps
+//  - cpp lib:  linked by the (system_ext) HAL process
+// Plain aidl compilation (not aidl_interface): unstable/internal API, uses
+// framework parcelables (android.view.Surface) which have no NDK backend on A13.
+
+package {
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
+filegroup {
+    name: "virtual-camera-aidl-srcs",
+    srcs: ["android/hardware/virtualcamera/*.aidl"],
+    path: ".",
+}
+
+java_library {
+    name: "virtual-camera-aidl-java",
+    platform_apis: true,
+    srcs: [":virtual-camera-aidl-srcs"],
+    aidl: {
+        include_dirs: [
+            "frameworks/base/core/java",
+            "hardware/interfaces/camera/provider/virtual/platform-aidl",
+        ],
+    },
+}
+
+cc_library_shared {
+    name: "libvirtualcamera_platform_aidl",
+    system_ext_specific: true,
+    srcs: [":virtual-camera-aidl-srcs"],
+    aidl: {
+        local_include_dirs: ["."],
+        include_dirs: [
+            "frameworks/native/aidl/gui",
+        ],
+        export_aidl_headers: true,
+    },
+    shared_libs: [
+        "libbinder",
+        "libgui",
+        "libui",
+        "libutils",
+        "liblog",
+    ],
+    cflags: ["-Wall", "-Wno-unused-parameter"],
+}

@@ -26,6 +26,7 @@
 
 // Core frame filling
 #include "FrameFiller.h"
+#include "AidlFrameSource.h"
 
 namespace aidl::android::hardware::camera::provider::implementation {
 
@@ -41,10 +42,12 @@ HandleImporter VirtualCameraSession::sHandleImporter;
 VirtualCameraSession::VirtualCameraSession(
         const std::shared_ptr<ICameraDeviceCallback>& callback,
         std::shared_ptr<virtualcamera::VirtualCameraFrameSource> frameSource,
-        std::shared_ptr<virtualcamera::VirtualCameraFrameSourceV2> frameSourceV2)
+        std::shared_ptr<virtualcamera::VirtualCameraFrameSourceV2> frameSourceV2,
+        std::shared_ptr<virtualcamera::AidlFrameSource> aidlSource)
     : mCallback(callback),
       mFrameSource(frameSource),
-      mFrameSourceV2(frameSourceV2) {
+      mFrameSourceV2(frameSourceV2),
+      mAidlSource(aidlSource) {
     ALOGI("VirtualCameraSession created (AIDL V1 adapter, v1 + v2 frame sources)");
 }
 
@@ -64,6 +67,11 @@ VirtualCameraSession::~VirtualCameraSession() {
 
 ndk::ScopedAStatus VirtualCameraSession::close() {
     ALOGI("Session close requested");
+#ifdef VCAM_AIDL_SOURCE
+    if (mAidlSource && !mClosed) {
+        mAidlSource->sessionClosed();
+    }
+#endif
     mClosed = true;
     return ndk::ScopedAStatus::ok();
 }
@@ -147,6 +155,15 @@ ndk::ScopedAStatus VirtualCameraSession::configureStreams(
         ALOGI("V2 format negotiation: requested AHB format=%d %dx%d",
               ahbFormat, primary.width, primary.height);
     }
+
+#ifdef VCAM_AIDL_SOURCE
+    // Platform relay mode: create the BufferQueue and deliver the Surface to
+    // the registered producer app (via VirtualCameraService in system_server).
+    if (mAidlSource && !requestedConfiguration.streams.empty()) {
+        const auto& primary = requestedConfiguration.streams[0];
+        mAidlSource->configureStreams(primary.width, primary.height, 30);
+    }
+#endif
 
     // Also publish format request to v1 renderer
     if (mFrameSource && !requestedConfiguration.streams.empty()) {
@@ -318,7 +335,14 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
 
             // Delegate frame filling to core — try v2 zero-copy first, fall back to v1
             bool filled = false;
-            if (mFrameSourceV2 && mFrameSourceV2->isActive()) {
+#ifdef VCAM_AIDL_SOURCE
+            if (mAidlSource) {
+                mAidlSource->retryIfNeeded();
+                filled = mAidlSource->fillLatestInto(sHandleImporter, handle,
+                                                     width, height);
+            }
+#endif
+            if (!filled && mFrameSourceV2 && mFrameSourceV2->isActive()) {
                 filled = virtualcamera::FrameFiller::fillBufferFromV2(
                     sHandleImporter, handle, width, height,
                     mFrameSourceV2.get());

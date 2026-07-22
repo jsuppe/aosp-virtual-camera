@@ -1,0 +1,6 @@
+# Binder services published by VirtualCameraService in system_server.
+type virtual_camera_user_service, app_api_service, system_server_service, service_manager_type;
+type virtual_camera_manager_service, system_server_service, service_manager_type;
+
+# Producer apps look up "virtual_camera"
+allow appdomain virtual_camera_user_service:service_manager find;

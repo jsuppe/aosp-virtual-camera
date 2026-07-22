@@ -1,0 +1,26 @@
+# Virtual camera provider HAL (system_ext, platform-AIDL prototype).
+# Prototype-grade policy: enough for init to start the service in the right
+# domain and for the core binder paths; run the prototype VM permissive to
+# surface any residual denials for later hardening.
+type virtual_camera_hal, domain, coredomain;
+type virtual_camera_hal_exec, system_file_type, exec_type, file_type;
+
+init_daemon_domain(virtual_camera_hal)
+
+# Binder IPC
+binder_use(virtual_camera_hal)
+binder_call(virtual_camera_hal, cameraserver)
+binder_call(cameraserver, virtual_camera_hal)
+binder_call(virtual_camera_hal, system_server)
+binder_call(system_server, virtual_camera_hal)
+binder_call(virtual_camera_hal, appdomain)
+binder_call(appdomain, virtual_camera_hal)
+
+# Serve ICameraProvider/virtual_renderer/0 (instance labeled hal_camera_service)
+hal_server_domain(virtual_camera_hal, hal_camera)
+
+# Reach VirtualCameraService (system_server) manager interface
+allow virtual_camera_hal virtual_camera_manager_service:service_manager find;
+
+# Gralloc allocation for the BufferQueues this HAL owns
+hal_client_domain(virtual_camera_hal, hal_graphics_allocator)

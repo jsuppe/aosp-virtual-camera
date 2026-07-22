@@ -2,7 +2,7 @@
  * Virtual Camera Configuration
  * @hide
  */
-package android.hardware.camera.virtual;
+package android.hardware.virtualcamera;
 
 /**
  * Configuration for registering a virtual camera.

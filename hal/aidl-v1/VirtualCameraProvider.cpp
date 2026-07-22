@@ -6,6 +6,7 @@
 
 #include "VirtualCameraProvider.h"
 #include "VirtualCameraDevice.h"
+#include "AidlFrameSource.h"
 
 #include <log/log.h>
 #include <aidl/android/hardware/camera/common/Status.h>
@@ -32,6 +33,13 @@ VirtualCameraProvider::VirtualCameraProvider() {
     } else {
         ALOGE("Failed to start FrameSource v2 socket server");
     }
+
+#ifdef VCAM_AIDL_SOURCE
+    // Platform relay mode: frames arrive from a producer app registered with
+    // VirtualCameraService (system_server) via BufferQueues owned by this HAL.
+    mAidlSource = std::make_shared<virtualcamera::AidlFrameSource>();
+    ALOGI("AIDL frame source created (platform relay mode)");
+#endif
 }
 
 VirtualCameraProvider::~VirtualCameraProvider() {
@@ -82,7 +90,7 @@ ndk::ScopedAStatus VirtualCameraProvider::getCameraDeviceInterface(
 
     ALOGI("Creating device interface for: %s", cameraDeviceId.c_str());
     *device = ndk::SharedRefBase::make<VirtualCameraDevice>(
-        cameraDeviceId, mFrameSource, mFrameSourceV2);
+        cameraDeviceId, mFrameSource, mFrameSourceV2, mAidlSource);
     return ndk::ScopedAStatus::ok();
 }
 

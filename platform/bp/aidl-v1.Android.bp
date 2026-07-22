@@ -1,0 +1,106 @@
+/*
+ * Virtual Camera HAL - A13 PLATFORM build (system_ext, AIDL relay mode)
+ * Installed by integrate-a13-platform.sh over aidl/Android.bp.
+ */
+
+package {
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
+cc_library_shared {
+    name: "android.hardware.camera.provider-V1-virtual-impl",
+    defaults: ["hidl_defaults"],
+    system_ext_specific: true,
+    relative_install_path: "hw",
+
+    srcs: [
+        "VirtualCameraProvider.cpp",
+        "VirtualCameraDevice.cpp",
+        "VirtualCameraSession.cpp",
+    ],
+
+    shared_libs: [
+        "android.hardware.camera.common-V1-ndk",
+        "android.hardware.camera.device-V1-ndk",
+        "android.hardware.camera.provider-V1-ndk",
+        "android.hardware.graphics.mapper@2.0",
+        "android.hardware.graphics.mapper@3.0",
+        "android.hardware.graphics.mapper@4.0",
+        "android.hidl.allocator@1.0",
+        "android.hidl.memory@1.0",
+        "libbinder",
+        "libbinder_ndk",
+        "libcamera_metadata",
+        "libcutils",
+        "libfmq",
+        "libgralloctypes",
+        "libgui",
+        "libhardware",
+        "libhidlbase",
+        "liblog",
+        "libui",
+        "libutils",
+        "libbase",
+        "libnativewindow",
+        "libsync",
+        "libvirtualcamera_platform_aidl",
+    ],
+
+    static_libs: [
+        "android.hardware.camera.common@1.0-helper",
+        "libaidlcommonsupport",
+        "virtual-camera-core",
+    ],
+
+    include_dirs: [
+        "hardware/interfaces/camera/common/1.0/default/include",
+        "hardware/interfaces/camera/provider/v2-shared-memory",
+        "hardware/interfaces/camera/provider/virtual/core",
+    ],
+
+    local_include_dirs: ["."],
+
+    cflags: [
+        "-Wall", "-DVCAM_COMPAT_A13=1", "-DVCAM_AIDL_SOURCE=1",
+        "-Wno-unused-parameter",
+    ],
+
+    export_include_dirs: ["."],
+}
+
+cc_binary {
+    name: "android.hardware.camera.provider-virtual-service",
+    defaults: ["hidl_defaults"],
+    system_ext_specific: true,
+    relative_install_path: "hw",
+
+    init_rc: ["android.hardware.camera.provider-virtual-service.rc"],
+    vintf_fragments: ["android.hardware.camera.provider-virtual-service.xml"],
+
+    srcs: ["service.cpp"],
+
+    include_dirs: [
+        "hardware/interfaces/camera/provider/virtual/core",
+        "hardware/interfaces/camera/provider/v2-shared-memory",
+        "hardware/interfaces/camera/common/1.0/default/include",
+    ],
+
+    shared_libs: [
+        "android.hardware.camera.common-V1-ndk",
+        "android.hardware.camera.device-V1-ndk",
+        "android.hardware.camera.provider-V1-ndk",
+        "android.hardware.camera.provider-V1-virtual-impl",
+        "libbinder_ndk",
+        "libhidlbase",
+        "liblog",
+        "libnativewindow",
+        "libutils",
+        "libbase",
+    ],
+
+    static_libs: [
+        "android.hardware.camera.common@1.0-helper",
+    ],
+
+    cflags: ["-DVCAM_COMPAT_A13=1", "-DVCAM_AIDL_SOURCE=1"],
+}

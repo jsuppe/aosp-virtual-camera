@@ -1,0 +1,11 @@
+package {
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
+android_app {
+    name: "VCamProducer",
+    srcs: ["src/**/*.java"],
+    platform_apis: true,
+    certificate: "platform",
+    static_libs: ["virtual-camera-aidl-java"],
+}

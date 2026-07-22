@@ -15,6 +15,7 @@
 namespace virtualcamera {
 class VirtualCameraFrameSource;
 class VirtualCameraFrameSourceV2;
+class AidlFrameSource;
 }
 
 namespace aidl::android::hardware::camera::provider::implementation {
@@ -30,6 +31,10 @@ public:
     }
     std::shared_ptr<virtualcamera::VirtualCameraFrameSourceV2> getFrameSourceV2() const {
         return mFrameSourceV2;
+    }
+
+    std::shared_ptr<virtualcamera::AidlFrameSource> getAidlSource() const {
+        return mAidlSource;
     }
 
     // ICameraProvider interface
@@ -60,6 +65,7 @@ private:
     std::shared_ptr<ICameraProviderCallback> mCallback;
     std::shared_ptr<virtualcamera::VirtualCameraFrameSource> mFrameSource;
     std::shared_ptr<virtualcamera::VirtualCameraFrameSourceV2> mFrameSourceV2;
+    std::shared_ptr<virtualcamera::AidlFrameSource> mAidlSource;
 
     // Format: device@<major>.<minor>/<type>/<id>
     // Note: ID must be unique across all camera providers (0-2 used by internal/0)

@@ -1,0 +1,19 @@
+// virtual-camera-service — statically linked into the "services" jar
+// (see integrate-a13-platform.sh: adds this to frameworks/base/services/Android.bp
+// static_libs and registers the Lifecycle in SystemServer).
+
+package {
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
+java_library {
+    name: "virtual-camera-service",
+    platform_apis: true,
+    srcs: ["java/**/*.java"],
+    static_libs: [
+        "virtual-camera-aidl-java",
+    ],
+    libs: [
+        "services.core",
+    ],
+}

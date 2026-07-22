@@ -16,6 +16,10 @@
 // Core types
 #include "VirtualCameraFrameSource.h"
 #include "VirtualCameraFrameSourceV2.h"
+
+namespace virtualcamera {
+class AidlFrameSource;
+}
 #include "MetadataBuilder.h"
 
 namespace aidl::android::hardware::camera::provider::implementation {
@@ -27,7 +31,8 @@ class VirtualCameraDevice : public BnCameraDevice {
 public:
     VirtualCameraDevice(const std::string& cameraId,
                         std::shared_ptr<virtualcamera::VirtualCameraFrameSource> frameSource,
-                        std::shared_ptr<virtualcamera::VirtualCameraFrameSourceV2> frameSourceV2);
+                        std::shared_ptr<virtualcamera::VirtualCameraFrameSourceV2> frameSourceV2,
+                        std::shared_ptr<virtualcamera::AidlFrameSource> aidlSource = nullptr);
     ~VirtualCameraDevice() override = default;
 
     // ICameraDevice V1 interface
@@ -64,6 +69,7 @@ private:
     std::mutex mLock;
     std::shared_ptr<virtualcamera::VirtualCameraFrameSource> mFrameSource;
     std::shared_ptr<virtualcamera::VirtualCameraFrameSourceV2> mFrameSourceV2;
+    std::shared_ptr<virtualcamera::AidlFrameSource> mAidlSource;
 
     CameraMetadata mCharacteristics;
 };

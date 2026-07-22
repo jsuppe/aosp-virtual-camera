@@ -19,8 +19,10 @@ using aidl::android::hardware::camera::common::Status;
 VirtualCameraDevice::VirtualCameraDevice(
         const std::string& cameraId,
         std::shared_ptr<virtualcamera::VirtualCameraFrameSource> frameSource,
-        std::shared_ptr<virtualcamera::VirtualCameraFrameSourceV2> frameSourceV2)
-    : mCameraId(cameraId), mFrameSource(frameSource), mFrameSourceV2(frameSourceV2) {
+        std::shared_ptr<virtualcamera::VirtualCameraFrameSourceV2> frameSourceV2,
+        std::shared_ptr<virtualcamera::AidlFrameSource> aidlSource)
+    : mCameraId(cameraId), mFrameSource(frameSource), mFrameSourceV2(frameSourceV2),
+      mAidlSource(aidlSource) {
     ALOGI("VirtualCameraDevice created: %s", cameraId.c_str());
     mCharacteristics.metadata = virtualcamera::MetadataBuilder::buildCameraCharacteristics();
 }
@@ -71,7 +73,7 @@ ndk::ScopedAStatus VirtualCameraDevice::open(
     }
 
     *_aidl_return = ndk::SharedRefBase::make<VirtualCameraSession>(
-        callback, mFrameSource, mFrameSourceV2);
+        callback, mFrameSource, mFrameSourceV2, mAidlSource);
     ALOGI("Camera session created successfully");
     return ndk::ScopedAStatus::ok();
 }

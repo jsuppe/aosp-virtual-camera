@@ -1,12 +1,18 @@
 /*
  * IVirtualCameraManager - HAL to Service Interface
+ *
+ * A13-compatible design: the HAL owns the BufferQueues and passes the
+ * producer-side Surfaces up to the service, which relays them to the
+ * registered renderer app (IVirtualCameraCallback.onStreamsConfigured).
+ * Frames then flow zero-copy through the BufferQueue without crossing
+ * this interface.
  * @hide
  */
-package android.hardware.camera.virtual;
+package android.hardware.virtualcamera;
 
-import android.hardware.camera.virtual.VirtualCameraConfig;
-import android.hardware.camera.virtual.StreamConfig;
-import android.hardware.HardwareBuffer;
+import android.hardware.virtualcamera.VirtualCameraConfig;
+import android.hardware.virtualcamera.StreamConfig;
+import android.view.Surface;
 
 /**
  * Interface for Camera HAL to interact with VirtualCameraService.
@@ -16,11 +22,9 @@ interface IVirtualCameraManager {
     int[] getRegisteredCameraIds();
     VirtualCameraConfig getCameraConfig(int cameraId);
     void notifyCameraOpened(int cameraId);
-    void notifyStreamsConfigured(int cameraId, in StreamConfig[] streams);
+    /** HAL created one BufferQueue per stream; surfaces[i] is the producer end for streams[i]. */
+    void notifyStreamsConfigured(int cameraId, in StreamConfig[] streams, in Surface[] surfaces);
     void notifyCaptureStarted(int cameraId, int frameRate);
     void notifyCaptureStopped(int cameraId);
     void notifyCameraClosed(int cameraId);
-    @nullable HardwareBuffer acquireBuffer(int cameraId, int streamId);
-    void releaseBuffer(int cameraId, int streamId, in HardwareBuffer buffer);
-    @nullable HardwareBuffer requestStillCapture(int cameraId, int captureId);
 }
