@@ -42,10 +42,11 @@ cat > "$HAL_DEST/Android.bp" << "EOF"
 EOF
 
 echo "=== [2/7] Platform AIDL lib ==="
+rm -rf "$HAL_DEST/platform-aidl"
+cp -r "$SCRIPT_DIR/platform/aidl-lib" "$HAL_DEST/platform-aidl"
 AIDL_DEST="$HAL_DEST/platform-aidl/android/hardware/virtualcamera"
 mkdir -p "$AIDL_DEST"
 cp "$SCRIPT_DIR"/aidl/*.aidl "$AIDL_DEST/"
-cp "$SCRIPT_DIR/platform/aidl-lib/Android.bp" "$HAL_DEST/platform-aidl/Android.bp"
 
 echo "=== [3/7] VirtualCameraService java lib ==="
 SVC_DEST="$HAL_DEST/platform-service"

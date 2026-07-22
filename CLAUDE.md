@@ -32,3 +32,23 @@ Virtual camera HAL for AOSP that lets renderer apps provide frames to consumer a
 - HAL includes v2 headers via `include_dirs` (not relative paths — soong doesn't allow `..`)
 - v2 socket path: `/data/local/tmp/virtual_camera_v2.sock`
 - v1 socket path: `/data/local/tmp/virtual_camera.sock`
+
+## A13 Platform-AIDL Mode (branch a13-platform-aidl)
+
+Producer apps register via platform AIDL instead of the Unix socket:
+
+- **AIDL package:** `android.hardware.virtualcamera` (renamed — `virtual` is a C++ keyword, cpp backend)
+- **Flow:** producer app → `IVirtualCameraService.registerCamera()` (system_server) →
+  consumer opens camera 100 → HAL creates BufferQueue, sends Surface via
+  `IVirtualCameraManager.notifyStreamsConfigured()` → service relays to producer
+  `IVirtualCameraCallback.onStreamsConfigured()` → producer draws → HAL converts
+  RGBA→YUV into camera output buffers (`AidlFrameSource`, `VCAM_AIDL_SOURCE` builds only)
+- **Why relay design:** A13 has no NDK-AIDL HardwareBuffer/Surface; HAL moved to
+  system_ext (coredomain) so it can use libgui — mirrors AOSP V virtual camera
+- **A13 tree:** /mnt/micron/aosp-a13, target `aosp_cf_x86_64_phone-userdebug`
+- **Integrate:** `scripts/integrate-a13-platform.sh /mnt/micron/aosp-a13`
+- **Validate:** boot cuttlefish → `scripts/test-a13-platform.sh` (starts VCamProducer
+  service, launches VCamViewer, checks frame counters at all 3 stages)
+- **Prototype caveats:** VM runs `setenforce 0` (sepolicy is prototype-grade);
+  single static camera id 100 fed by first registered producer; fallback to test
+  pattern when no producer registered

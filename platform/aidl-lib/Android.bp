@@ -32,11 +32,9 @@ cc_library_shared {
     srcs: [":virtual-camera-aidl-srcs"],
     aidl: {
         local_include_dirs: ["."],
-        include_dirs: [
-            "frameworks/native/aidl/gui",
-        ],
         export_aidl_headers: true,
     },
+    export_include_dirs: ["include"],
     shared_libs: [
         "libbinder",
         "libgui",

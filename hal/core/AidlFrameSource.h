@@ -24,13 +24,9 @@
 
 #include "HandleImporterCompat.h"
 
-namespace android {
-namespace hardware {
-namespace virtualcamera {
-class IVirtualCameraManager;
-}  // namespace virtualcamera
-}  // namespace hardware
-}  // namespace android
+// Full include (not fwd-decl): android::sp<> requires the complete type at
+// destructor instantiation in any TU that destroys AidlFrameSource.
+#include <android/hardware/virtualcamera/IVirtualCameraManager.h>
 
 namespace virtualcamera {
 

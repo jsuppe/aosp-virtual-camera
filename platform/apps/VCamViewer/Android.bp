@@ -7,4 +7,5 @@ android_app {
     srcs: ["src/**/*.java"],
     platform_apis: true,
     certificate: "platform",
+    system_ext_specific: true,
 }
