@@ -185,6 +185,32 @@ class MainActivity : AppCompatActivity() {
     private var producerSurface: Surface? = null
     
     private fun startVideoSurfaceMode() {
+        // Preferred path: render directly into a Surface PROVIDED BY the framework
+        // service (VirtualMediaService.createVideoSurface). The service owns the
+        // ImageReader behind this Surface and forwards captured frames to the Camera
+        // HAL itself (onSurfaceFrameAvailable), so this app never touches the HAL
+        // buffer path — which is exactly what we want to validate.
+        val svcSurface = vmClient.createVideoSurface(camWidth, camHeight)
+        if (svcSurface != null) {
+            serviceSurface = svcSurface
+            Log.i(TAG, "Rendering into framework-service-provided Surface " +
+                    "(VirtualMediaService.createVideoSurface ${camWidth}x$camHeight)")
+            surfaceRenderRunning = true
+            surfaceRenderThread = Thread { renderToSurface() }.apply {
+                name = "SurfaceRenderer"
+                start()
+            }
+            isVideoRunning = true
+            runOnUiThread { startButton.text = "⏹ Video (Service Surface)" }
+            updateStatus("Video running (service-provided Surface → HAL)")
+            return
+        }
+
+        // Fallback path: service Surface API unavailable — render into a local
+        // ImageReader and push each frame's HardwareBuffer to the service via
+        // sendHardwareBuffer(). (This does NOT render into a service surface.)
+        Log.w(TAG, "Service Surface unavailable — falling back to local ImageReader + sendHardwareBuffer")
+
         // Start video renderer to get rendererId
         val config = VirtualMediaClient.VideoConfig(camWidth, camHeight, targetFps, 1)
         val info = vmClient.startVideoRenderer(config)
@@ -239,7 +265,8 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun renderToSurface() {
-        val surface = producerSurface ?: serviceSurface ?: return
+        // Prefer the framework-service-provided Surface; fall back to the local one.
+        val surface = serviceSurface ?: producerSurface ?: return
         
         var frameNumber = 0L
         val frameIntervalNs = 1_000_000_000L / targetFps
@@ -304,15 +331,22 @@ class MainActivity : AppCompatActivity() {
                 canvas.drawRect(0f, camHeight - 30f, camWidth.toFloat(), camHeight.toFloat(), barPaint)
             }
             
-            // Draw to HAL Surface (zero-copy path)
+            // Draw the frame into the target Surface. Use lockHardwareCanvas()
+            // (GPU-backed) so this works on the service-provided Surface, whose
+            // ImageReader is created with GPU-only usage (no CPU write); fall back
+            // to software lockCanvas() if hardware canvas is unavailable.
             try {
-                val canvas = surface.lockCanvas(null)
+                val canvas = try {
+                    surface.lockHardwareCanvas()
+                } catch (e: Exception) {
+                    surface.lockCanvas(null)
+                }
                 if (canvas != null) {
                     drawFrame(canvas)
                     surface.unlockCanvasAndPost(canvas)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "HAL Surface render error: ${e.message}")
+                Log.e(TAG, "Surface render error: ${e.message}")
                 break
             }
             
