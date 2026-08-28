@@ -100,8 +100,11 @@ bool AidlFrameSource::doConfigureLocked() {
     sp<IGraphicBufferConsumer> consumer;
     BufferQueue::createBufferQueue(&producer, &consumer);
 
+    // SW_READ so the HAL can read frames on the CPU; SW_WRITE so the producer
+    // app can render into the Surface with software Canvas (lockCanvas).
     mConsumer = new BufferItemConsumer(consumer,
-            GRALLOC_USAGE_SW_READ_OFTEN, /*maxAcquiredBuffers*/ 2,
+            GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN,
+            /*maxAcquiredBuffers*/ 2,
             /*controlledByApp*/ false);
     mConsumer->setName(String8("VirtualCameraAidlStream"));
     mConsumer->setDefaultBufferSize(mWidth, mHeight);

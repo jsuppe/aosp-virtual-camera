@@ -13,6 +13,7 @@
 #include <log/log.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <vector>
 
@@ -154,22 +155,44 @@ bool FrameFiller::fillYuvBufferFromRenderer(
         }
     }
 
-    // If no renderer frame, fill with black
+    // If no renderer frame, draw an animated test pattern (scrolling SMPTE-ish
+    // color bars) so the pipeline is visibly alive end-to-end without a producer.
     if (!usedRendererFrame) {
-        // Black in YUV: Y=16, Cb=128, Cr=128
-        memset(yPlane, 16, yStride * height);
+        // 8 bars: white, yellow, cyan, green, magenta, red, blue, black (BT.601)
+        static const uint8_t kBarY[8]  = {235, 210, 170, 145, 106,  81,  41,  16};
+        static const uint8_t kBarCb[8] = {128,  16, 166,  54, 202,  90, 240, 128};
+        static const uint8_t kBarCr[8] = {128, 146,  16,  34, 222, 240, 110, 128};
+        const int barW = (width >= 8) ? width / 8 : 1;
+        // Time-based scroll (~120 px/s) so motion is smooth regardless of the
+        // capture request rate (the HAL free-runs far above the display rate).
+        (void)frameNumber;
+        auto nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now().time_since_epoch()).count();
+        const int shift = (int)((nowMs / 8) % width);
+
+        for (int y = 0; y < height; y++) {
+            uint8_t* row = yPlane + y * yStride;
+            for (int x = 0; x < width; x++) {
+                row[x] = kBarY[((x + shift) / barW) & 7];
+            }
+        }
 
         int chromaHeight = height / 2;
         for (int y = 0; y < chromaHeight; y++) {
             if (chromaStep == 2) {
-                // Interleaved
-                for (int x = 0; x < width; x++) {
-                    cbPlane[y * cStride + x] = 128;
+                // Interleaved CbCr pairs: even byte = Cb, odd byte = Cr
+                for (int x = 0; x + 1 < width; x += 2) {
+                    int bar = ((x + shift) / barW) & 7;
+                    cbPlane[y * cStride + x]     = kBarCb[bar];
+                    cbPlane[y * cStride + x + 1] = kBarCr[bar];
                 }
             } else {
                 // Planar
-                memset(cbPlane + y * cStride, 128, width / 2);
-                memset(crPlane + y * cStride, 128, width / 2);
+                for (int cx = 0; cx < width / 2; cx++) {
+                    int bar = ((cx * 2 + shift) / barW) & 7;
+                    cbPlane[y * cStride + cx] = kBarCb[bar];
+                    crPlane[y * cStride + cx] = kBarCr[bar];
+                }
             }
         }
     }

@@ -1,0 +1,62 @@
+/*
+ * Virtual Camera Core - A13 VENDOR build (no platform relay)
+ *
+ * Vendor variant: the process gets the vendor gralloc (minigbm) namespace so
+ * buffer import/mapping works. The platform-AIDL relay (AidlFrameSource,
+ * VCAM_AIDL_SOURCE) is compiled out — it needs libgui/libbinder/framework
+ * parcelables which are not available to vendor modules. Producers feed the
+ * HAL via the v1/v2 unix-socket frame sources instead.
+ */
+
+package {
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
+cc_library_static {
+    name: "virtual-camera-core",
+    vendor: true,
+
+    srcs: [
+        "VirtualCameraFrameSource.cpp",
+        "VirtualCameraFrameSourceV2.cpp",
+        "VirtualCameraSocket.cpp",
+        "FrameFiller.cpp",
+        "MetadataBuilder.cpp",
+    ],
+
+    shared_libs: [
+        "android.hardware.graphics.mapper@2.0",
+        "android.hardware.graphics.mapper@3.0",
+        "android.hardware.graphics.mapper@4.0",
+        "android.hidl.allocator@1.0",
+        "android.hidl.memory@1.0",
+        "libcamera_metadata",
+        "libcutils",
+        "libgralloctypes",
+        "libhardware",
+        "libhidlbase",
+        "liblog",
+        "libui",
+        "libutils",
+        "libbase",
+        "libnativewindow",
+        "libsync",
+    ],
+
+    static_libs: [
+        "android.hardware.camera.common@1.0-helper",
+    ],
+
+    include_dirs: [
+        "hardware/interfaces/camera/common/1.0/default/include",
+        "hardware/interfaces/camera/provider/v2-shared-memory",
+    ],
+
+    local_include_dirs: ["."],
+    export_include_dirs: ["."],
+
+    cflags: [
+        "-Wall", "-DVCAM_COMPAT_A13=1",
+        "-Wno-unused-parameter",
+    ],
+}

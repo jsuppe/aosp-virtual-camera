@@ -221,8 +221,15 @@ buffer_handle_t VirtualCameraSession::importBuffer(const StreamBuffer& buffer) {
 
     // Buffer not cached - need to import it
     if (buffer.buffer.fds.empty()) {
-        ALOGE("importBuffer: No handle provided and buffer not in cache (streamId=%d, bufferId=%lu)",
-              buffer.streamId, (unsigned long)buffer.bufferId);
+        // DIAG (rate-limited): reveal what the framework actually sent so we can
+        // see why output buffers arrive without fds on first use.
+        static std::atomic<int> sNoHandleCount{0};
+        if ((sNoHandleCount++ % 300) == 0) {
+            ALOGE("importBuffer: no fds (streamId=%d bufferId=%lu ints=%zu status=%d cache=%zu) [x%d]",
+                  buffer.streamId, (unsigned long)buffer.bufferId,
+                  buffer.buffer.ints.size(), (int)buffer.status,
+                  mBufferCache.size(), sNoHandleCount.load());
+        }
         return nullptr;
     }
 
