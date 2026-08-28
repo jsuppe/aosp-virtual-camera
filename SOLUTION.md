@@ -123,17 +123,25 @@ rendered frames.
 
 ---
 
-## 7. Status & known issues (2026-08-27)
+## 7. Status (2026-08-28) — A13 round trip VALIDATED end-to-end ✅
 
-- ✅ HAL **builds and links** clean on Android 15 (`virtual-camera-core` + provider service).
-- ✅ A13 tree built (images Jul 22), HAL + platform-service integrated.
-- ✅ A15 `unified-test` updated to render into the **service-provided Surface**
-  (`createVideoSurface` + `lockHardwareCanvas`, auto-falls back to the local path); APK built.
-- ⛔ **On-device run is currently blocked**: Cuttlefish will not boot the Android guest on
-  this host (`kernel.log` stays empty; guest kernel never runs), on **both** trees. The
-  guest-independent evidence points at a **host crosvm ↔ kernel `7.0.0-30` incompatibility**
-  (the Mar/Apr-vintage crosvm vs a recently-updated host kernel), not the HAL. Fixes:
-  reboot into the prior kernel `7.0.0-28`, or update crosvm.
+- 🏆 **Full producer round trip working on A13/Cuttlefish**: `VCamProducer` registers with
+  `VirtualCameraService`, receives the HAL-relayed Surface (`onStreamsConfigured`), renders
+  ("AIDL frame N" + moving ball), and `VCamViewer` displays those frames via **camera 100**
+  over standard Camera2. With no producer, the HAL serves scrolling SMPTE color bars.
+- ✅ Cuttlefish boots fine on the current host kernel. The earlier "won't boot" episode was
+  **stale orphaned crosvm processes holding instance locks/ports** (cleanup must match the
+  arch-subdir binary `bin/x86_64-linux-gnu/crosvm` and free ports 6520/6600/8443) — not a
+  kernel/crosvm incompatibility. Use `--gpu_mode=gfxstream` (SwiftShader crashes app HWUI).
+- ✅ HAL builds clean on both A15 and A13; A15 `unified-test` renders into the
+  service-provided Surface (`createVideoSurface` + `lockHardwareCanvas`); APK built.
+- Key fixes that unlocked the A13 round trip (details in the a13-platform-aidl branch README):
+  `SW_WRITE_OFTEN` on the HAL BufferQueue (producer `lockCanvas`), gralloc mapper init is
+  once-per-process (restart HAL after policy change: `ctl.restart camera-provider-virtual`),
+  VINTF fragment `type=` must match its partition, and the `virtual_renderer/0` service-name
+  label gates which domain may register the provider.
+- Open items: proper sepolicy for `/dev/dri` access (demo runs permissive), producer transport
+  for the vendor-packaged variant (v1/v2 unix sockets), 30fps pacing polish.
 
 ---
 
