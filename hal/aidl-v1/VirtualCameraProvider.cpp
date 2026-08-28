@@ -7,11 +7,14 @@
 #include "VirtualCameraProvider.h"
 #include "VirtualCameraDevice.h"
 #include "AidlFrameSource.h"
+#include "AvailabilityBridge.h"
 
 #include <log/log.h>
 #include <aidl/android/hardware/camera/common/Status.h>
+#include <aidl/android/hardware/camera/common/CameraDeviceStatus.h>
 
 using aidl::android::hardware::camera::common::Status;
+using aidl::android::hardware::camera::common::CameraDeviceStatus;
 
 namespace aidl::android::hardware::camera::provider::implementation {
 
@@ -39,10 +42,24 @@ VirtualCameraProvider::VirtualCameraProvider() {
     // VirtualCameraService (system_server) via BufferQueues owned by this HAL.
     mAidlSource = std::make_shared<virtualcamera::AidlFrameSource>();
     ALOGI("AIDL frame source created (platform relay mode)");
+
+    // Dynamic presence: camera 100 only exists while a producer app is
+    // registered with VirtualCameraService. The bridge pushes transitions.
+    mAvailBridge = std::make_shared<virtualcamera::AvailabilityBridge>(
+            [this](bool available) { setProducerPresent(available); });
+    mAvailBridge->start();
+#else
+    // Non-relay builds (e.g. vendor/socket): camera is always present.
+    mProducerPresent = true;
 #endif
 }
 
 VirtualCameraProvider::~VirtualCameraProvider() {
+#ifdef VCAM_AIDL_SOURCE
+    if (mAvailBridge) {
+        mAvailBridge->stop();
+    }
+#endif
     if (mFrameSource) {
         mFrameSource->stop();
     }
@@ -72,10 +89,37 @@ ndk::ScopedAStatus VirtualCameraProvider::getCameraIdList(
         std::vector<std::string>* cameraIds) {
     if (cameraIds) {
         cameraIds->clear();
-        cameraIds->push_back(kVirtualCameraId);
-        ALOGI("Returning camera list with: %s", kVirtualCameraId);
+        if (mProducerPresent.load(std::memory_order_acquire)) {
+            cameraIds->push_back(kVirtualCameraId);
+            ALOGI("Returning camera list with: %s", kVirtualCameraId);
+        } else {
+            ALOGI("No producer registered - returning empty camera list");
+        }
     }
     return ndk::ScopedAStatus::ok();
+}
+
+void VirtualCameraProvider::setProducerPresent(bool present) {
+    bool prev = mProducerPresent.exchange(present, std::memory_order_acq_rel);
+    if (prev == present) {
+        return;
+    }
+    std::shared_ptr<ICameraProviderCallback> cb;
+    {
+        std::lock_guard<std::mutex> lock(mLock);
+        cb = mCallback;
+    }
+    ALOGI("Virtual camera %s -> %s", kVirtualCameraId,
+          present ? "PRESENT" : "NOT_PRESENT");
+    if (cb) {
+        auto status = cb->cameraDeviceStatusChange(
+                std::string(kVirtualCameraId),
+                present ? CameraDeviceStatus::PRESENT
+                        : CameraDeviceStatus::NOT_PRESENT);
+        if (!status.isOk()) {
+            ALOGW("cameraDeviceStatusChange failed");
+        }
+    }
 }
 
 ndk::ScopedAStatus VirtualCameraProvider::getCameraDeviceInterface(

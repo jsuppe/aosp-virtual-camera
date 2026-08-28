@@ -10,6 +10,7 @@
  */
 package android.hardware.virtualcamera;
 
+import android.hardware.virtualcamera.IVirtualCameraHalListener;
 import android.hardware.virtualcamera.VirtualCameraConfig;
 import android.hardware.virtualcamera.StreamConfig;
 import android.view.Surface;
@@ -27,4 +28,11 @@ interface IVirtualCameraManager {
     void notifyCaptureStarted(int cameraId, int frameRate);
     void notifyCaptureStopped(int cameraId);
     void notifyCameraClosed(int cameraId);
+
+    /**
+     * Register the HAL's availability listener. The service immediately
+     * pushes the current producer availability, then pushes every
+     * 0<->N transition (register/unregister/producer death).
+     */
+    void setHalListener(IVirtualCameraHalListener listener);
 }

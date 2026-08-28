@@ -19,6 +19,7 @@ import android.content.Context;
 import android.hardware.virtualcamera.IVirtualCameraService;
 import android.hardware.virtualcamera.IVirtualCameraManager;
 import android.hardware.virtualcamera.IVirtualCameraCallback;
+import android.hardware.virtualcamera.IVirtualCameraHalListener;
 import android.hardware.virtualcamera.VirtualCameraConfig;
 import android.hardware.virtualcamera.StreamConfig;
 import android.os.Binder;
@@ -44,6 +45,9 @@ public class VirtualCameraService extends IVirtualCameraService.Stub {
     private final SparseArray<VirtualCamera> mCameras = new SparseArray<>();
 
     private final ManagerImpl mManager = new ManagerImpl();
+    // HAL availability listener (guarded by mLock). Pushed on every 0<->N
+    // producer transition so the HAL can add/remove the camera device.
+    private IVirtualCameraHalListener mHalListener;
 
     public VirtualCameraService(Context context) {
         mContext = context;
@@ -74,11 +78,16 @@ public class VirtualCameraService extends IVirtualCameraService.Stub {
             return -1;
         }
 
+        boolean becameAvailable;
         synchronized (mLock) {
+            becameAvailable = (mCameras.size() == 0);
             mCameras.put(id, camera);
         }
         Log.i(TAG, "Registered virtual camera " + id + " (\"" + config.name
                 + "\") for uid " + Binder.getCallingUid());
+        if (becameAvailable) {
+            notifyHalAvailability(true);
+        }
         return id;
     }
 
@@ -112,13 +121,40 @@ public class VirtualCameraService extends IVirtualCameraService.Stub {
 
     private void removeCamera(int cameraId) {
         VirtualCamera camera;
+        boolean becameUnavailable = false;
         synchronized (mLock) {
             camera = mCameras.get(cameraId);
-            mCameras.remove(cameraId);
+            if (camera != null) {
+                mCameras.remove(cameraId);
+                becameUnavailable = (mCameras.size() == 0);
+            }
         }
         if (camera != null) {
             camera.close();
             Log.i(TAG, "Unregistered virtual camera " + cameraId);
+        }
+        if (becameUnavailable) {
+            notifyHalAvailability(false);
+        }
+    }
+
+    /** Push availability to the HAL listener; never call while holding mLock. */
+    private void notifyHalAvailability(boolean available) {
+        IVirtualCameraHalListener listener;
+        synchronized (mLock) {
+            listener = mHalListener;
+        }
+        if (listener == null) {
+            return;
+        }
+        try {
+            listener.onProducerAvailabilityChanged(available);
+            Log.i(TAG, "HAL notified: producer availability -> " + available);
+        } catch (RemoteException e) {
+            Log.w(TAG, "HAL listener dead, dropping", e);
+            synchronized (mLock) {
+                if (mHalListener == listener) mHalListener = null;
+            }
         }
     }
 
@@ -163,6 +199,33 @@ public class VirtualCameraService extends IVirtualCameraService.Stub {
         public void notifyCaptureStopped(int cameraId) {
             VirtualCamera camera = getCamera(cameraId);
             if (camera != null) camera.onCaptureStopped();
+        }
+
+        @Override
+        public void setHalListener(IVirtualCameraHalListener listener) {
+            boolean available;
+            synchronized (mLock) {
+                mHalListener = listener;
+                available = (mCameras.size() > 0);
+            }
+            Log.i(TAG, "HAL listener registered (current availability=" + available + ")");
+            if (listener != null) {
+                try {
+                    listener.asBinder().linkToDeath(() -> {
+                        synchronized (mLock) {
+                            if (mHalListener == listener) mHalListener = null;
+                        }
+                        Log.w(TAG, "HAL listener died");
+                    }, 0);
+                    // Sync the current state immediately.
+                    listener.onProducerAvailabilityChanged(available);
+                } catch (RemoteException e) {
+                    Log.w(TAG, "HAL listener register failed", e);
+                    synchronized (mLock) {
+                        if (mHalListener == listener) mHalListener = null;
+                    }
+                }
+            }
         }
 
         @Override

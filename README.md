@@ -20,8 +20,10 @@ needed. If you already know the platform, skim the headers and jump to
 [§6 Integration](#6-the-integration-process) and [§8 Field notes](#8-field-notes--the-bugs-you-would-otherwise-hit).
 
 **Status:** the full round trip above is validated end-to-end on Android 13
-(Cuttlefish emulator, real-GPU mode). With no producer registered, the camera
-shows animated SMPTE color bars, so it is always visibly alive.
+(Cuttlefish emulator, real-GPU mode) — including **dynamic availability**:
+camera 100 is *added to the system* when a producer registers and *removed*
+when it unregisters or dies, so Camera2 availability events mean "a virtual
+camera is producing". A registered-but-idle producer shows SMPTE color bars.
 
 ---
 
@@ -233,11 +235,14 @@ adb root
 adb shell setenforce 0
 adb shell setprop ctl.restart camera-provider-virtual
 
-# run: producer FIRST, then any camera app
+# run in either order - the viewer waits for the camera to appear
+# (camera 100 only exists while a producer is registered)
 adb shell pm grant com.example.vcamviewer android.permission.CAMERA
 adb shell am start-foreground-service -n com.example.vcamproducer/.VCamProducerService
 adb shell monkey -p com.example.vcamviewer -c android.intent.category.LAUNCHER 1
-# → viewer shows the producer's animated frames ("AIDL frame N" + moving ball)
+# → viewer: "waiting for virtual camera" → producer registers → camera 100
+#   APPEARS (Camera2 availability event) → viewer auto-opens → producer frames.
+#   Stop the producer: camera 100 disappears, viewer returns to waiting.
 ```
 
 Iterating on the HAL without reflashing:
@@ -286,6 +291,16 @@ Each of these cost real debugging time; they are the practical distillation of
    or driver incompatibilities. Before diagnosing anything exotic: kill all
    cuttlefish processes by exe path, `cvd reset -y`, remove
    `~/cuttlefish/instances` and `/tmp/cf_*`, confirm the ports are free.
+
+7. **Dynamic camera add/remove is push-driven.** The HAL cannot poll the
+   service for producers cheaply, and cameraserver only reacts to
+   `cameraDeviceStatusChange`. The service therefore pushes 0↔N producer
+   transitions to the HAL over `IVirtualCameraHalListener` (registered by
+   `AvailabilityBridge`, which retries until system_server is up and
+   re-registers if it restarts). Remember: `getCameraIdList` must agree
+   with the pushed state, and a shared AIDL *cpp* lib change means
+   `libvirtualcamera_platform_aidl.so` must ship together with the impl —
+   a stale copy crash-loops the HAL with a missing `onTransact` symbol.
 
 ## 9. Repository map
 

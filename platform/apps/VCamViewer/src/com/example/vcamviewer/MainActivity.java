@@ -1,10 +1,16 @@
 /*
- * VCamViewer - Test scenario step 2.
+ * VCamViewer - availability-driven Camera2 consumer for the virtual camera.
  *
- * Activity that uses the camera permission to open the virtual camera
- * (id "100") via the standard Camera2 API and renders its stream to a
- * TextureView surface. Logs capture progress so the end-to-end flow can be
- * validated from logcat.
+ * The virtual camera (id "100") only exists while a producer app is
+ * registered with VirtualCameraService, so this viewer is driven by
+ * CameraManager.AvailabilityCallback:
+ *
+ *   - no producer  -> camera 100 absent  -> show "waiting for producer"
+ *   - producer registers   -> onCameraAvailable("100") -> open + preview
+ *   - producer unregisters -> device removed -> onDisconnected -> waiting
+ *
+ * Start order no longer matters: start the viewer first and it will attach
+ * the moment a producer appears.
  */
 package com.example.vcamviewer;
 
@@ -30,20 +36,41 @@ import android.widget.FrameLayout;
 import android.widget.TextView;
 
 import java.util.Arrays;
-import java.util.List;
 
 public class MainActivity extends Activity {
     private static final String TAG = "VCamViewer";
-    private static final String PREFERRED_CAMERA_ID = "100";
+    private static final String VIRTUAL_CAMERA_ID = "100";
     private static final int REQ_CAMERA = 1;
 
     private TextureView mTextureView;
     private TextView mStatusView;
     private HandlerThread mCameraThread;
     private Handler mCameraHandler;
+    private CameraManager mCameraManager;
     private CameraDevice mCamera;
     private CameraCaptureSession mSession;
+    private boolean mOpening = false;
+    private boolean mSurfaceReady = false;
     private long mFrameCount = 0;
+
+    /** Availability events for camera 100 drive the whole UI. */
+    private final CameraManager.AvailabilityCallback mAvailability =
+            new CameraManager.AvailabilityCallback() {
+        @Override
+        public void onCameraAvailable(String cameraId) {
+            if (!VIRTUAL_CAMERA_ID.equals(cameraId)) return;
+            Log.i(TAG, "Virtual camera AVAILABLE (producer registered)");
+            maybeOpenCamera();
+        }
+
+        @Override
+        public void onCameraUnavailable(String cameraId) {
+            if (!VIRTUAL_CAMERA_ID.equals(cameraId)) return;
+            // Fires both when we open it ourselves and when the device is
+            // removed; removal-while-open is handled via onDisconnected.
+            Log.i(TAG, "Virtual camera unavailable (in use or removed)");
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,11 +90,13 @@ public class MainActivity extends Activity {
         mCameraThread = new HandlerThread("VCamViewerCamera");
         mCameraThread.start();
         mCameraHandler = new Handler(mCameraThread.getLooper());
+        mCameraManager = getSystemService(CameraManager.class);
 
         mTextureView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
             @Override
             public void onSurfaceTextureAvailable(SurfaceTexture st, int w, int h) {
-                maybeOpenCamera();
+                mSurfaceReady = true;
+                start();
             }
             @Override
             public void onSurfaceTextureSizeChanged(SurfaceTexture st, int w, int h) {}
@@ -78,72 +107,84 @@ public class MainActivity extends Activity {
         });
     }
 
-    private void maybeOpenCamera() {
+    private void start() {
         if (checkSelfPermission(Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[] { Manifest.permission.CAMERA }, REQ_CAMERA);
             return;
         }
-        openCamera();
+        // Registration delivers the current availability snapshot, so if a
+        // producer is already registered we get onCameraAvailable immediately.
+        mCameraManager.registerAvailabilityCallback(mAvailability, mCameraHandler);
+        status("waiting for virtual camera (start a producer)...");
+        Log.i(TAG, "Watching availability of camera " + VIRTUAL_CAMERA_ID);
     }
 
     @Override
     public void onRequestPermissionsResult(int code, String[] perms, int[] results) {
         if (code == REQ_CAMERA && results.length > 0
                 && results[0] == PackageManager.PERMISSION_GRANTED) {
-            openCamera();
+            start();
         } else {
             status("CAMERA permission denied");
         }
     }
 
-    private void openCamera() {
+    private synchronized void maybeOpenCamera() {
+        if (mOpening || mCamera != null || !mSurfaceReady) return;
+        mOpening = true;
         try {
-            CameraManager cm = getSystemService(CameraManager.class);
-            List<String> ids = Arrays.asList(cm.getCameraIdList());
-            Log.i(TAG, "Camera ids: " + ids);
-            String target = ids.contains(PREFERRED_CAMERA_ID)
-                    ? PREFERRED_CAMERA_ID
-                    : (ids.isEmpty() ? null : ids.get(ids.size() - 1));
-            if (target == null) {
-                status("no cameras found");
-                return;
-            }
-
-            CameraCharacteristics cc = cm.getCameraCharacteristics(target);
+            CameraCharacteristics cc =
+                    mCameraManager.getCameraCharacteristics(VIRTUAL_CAMERA_ID);
             StreamConfigurationMap map =
                     cc.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
             Size size = map.getOutputSizes(SurfaceTexture.class)[0];
-            Log.i(TAG, "Opening camera " + target + " preview " + size);
-            status("opening camera " + target + " @ " + size);
+            Log.i(TAG, "Opening camera " + VIRTUAL_CAMERA_ID + " preview " + size);
+            status("virtual camera appeared - opening @ " + size);
 
             SurfaceTexture st = mTextureView.getSurfaceTexture();
             st.setDefaultBufferSize(size.getWidth(), size.getHeight());
             Surface previewSurface = new Surface(st);
 
-            cm.openCamera(target, new CameraDevice.StateCallback() {
+            mCameraManager.openCamera(VIRTUAL_CAMERA_ID,
+                    new CameraDevice.StateCallback() {
                 @Override
                 public void onOpened(CameraDevice camera) {
                     Log.i(TAG, "Camera opened: " + camera.getId());
                     mCamera = camera;
+                    mOpening = false;
                     createSession(camera, previewSurface);
                 }
                 @Override
                 public void onDisconnected(CameraDevice camera) {
-                    Log.w(TAG, "Camera disconnected");
-                    camera.close();
+                    // Producer unregistered -> device removed while open.
+                    Log.w(TAG, "Camera disconnected (producer gone)");
+                    onCameraGone(camera);
                 }
                 @Override
                 public void onError(CameraDevice camera, int error) {
                     Log.e(TAG, "Camera error " + error);
-                    status("camera error " + error);
-                    camera.close();
+                    onCameraGone(camera);
                 }
             }, mCameraHandler);
         } catch (Exception e) {
-            Log.e(TAG, "openCamera failed", e);
-            status("openCamera failed: " + e.getMessage());
+            // Race: camera vanished between availability and open.
+            Log.w(TAG, "open failed (camera gone?): " + e.getMessage());
+            mOpening = false;
+            status("waiting for virtual camera (start a producer)...");
         }
+    }
+
+    private synchronized void onCameraGone(CameraDevice camera) {
+        mOpening = false;
+        if (mSession != null) {
+            try { mSession.close(); } catch (Exception ignored) {}
+            mSession = null;
+        }
+        try { camera.close(); } catch (Exception ignored) {}
+        mCamera = null;
+        mFrameCount = 0;
+        status("waiting for virtual camera (start a producer)...");
     }
 
     private void createSession(CameraDevice camera, Surface previewSurface) {
@@ -196,6 +237,9 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (mCameraManager != null) {
+            mCameraManager.unregisterAvailabilityCallback(mAvailability);
+        }
         if (mSession != null) mSession.close();
         if (mCamera != null) mCamera.close();
         mCameraThread.quitSafely();

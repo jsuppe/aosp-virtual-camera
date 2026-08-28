@@ -8,6 +8,7 @@
 
 #include <aidl/android/hardware/camera/provider/BnCameraProvider.h>
 #include <aidl/android/hardware/camera/provider/ICameraProviderCallback.h>
+#include <atomic>
 #include <mutex>
 #include <memory>
 
@@ -16,6 +17,7 @@ namespace virtualcamera {
 class VirtualCameraFrameSource;
 class VirtualCameraFrameSourceV2;
 class AidlFrameSource;
+class AvailabilityBridge;
 }
 
 namespace aidl::android::hardware::camera::provider::implementation {
@@ -36,6 +38,14 @@ public:
     std::shared_ptr<virtualcamera::AidlFrameSource> getAidlSource() const {
         return mAidlSource;
     }
+
+    /**
+     * Dynamic device presence: called by the AvailabilityBridge when producer
+     * availability changes. Adds/removes the virtual camera from the system
+     * via ICameraProviderCallback.cameraDeviceStatusChange, so Camera2
+     * availability events track "a producer app is registered".
+     */
+    void setProducerPresent(bool present);
 
     // ICameraProvider interface
     ndk::ScopedAStatus setCallback(
@@ -63,6 +73,10 @@ public:
 private:
     std::mutex mLock;
     std::shared_ptr<ICameraProviderCallback> mCallback;
+    // Producer presence gates enumeration (relay builds start hidden;
+    // non-relay builds are always present).
+    std::atomic<bool> mProducerPresent{false};
+    std::shared_ptr<virtualcamera::AvailabilityBridge> mAvailBridge;
     std::shared_ptr<virtualcamera::VirtualCameraFrameSource> mFrameSource;
     std::shared_ptr<virtualcamera::VirtualCameraFrameSourceV2> mFrameSourceV2;
     std::shared_ptr<virtualcamera::AidlFrameSource> mAidlSource;
