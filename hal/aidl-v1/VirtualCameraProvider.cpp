@@ -22,7 +22,7 @@ VirtualCameraProvider::VirtualCameraProvider() {
     ALOGI("VirtualCameraProvider created (AIDL V1 adapter)");
 
     // Create and start the shared FrameSource (v1 - ashmem)
-    mFrameSource = std::make_shared<virtualcamera::VirtualCameraFrameSource>();
+    mFrameSource = std::make_shared<::virtualcamera::VirtualCameraFrameSource>();
     if (mFrameSource->start()) {
         ALOGI("FrameSource v1 socket server started");
     } else {
@@ -30,7 +30,7 @@ VirtualCameraProvider::VirtualCameraProvider() {
     }
 
     // Create and start v2 zero-copy frame source
-    mFrameSourceV2 = std::make_shared<virtualcamera::VirtualCameraFrameSourceV2>();
+    mFrameSourceV2 = std::make_shared<::virtualcamera::VirtualCameraFrameSourceV2>();
     if (mFrameSourceV2->start()) {
         ALOGI("FrameSource v2 (zero-copy) socket server started");
     } else {
@@ -40,16 +40,20 @@ VirtualCameraProvider::VirtualCameraProvider() {
 #ifdef VCAM_AIDL_SOURCE
     // Platform relay mode: frames arrive from a producer app registered with
     // VirtualCameraService (system_server) via BufferQueues owned by this HAL.
-    mAidlSource = std::make_shared<virtualcamera::AidlFrameSource>();
+    mAidlSource = std::make_shared<::virtualcamera::AidlFrameSource>();
     ALOGI("AIDL frame source created (platform relay mode)");
 
     // Dynamic presence: camera 100 only exists while a producer app is
     // registered with VirtualCameraService. The bridge pushes transitions.
-    mAvailBridge = std::make_shared<virtualcamera::AvailabilityBridge>(
+    mAvailBridge = std::make_shared<::virtualcamera::AvailabilityBridge>(
             [this](bool available) { setProducerPresent(available); });
     mAvailBridge->start();
+#elif defined(VCAM_STABLE_AIDL)
+    // Stable-AIDL build: presence is driven by
+    // IVirtualCameraHal.setProducerAvailable() from the platform service.
+    ALOGI("Stable-AIDL mode: camera hidden until a producer registers");
 #else
-    // Non-relay builds (e.g. vendor/socket): camera is always present.
+    // Legacy socket-only builds: camera is always present.
     mProducerPresent = true;
 #endif
 }

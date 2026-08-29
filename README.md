@@ -193,6 +193,59 @@ Both packagings exist in this repo:
   instead. Likely the production shape; the socket path needs a
   vendor-writable location before it works there.
 
+## 5b. The shipping architecture: vendor APEX + a frozen AIDL boundary ✅
+
+Validated end-to-end (4K30, producer↔viewer in lockstep): the HAL ships as a
+**vendor APEX** and the platform↔vendor conversation rides a **frozen VINTF
+AIDL** — resolving the §5 tradeoff without giving up the Surface relay.
+
+```
+producer app ──Surface──▶ BufferQueue (owned by system_server: platform-jni/)
+                              │ consumer side, handle-only (no pixel access)
+                              ▼
+        android.hardware.virtualcamera.hal (FROZEN V1, stable-aidl/)
+          setProducerAvailable(bool)      ← dynamic camera add/remove
+          queueFrame(NativeHandle,…)      ← zero-copy, per-frame
+          IVirtualCameraHalCallback       → onStreamsConfigured/onCameraClosed
+                              ▼
+        vendor APEX (apex/): provider + StableHal, AHardwareBuffer import,
+        RGBA→YUV → camera 100 → Camera2 → any camera app
+```
+
+Key decisions, in one place:
+
+* **The BufferQueue stays platform-side.** The HIDL/AIDL bufferqueue types only
+  standardize the *producer* end, and `libgui` (queue + consumer) is
+  platform-only — so the queue lives in system_server (`platform-jni/`,
+  loaded by `VirtualCameraNative`), and the *consumed buffers* cross the
+  boundary as `NativeHandle` + description. Same zero-copy guarantee: handles
+  travel, pixels do not.
+* **The interface is frozen** (`stable-aidl/aidl_api/.../1/`). The APEX and the
+  platform image can now rev independently; interface changes require a new
+  frozen version, which is exactly the discipline you want at a Treble seam.
+* **Update = replace one signed file.** `adb push <name>.apex /vendor/apex/`
+  (or the OTA equivalent) + reboot; apexd activates the new version
+  (`…provider.virtual@2`), cameraserver reconnects to the restarted provider,
+  and the pipeline resumes. Measured: 9-second incremental APEX build,
+  15-second boot, zero platform changes.
+
+### More field notes (earned during this phase)
+
+8. **Never name an AIDL package segment after a C++ keyword.** Package
+   `…camera.virtual` generates `namespace …::virtual` — unbuildable. (Also
+   why AOSP's own is `android.companion.virtualcamera`.) Watch for namespace
+   *shadowing* too: our new `…hardware::virtualcamera` AIDL namespace captured
+   unqualified `virtualcamera::` references in the HAL — qualify with `::`.
+9. **R8 strips JNI-only Java methods from services.jar.** Callbacks invoked
+   only from native are "unused" to the optimizer and vanish, aborting
+   `JNI_OnLoad` with `NoSuchMethodError`. Give them a Java-visible use (or a
+   keep rule), and make JNI method lookups exception-safe.
+10. **A pushed services.jar can be shadowed by stale AOT artifacts** —
+   `/system/framework/oat/*/services.{odex,vdex,art}` and the ART apexdata
+   dalvik-cache. If new platform code "doesn't run", delete those and reboot.
+11. **Vendor binaries needing `AHardwareBuffer_createFromHandle` include
+   `<vndk/hardware_buffer.h>`**, and `libnativewindow` headers want `libarect`.
+
 ## 6. The integration process
 
 AOSP has no plugin mechanism — integrating a HAL means **copying source into

@@ -59,9 +59,9 @@ class VirtualCameraSession : public BnCameraDeviceSession {
 public:
     VirtualCameraSession(
             const std::shared_ptr<ICameraDeviceCallback>& callback,
-            std::shared_ptr<virtualcamera::VirtualCameraFrameSource> frameSource,
-            std::shared_ptr<virtualcamera::VirtualCameraFrameSourceV2> frameSourceV2,
-            std::shared_ptr<virtualcamera::AidlFrameSource> aidlSource = nullptr);
+            std::shared_ptr<::virtualcamera::VirtualCameraFrameSource> frameSource,
+            std::shared_ptr<::virtualcamera::VirtualCameraFrameSourceV2> frameSourceV2,
+            std::shared_ptr<::virtualcamera::AidlFrameSource> aidlSource = nullptr);
     ~VirtualCameraSession() override;
 
     // ICameraDeviceSession V1 interface
@@ -142,9 +142,9 @@ private:
     std::atomic<int> mFrameCounter{0};
 
     // Core frame sources (shared with provider)
-    std::shared_ptr<virtualcamera::VirtualCameraFrameSource> mFrameSource;
-    std::shared_ptr<virtualcamera::VirtualCameraFrameSourceV2> mFrameSourceV2;
-    std::shared_ptr<virtualcamera::AidlFrameSource> mAidlSource;
+    std::shared_ptr<::virtualcamera::VirtualCameraFrameSource> mFrameSource;
+    std::shared_ptr<::virtualcamera::VirtualCameraFrameSourceV2> mFrameSourceV2;
+    std::shared_ptr<::virtualcamera::AidlFrameSource> mAidlSource;
 
 };
 

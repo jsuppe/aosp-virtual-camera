@@ -30,9 +30,9 @@ using aidl::android::hardware::camera::common::CameraResourceCost;
 class VirtualCameraDevice : public BnCameraDevice {
 public:
     VirtualCameraDevice(const std::string& cameraId,
-                        std::shared_ptr<virtualcamera::VirtualCameraFrameSource> frameSource,
-                        std::shared_ptr<virtualcamera::VirtualCameraFrameSourceV2> frameSourceV2,
-                        std::shared_ptr<virtualcamera::AidlFrameSource> aidlSource = nullptr);
+                        std::shared_ptr<::virtualcamera::VirtualCameraFrameSource> frameSource,
+                        std::shared_ptr<::virtualcamera::VirtualCameraFrameSourceV2> frameSourceV2,
+                        std::shared_ptr<::virtualcamera::AidlFrameSource> aidlSource = nullptr);
     ~VirtualCameraDevice() override = default;
 
     // ICameraDevice V1 interface
@@ -67,9 +67,9 @@ public:
 private:
     std::string mCameraId;
     std::mutex mLock;
-    std::shared_ptr<virtualcamera::VirtualCameraFrameSource> mFrameSource;
-    std::shared_ptr<virtualcamera::VirtualCameraFrameSourceV2> mFrameSourceV2;
-    std::shared_ptr<virtualcamera::AidlFrameSource> mAidlSource;
+    std::shared_ptr<::virtualcamera::VirtualCameraFrameSource> mFrameSource;
+    std::shared_ptr<::virtualcamera::VirtualCameraFrameSourceV2> mFrameSourceV2;
+    std::shared_ptr<::virtualcamera::AidlFrameSource> mAidlSource;
 
     CameraMetadata mCharacteristics;
 };

@@ -15,6 +15,10 @@ package {
 cc_library_static {
     name: "virtual-camera-core",
     vendor: true,
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.hardware.camera.provider.virtual",
+    ],
 
     srcs: [
         "VirtualCameraFrameSource.cpp",

@@ -27,6 +27,7 @@
 // Core frame filling
 #include "FrameFiller.h"
 #include "AidlFrameSource.h"
+#include "VirtualCameraStableHal.h"
 
 namespace aidl::android::hardware::camera::provider::implementation {
 
@@ -41,9 +42,9 @@ HandleImporter VirtualCameraSession::sHandleImporter;
 
 VirtualCameraSession::VirtualCameraSession(
         const std::shared_ptr<ICameraDeviceCallback>& callback,
-        std::shared_ptr<virtualcamera::VirtualCameraFrameSource> frameSource,
-        std::shared_ptr<virtualcamera::VirtualCameraFrameSourceV2> frameSourceV2,
-        std::shared_ptr<virtualcamera::AidlFrameSource> aidlSource)
+        std::shared_ptr<::virtualcamera::VirtualCameraFrameSource> frameSource,
+        std::shared_ptr<::virtualcamera::VirtualCameraFrameSourceV2> frameSourceV2,
+        std::shared_ptr<::virtualcamera::AidlFrameSource> aidlSource)
     : mCallback(callback),
       mFrameSource(frameSource),
       mFrameSourceV2(frameSourceV2),
@@ -70,6 +71,11 @@ ndk::ScopedAStatus VirtualCameraSession::close() {
 #ifdef VCAM_AIDL_SOURCE
     if (mAidlSource && !mClosed) {
         mAidlSource->sessionClosed();
+    }
+#endif
+#ifdef VCAM_STABLE_AIDL
+    if (!mClosed) {
+        if (auto* hal = VirtualCameraStableHal::get()) hal->notifyCameraClosed();
     }
 #endif
     mClosed = true;
@@ -164,11 +170,21 @@ ndk::ScopedAStatus VirtualCameraSession::configureStreams(
         mAidlSource->configureStreams(primary.width, primary.height, 30);
     }
 #endif
+#ifdef VCAM_STABLE_AIDL
+    // Stable-AIDL relay: tell the platform service the stream shape so it can
+    // create the BufferQueue and hand its Surface to the producer app.
+    if (!requestedConfiguration.streams.empty()) {
+        const auto& primary = requestedConfiguration.streams[0];
+        if (auto* hal = VirtualCameraStableHal::get()) {
+            hal->notifyStreamsConfigured(primary.width, primary.height, 30);
+        }
+    }
+#endif
 
     // Also publish format request to v1 renderer
     if (mFrameSource && !requestedConfiguration.streams.empty()) {
         const auto& primary = requestedConfiguration.streams[0];
-        mFrameSource->requestFormat(virtualcamera::FORMAT_YUV_420,
+        mFrameSource->requestFormat(::virtualcamera::FORMAT_YUV_420,
                                     primary.width, primary.height);
     }
 
@@ -181,7 +197,7 @@ ndk::ScopedAStatus VirtualCameraSession::constructDefaultRequestSettings(
         CameraMetadata* metadata) {
 
     (void)type;  // All templates return the same minimal settings
-    metadata->metadata = virtualcamera::MetadataBuilder::buildDefaultRequestSettings();
+    metadata->metadata = ::virtualcamera::MetadataBuilder::buildDefaultRequestSettings();
     return ndk::ScopedAStatus::ok();
 }
 
@@ -349,13 +365,25 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
                                                      width, height);
             }
 #endif
+#ifdef VCAM_STABLE_AIDL
+            if (!filled) {
+                if (auto* hal = VirtualCameraStableHal::get()) {
+                    int64_t srcTs = 0;
+                    if (AHardwareBuffer* src = hal->acquireLatest(&srcTs)) {
+                        filled = ::virtualcamera::FrameFiller::fillFromAHardwareBuffer(
+                                sHandleImporter, handle, width, height, src);
+                        AHardwareBuffer_release(src);
+                    }
+                }
+            }
+#endif
             if (!filled && mFrameSourceV2 && mFrameSourceV2->isActive()) {
-                filled = virtualcamera::FrameFiller::fillBufferFromV2(
+                filled = ::virtualcamera::FrameFiller::fillBufferFromV2(
                     sHandleImporter, handle, width, height,
                     mFrameSourceV2.get());
             }
             if (!filled) {
-                virtualcamera::FrameFiller::fillYuvBufferFromRenderer(
+                ::virtualcamera::FrameFiller::fillYuvBufferFromRenderer(
                     sHandleImporter, handle, width, height,
                     mFrameCounter.load(), mFrameSource.get());
             }
@@ -383,7 +411,7 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
     captureResult.inputBuffer.streamId = -1;
     captureResult.partialResult = 1;
     captureResult.physicalCameraMetadata = {};
-    captureResult.result.metadata = virtualcamera::MetadataBuilder::buildResultMetadata(timestamp);
+    captureResult.result.metadata = ::virtualcamera::MetadataBuilder::buildResultMetadata(timestamp);
 
     std::vector<CaptureResult> results;
     results.push_back(std::move(captureResult));

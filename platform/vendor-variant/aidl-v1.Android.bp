@@ -16,17 +16,23 @@ cc_library_shared {
     name: "android.hardware.camera.provider-V1-virtual-impl",
     defaults: ["hidl_defaults"],
     vendor: true,
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.hardware.camera.provider.virtual",
+    ],
 
     srcs: [
         "VirtualCameraProvider.cpp",
         "VirtualCameraDevice.cpp",
         "VirtualCameraSession.cpp",
+        "VirtualCameraStableHal.cpp",
     ],
 
     shared_libs: [
         "android.hardware.camera.common-V1-ndk",
         "android.hardware.camera.device-V1-ndk",
         "android.hardware.camera.provider-V1-ndk",
+        "android.hardware.virtualcamera.hal-V1-ndk",
         "android.hardware.graphics.mapper@2.0",
         "android.hardware.graphics.mapper@3.0",
         "android.hardware.graphics.mapper@4.0",
@@ -50,6 +56,7 @@ cc_library_shared {
     static_libs: [
         "android.hardware.camera.common@1.0-helper",
         "libaidlcommonsupport",
+        "libarect",
         "virtual-camera-core",
     ],
 
@@ -62,7 +69,7 @@ cc_library_shared {
     local_include_dirs: ["."],
 
     cflags: [
-        "-Wall", "-DVCAM_COMPAT_A13=1",
+        "-Wall", "-DVCAM_COMPAT_A13=1", "-DVCAM_STABLE_AIDL=1",
         "-Wno-unused-parameter",
     ],
 
@@ -73,6 +80,10 @@ cc_binary {
     name: "android.hardware.camera.provider-virtual-service",
     defaults: ["hidl_defaults"],
     vendor: true,
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.hardware.camera.provider.virtual",
+    ],
     relative_install_path: "hw",
 
     init_rc: ["android.hardware.camera.provider-virtual-service.rc"],
@@ -91,6 +102,7 @@ cc_binary {
         "android.hardware.camera.device-V1-ndk",
         "android.hardware.camera.provider-V1-ndk",
         "android.hardware.camera.provider-V1-virtual-impl",
+        "android.hardware.virtualcamera.hal-V1-ndk",
         "libbinder_ndk",
         "libhidlbase",
         "liblog",
@@ -101,7 +113,13 @@ cc_binary {
 
     static_libs: [
         "android.hardware.camera.common@1.0-helper",
+        "libarect",
     ],
 
-    cflags: ["-DVCAM_COMPAT_A13=1"],
+    cflags: ["-DVCAM_COMPAT_A13=1", "-DVCAM_STABLE_AIDL=1"],
+}
+
+filegroup {
+    name: "android.hardware.camera.provider-virtual-service.xml",
+    srcs: ["android.hardware.camera.provider-virtual-service.xml"],
 }

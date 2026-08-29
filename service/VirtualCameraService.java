@@ -33,7 +33,8 @@ import com.android.server.SystemService;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class VirtualCameraService extends IVirtualCameraService.Stub {
+public class VirtualCameraService extends IVirtualCameraService.Stub
+        implements VirtualCameraNative.Listener {
     private static final String TAG = "VirtualCameraService";
 
     public static final String SERVICE_NAME = "virtual_camera";
@@ -51,7 +52,77 @@ public class VirtualCameraService extends IVirtualCameraService.Stub {
 
     public VirtualCameraService(Context context) {
         mContext = context;
+        // Stable-AIDL boundary (vendor-APEX HAL): receive stream lifecycle
+        // callbacks and push availability/frames via the JNI relay.
+        VirtualCameraNative.setListener(this);
         Log.i(TAG, "VirtualCameraService created");
+    }
+
+    // ============ VirtualCameraNative.Listener (vendor-APEX HAL path) ============
+
+    @Override
+    public void onHalStreamsConfigured(int width, int height, int fps) {
+        VirtualCamera camera = firstCamera();
+        if (camera == null) {
+            Log.w(TAG, "HAL streams configured but no producer registered");
+            return;
+        }
+        Surface surface = VirtualCameraNative.createSurface(width, height);
+        if (surface == null) {
+            Log.e(TAG, "Failed to create relay Surface");
+            return;
+        }
+        StreamConfig sc = new StreamConfig();
+        sc.streamId = 0;
+        sc.width = width;
+        sc.height = height;
+        sc.format = 1; // RGBA_8888
+        sc.fps = fps;
+        Log.i(TAG, "Relaying platform BufferQueue Surface (" + width + "x"
+                + height + "@" + fps + ") to producer app");
+        camera.onOpened();
+        camera.onStreamsConfigured(new StreamConfig[] { sc },
+                new Surface[] { surface });
+        camera.onCaptureStarted(fps);
+    }
+
+    @Override
+    public void onHalCameraClosed() {
+        VirtualCamera camera = firstCamera();
+        if (camera != null) {
+            camera.onCaptureStopped();
+            camera.onClosed();
+        }
+        VirtualCameraNative.releaseSurface();
+    }
+
+    @Override
+    public void onHalDied() {
+        // APEX update or HAL crash: tear down; availability re-pushed when
+        // the HAL returns (next isHalUp()/setProducerAvailable call).
+        VirtualCameraNative.releaseSurface();
+        Log.w(TAG, "vendor HAL died; relay torn down");
+        // Re-sync availability once it comes back (best-effort poll).
+        final boolean available;
+        synchronized (mLock) {
+            available = mCameras.size() > 0;
+        }
+        new Thread(() -> {
+            for (int i = 0; i < 30; i++) {
+                try { Thread.sleep(1000); } catch (InterruptedException ignored) { }
+                if (VirtualCameraNative.isHalUp()) {
+                    VirtualCameraNative.setProducerAvailable(available);
+                    Log.i(TAG, "vendor HAL back; availability re-synced=" + available);
+                    return;
+                }
+            }
+        }, "vcam-hal-resync").start();
+    }
+
+    private VirtualCamera firstCamera() {
+        synchronized (mLock) {
+            return mCameras.size() > 0 ? mCameras.valueAt(0) : null;
+        }
     }
 
     IBinder getManagerBinder() {
@@ -144,6 +215,8 @@ public class VirtualCameraService extends IVirtualCameraService.Stub {
         synchronized (mLock) {
             listener = mHalListener;
         }
+        // Vendor-APEX HAL path (no-op when the stable HAL isn't present).
+        VirtualCameraNative.setProducerAvailable(available);
         if (listener == null) {
             return;
         }

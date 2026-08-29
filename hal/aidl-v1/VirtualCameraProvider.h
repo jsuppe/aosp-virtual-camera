@@ -28,14 +28,14 @@ public:
     ~VirtualCameraProvider() override;
 
     // Access frame sources (used by VirtualCameraDevice to pass to sessions)
-    std::shared_ptr<virtualcamera::VirtualCameraFrameSource> getFrameSource() const {
+    std::shared_ptr<::virtualcamera::VirtualCameraFrameSource> getFrameSource() const {
         return mFrameSource;
     }
-    std::shared_ptr<virtualcamera::VirtualCameraFrameSourceV2> getFrameSourceV2() const {
+    std::shared_ptr<::virtualcamera::VirtualCameraFrameSourceV2> getFrameSourceV2() const {
         return mFrameSourceV2;
     }
 
-    std::shared_ptr<virtualcamera::AidlFrameSource> getAidlSource() const {
+    std::shared_ptr<::virtualcamera::AidlFrameSource> getAidlSource() const {
         return mAidlSource;
     }
 
@@ -76,10 +76,10 @@ private:
     // Producer presence gates enumeration (relay builds start hidden;
     // non-relay builds are always present).
     std::atomic<bool> mProducerPresent{false};
-    std::shared_ptr<virtualcamera::AvailabilityBridge> mAvailBridge;
-    std::shared_ptr<virtualcamera::VirtualCameraFrameSource> mFrameSource;
-    std::shared_ptr<virtualcamera::VirtualCameraFrameSourceV2> mFrameSourceV2;
-    std::shared_ptr<virtualcamera::AidlFrameSource> mAidlSource;
+    std::shared_ptr<::virtualcamera::AvailabilityBridge> mAvailBridge;
+    std::shared_ptr<::virtualcamera::VirtualCameraFrameSource> mFrameSource;
+    std::shared_ptr<::virtualcamera::VirtualCameraFrameSourceV2> mFrameSourceV2;
+    std::shared_ptr<::virtualcamera::AidlFrameSource> mAidlSource;
 
     // Format: device@<major>.<minor>/<type>/<id>
     // Note: ID must be unique across all camera providers (0-2 used by internal/0)

@@ -4,4 +4,9 @@
         <version>1</version>
         <fqname>ICameraProvider/virtual_renderer/0</fqname>
     </hal>
+    <hal format="aidl">
+        <name>android.hardware.virtualcamera.hal</name>
+        <version>1</version>
+        <fqname>IVirtualCameraHal/default</fqname>
+    </hal>
 </manifest>

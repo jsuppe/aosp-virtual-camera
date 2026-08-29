@@ -28,6 +28,12 @@ DEVICE_MK="$AOSP_ROOT/device/google/cuttlefish/shared/device.mk"
 
 [ -f "$AOSP_ROOT/build/envsetup.sh" ] || { echo "not an AOSP tree: $AOSP_ROOT"; exit 1; }
 
+echo "=== [0/7] Stable AIDL boundary + platform JNI + APEX (vendor packaging) ==="
+rm -rf "$HAL_DEST/stable-aidl" "$HAL_DEST/platform-jni" "$HAL_DEST/apex"
+cp -r "$SCRIPT_DIR/stable-aidl"   "$HAL_DEST/stable-aidl"
+cp -r "$SCRIPT_DIR/platform-jni"  "$HAL_DEST/platform-jni"
+cp -r "$SCRIPT_DIR/apex"          "$HAL_DEST/apex"
+
 echo "=== [1/7] HAL sources (A13 platform variant) ==="
 mkdir -p "$HAL_DEST/core" "$HAL_DEST/aidl"
 cp "$SCRIPT_DIR"/hal/core/*.cpp "$SCRIPT_DIR"/hal/core/*.h "$HAL_DEST/core/"
@@ -52,6 +58,7 @@ echo "=== [3/7] VirtualCameraService java lib ==="
 SVC_DEST="$HAL_DEST/platform-service"
 mkdir -p "$SVC_DEST/java/com/android/server/camera/virtual"
 cp "$SCRIPT_DIR"/service/VirtualCameraService.java "$SCRIPT_DIR"/service/VirtualCamera.java \
+   "$SCRIPT_DIR"/service/VirtualCameraNative.java \
    "$SVC_DEST/java/com/android/server/camera/virtual/"
 cp "$SCRIPT_DIR/platform/services/Android.bp" "$SVC_DEST/Android.bp"
 

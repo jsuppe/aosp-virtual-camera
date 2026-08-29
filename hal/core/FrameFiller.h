@@ -58,6 +58,16 @@ struct FrameFiller {
             int width, int height,
             const HalInterface::AcquiredFrame& frame);
 
+    /**
+     * Fill from a standalone AHardwareBuffer (stable-AIDL push path).
+     * Auto-detects YUV vs RGBA source format.
+     */
+    static bool fillFromAHardwareBuffer(
+            HandleImporter& importer,
+            buffer_handle_t handle,
+            int width, int height,
+            AHardwareBuffer* src);
+
     /** RGBA→YUV conversion from v2 AHardwareBuffer */
     static bool fillBufferFromV2Rgba(
             HandleImporter& importer,

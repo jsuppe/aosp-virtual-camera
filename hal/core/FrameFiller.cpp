@@ -243,6 +243,32 @@ bool FrameFiller::fillBufferFromV2(
     return success;
 }
 
+bool FrameFiller::fillFromAHardwareBuffer(
+        HandleImporter& importer,
+        buffer_handle_t handle,
+        int width, int height,
+        AHardwareBuffer* src) {
+    if (src == nullptr) return false;
+
+    AHardwareBuffer_Desc desc;
+    AHardwareBuffer_describe(src, &desc);
+
+    // Wrap in a synthetic AcquiredFrame so the V2 conversion paths apply.
+    HalInterface::AcquiredFrame frame;
+    frame.bufferIndex = 0;
+    frame.buffer = src;
+
+    if (desc.format == AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420) {
+        return fillBufferFromV2Yuv(importer, handle, width, height, frame);
+    }
+    if (desc.format == AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM ||
+        desc.format == AHARDWAREBUFFER_FORMAT_R8G8B8X8_UNORM) {
+        return fillBufferFromV2Rgba(importer, handle, width, height, frame);
+    }
+    ALOGE("fillFromAHardwareBuffer: unsupported format %u", desc.format);
+    return false;
+}
+
 bool FrameFiller::fillBufferFromV2Yuv(
         HandleImporter& importer,
         buffer_handle_t handle,
