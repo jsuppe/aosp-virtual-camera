@@ -1,29 +1,36 @@
 # AOSP Virtual Camera — An Explainer
 
-This project adds a **virtual camera** to Android: a camera device that any
-normal camera app can open (id `100`), whose "sensor" is not hardware but
+This project adds a **virtual camera** to Android: a camera device (id `100`)
+that any normal camera app can open, whose "sensor" is not hardware but
 **another app**. A producer app registers, receives a drawing `Surface`, and
 whatever it renders shows up — live — in any Camera2 client on the device.
 
 ```
-VCamProducer (a normal app) ──registerCamera()──▶ VirtualCameraService (system_server)
-        ▲                                                 │
-        └──── onStreamsConfigured(Surface[]) ◀────────────┘   relayed from the HAL
- app draws into the Surface ──▶ HAL-owned BufferQueue ──RGBA→YUV──▶ camera id 100
-                                              └──▶ Camera2 API ──▶ any camera app  ✅
+producer app ──registerCamera()──▶ VirtualCameraService (system_server)
+      ▲                                   │ owns the BufferQueue
+      └────── Surface (producer end) ◀────┘
+app draws into the Surface ──▶ consumed frames cross the Treble boundary
+      zero-copy over a FROZEN AIDL ──▶ vendor-APEX HAL ──▶ camera id 100
+                                              └──▶ Camera2 ──▶ any camera app ✅
 ```
 
-This README is written as an **explainer**: it assumes you know Android app
-development roughly, but *not* the camera stack, gralloc, Binder/HAL plumbing,
-or how a device tree integration works. Concepts are introduced as they are
-needed. If you already know the platform, skim the headers and jump to
-[§6 Integration](#6-the-integration-process) and [§8 Field notes](#8-field-notes--the-bugs-you-would-otherwise-hit).
+The camera is **dynamic**: it *exists* only while a producer is registered
+(registration adds it to the system, unregistration or producer death removes
+it — so Camera2 availability events mean "a virtual camera is producing"),
+and the HAL ships as a **vendor APEX**: the whole engine updates by replacing
+one signed file.
 
-**Status:** the full round trip above is validated end-to-end on Android 13
-(Cuttlefish emulator, real-GPU mode) — including **dynamic availability**:
-camera 100 is *added to the system* when a producer registers and *removed*
-when it unregisters or dies, so Camera2 availability events mean "a virtual
-camera is producing". A registered-but-idle producer shows SMPTE color bars.
+This README is written as an **explainer**: it assumes rough familiarity with
+Android app development, but *not* the camera stack, gralloc, Binder/HAL
+plumbing, APEX, or device-tree integration. Concepts are introduced as they
+are needed. Already know the platform? Skim the headers and jump to
+[§6 APEX](#6-shipping-as-a-vendor-apex) and
+[§9 Field notes](#9-field-notes--the-bugs-you-would-otherwise-hit).
+
+**Status:** validated end-to-end on Android 13 (Cuttlefish, host-GPU mode) at
+4K30 with producer/boundary/viewer frame counters in lockstep, including a
+v1→v2 APEX update cycle. (SELinux runs permissive in the demo; proper policy
+is the top productization item, §11.)
 
 ---
 
@@ -51,6 +58,10 @@ nothing talks to hardware directly. The call travels through several
   HAL a **capture request** containing an *empty output buffer*; the HAL fills
   the buffer and hands it back. The app's preview is just a stream of filled
   buffers.
+* Cameras can come and go at runtime: a provider reports
+  `cameraDeviceStatusChange(PRESENT / NOT_PRESENT)` and the framework adds or
+  removes the device, firing `AvailabilityCallback` events to apps — the
+  mechanism USB webcams use, and the one we use for dynamic registration.
 
 So a virtual camera needs to do exactly three things:
 
@@ -75,17 +86,16 @@ Key properties:
 
 * Allocated once, then **shared across processes by handle** (file
   descriptors), not by copying contents. Passing a frame between processes
-  costs nanoseconds, not megabytes. This is what people mean by **zero-copy**.
+  costs microseconds, not megabytes. This is what people mean by **zero-copy**.
 * Allocated with **usage flags** that declare who will touch it and how:
   `GPU_COLOR_OUTPUT` (GPU renders into it), `SW_READ_OFTEN` /
   `SW_WRITE_OFTEN` (CPU maps it), `CAMERA_OUTPUT`, etc. The allocator picks a
-  memory type/layout that satisfies all of them. **Get the flags wrong and a
-  consumer or producer simply cannot map the buffer** — you will meet this in
-  §8.
+  memory type/layout satisfying all of them. **Get the flags wrong and a
+  producer or consumer simply cannot map the buffer** — see §9.
 * A process cannot use a received handle directly: it must **import** it
   through the **gralloc mapper** (on Cuttlefish: *minigbm*), which validates
-  the handle and maps it into the local address space. Import failing is the
-  single most common way a camera pipeline silently produces black frames.
+  the handle and maps it locally. Import failing is the single most common way
+  a camera pipeline silently produces black frames.
 
 ### Surface & BufferQueue: Android's producer/consumer conveyor
 
@@ -99,288 +109,315 @@ small ring (3–4 buffers) with a producer end and a consumer end.
 ```
 
 A **`Surface` is simply the producer end of a BufferQueue**, packaged as an
-object you can hand to another process over Binder. When you give an app a
-Surface, you are really giving it "permission to dequeue, draw into, and queue
-buffers that *I* own and consume." The buffers themselves never move — only
-handles and indices do. Every preview, every video encoder, every screen
-composition in Android rides on this one primitive.
+object you can hand to another process over Binder. Giving an app a Surface
+really means "permission to dequeue, draw into, and queue buffers that *I* own
+and consume." The buffers never move — only handles and indices do.
 
-Our design leans on it directly: **the HAL owns a BufferQueue per stream and
-hands its Surface to the producer app.** The app draws; the HAL consumes. One
-copy total (the RGBA→YUV conversion into the camera output buffer), no IPC per
-frame.
+In this project, **the BufferQueue is owned by `VirtualCameraService` inside
+system_server** (the platform side). Its producer end becomes the Surface the
+app draws into; its consumer side never touches pixels — it forwards each
+consumed frame's *gralloc handle* across the Treble boundary to the vendor
+HAL. Why it must be arranged this way is §5.
 
-## 3. The IPC and partition landscape (Binder, Treble, VINTF, SELinux)
+## 3. The rules of the terrain: Binder, Treble, VINTF, SELinux
 
-Four platform mechanisms shape *where* code is allowed to live and *who* may
-talk to whom. Each one bit us during bring-up, so they are worth understanding.
+Four platform mechanisms shape *where* code may live and *who* may talk to
+whom. Each one bit us during bring-up.
 
 * **Binder / AIDL** — Android's IPC. Interfaces are declared in `.aidl` files;
   the build generates client/server stubs. Services register by *name* with
-  `servicemanager`; clients look them up. Our three interfaces:
-  `IVirtualCameraService` (apps → service), `IVirtualCameraCallback`
-  (service → app, carries the Surface), `IVirtualCameraManager` (HAL ↔
-  service).
+  `servicemanager`; clients look them up. AIDL interfaces can be marked
+  **`@VintfStability` and frozen**: the API is hashed and versioned, and both
+  sides can then be updated independently against the frozen contract — the
+  foundation of our updatable-APEX story.
 * **Treble partitions** — `/system` and `/system_ext` hold platform code;
-  `/vendor` holds hardware code. They are built and updated independently, so
-  the platform↔vendor boundary is a *wall*: vendor code may not link platform
-  internals (e.g. `libgui`, the BufferQueue library) and vice versa. This
-  single constraint drives our biggest design decision (§5).
-* **VINTF manifests** — XML files declaring which HAL interfaces exist on each
-  side of the wall. `servicemanager` *enforces* them: a HAL whose name is not
-  declared cannot register. Fragments are typed per side —
-  `type="framework"` for system/system_ext, `type="device"` for vendor — and a
-  mistyped fragment can corrupt the whole manifest (§8, boot-wedge story).
-* **SELinux** — every process runs in a *domain*, every file/device/service
-  name has a *label*, and policy enumerates the allowed (domain → label)
-  actions. Three places it gates us: opening the GPU device (`/dev/dri`, which
-  gralloc's mapper needs), registering our service name
-  (`virtual_renderer/0`, labeled `virtual_camera_provider_service`), and app
-  access to camera. Denials log as `avc: denied` lines in dmesg/logcat.
+  `/vendor` holds hardware code, built and updated independently. The boundary
+  is a *wall*: vendor code cannot link platform internals (e.g. `libgui`, the
+  BufferQueue library) and vice versa.
+* **VINTF manifests** — XML declaring which HAL interfaces exist on each side.
+  `servicemanager` *enforces* them: an undeclared HAL cannot register.
+  Fragments are typed per side (`type="framework"` vs `type="device"`), and a
+  mistyped fragment can corrupt the whole manifest (§9, the boot-wedge story).
+* **SELinux** — every process runs in a *domain*; every file, device, and
+  service *name* has a *label*; policy enumerates allowed (domain → label)
+  actions. It gates our HAL's access to the GPU device (`/dev/dri`, needed by
+  the gralloc mapper) and which domain may register each service name.
+  Denials log as `avc: denied` in dmesg/logcat.
 
-## 4. The components of this project
+## 4. The architecture (and how it got here)
+
+The design went through three honest iterations — each is still in the tree,
+because each teaches something:
+
+| # | Where the HAL lives | Frame path | Verdict |
+|---|---|---|---|
+| 1 | `/system_ext` (platform) | HAL owns BufferQueue, relays Surface up via platform AIDL (`hal/core/AidlFrameSource`) | Works, but gralloc needs SELinux exceptions and nothing is updatable |
+| 2 | `/vendor`, loose files | relay compiled out; unix-socket frame sources | gralloc "just works" (`hal_camera_default` domain) but no Surface relay |
+| 3 | **vendor APEX + frozen AIDL** (shipping) | platform owns BufferQueue; frames cross as handles over `android.hardware.virtualcamera.hal` V1 | **Both halves work, and the HAL is updatable** |
+
+### The shipping components
 
 | Piece | Runs as | Role |
 |---|---|---|
-| **HAL** (`hal/core` + `hal/aidl-v1`) | native service, `/system_ext/bin/hw` | Implements `ICameraProvider` for camera id 100; answers capture requests; owns the per-stream BufferQueue; converts RGBA→YUV into the output buffers |
-| **`AidlFrameSource`** (`hal/core`) | inside the HAL | The bridge: creates the BufferQueue, sends its Surface up to the service, consumes the producer's frames |
-| **VirtualCameraService** (`platform/services`) | inside `system_server` | Registry: producers call `registerCamera()`; when the HAL reports a stream, relays the Surface to the producer via `IVirtualCameraCallback.onStreamsConfigured()` |
-| **AIDL definitions** (`platform/aidl-lib`) | build-time | The three interfaces above, built both as a Java lib (service, apps) and a C++ lib (HAL) |
-| **VCamProducer** (`platform/apps`) | normal app (foreground service) | Demo producer: registers, receives the Surface, draws an animated pattern with `lockCanvas()` |
-| **VCamViewer** (`platform/apps`) | normal app | Demo consumer: plain Camera2 client that opens camera 100 and shows the preview |
-| **sepolicy** (`platform/sepolicy`) | build-time | Domain for the HAL, label for the service name, app access rules |
+| **stable-aidl/** `android.hardware.virtualcamera.hal` | build-time (frozen V1) | The Treble contract: `setProducerAvailable`, `queueFrame(NativeHandle+desc)`, `IVirtualCameraHalCallback.onStreamsConfigured/onCameraClosed` |
+| **HAL** (`hal/core` + `hal/aidl-v1` + `VirtualCameraStableHal`) | vendor APEX, domain `hal_camera_default` | Implements `ICameraProvider` (camera 100) *and* `IVirtualCameraHal`; keeps the newest pushed frame as an `AHardwareBuffer`; fills capture buffers (RGBA→YUV) |
+| **VirtualCameraService** (`service/`) | inside `system_server` | Producer registry (`registerCamera`), availability push, stream relay orchestration |
+| **platform-jni/** (`libvirtualcamera_relay_jni`, via `VirtualCameraNative`) | inside `system_server` | Owns the BufferQueue; wraps the producer end as the app-facing Surface; forwards consumed gralloc handles down over the frozen AIDL; reconnects on HAL death (APEX update!) |
+| **VCamProducer / VCamViewer** (`platform/apps`) | normal apps | Demo producer (renders with `lockCanvas`) and availability-driven Camera2 viewer |
+| **apex/** | `/vendor/apex` | The deliverable: one signed file containing the whole HAL (§6) |
 
-### The life of one frame
+### The life of one frame (shipping path)
 
-1. VCamViewer opens camera 100 → cameraserver connects to our HAL and calls
-   `configureStreams` (e.g. 3840×2160 RGBA).
-2. The HAL's `AidlFrameSource` asks `VirtualCameraService` "any producer
-   registered?" — if yes, it builds a BufferQueue for the stream and calls
-   `notifyStreamsConfigured(cameraId, streams, surfaces)`.
-3. The service relays that Surface to VCamProducer's callback. The producer
-   spins up a render thread: `surface.lockCanvas()` → draw → `unlockCanvasAndPost()`,
-   ~30 times a second. Each post queues a buffer into the HAL's queue —
-   cross-process, zero-copy.
-4. Independently, cameraserver streams capture requests at the HAL. Per
-   request the HAL: **imports** the framework's output buffer via the gralloc
-   mapper (cached after first use), **acquires** the newest producer buffer
-   from its BufferQueue, converts RGBA→YUV into the output buffer, returns it.
-5. cameraserver hands the filled buffer to VCamViewer's preview Surface.
-   Pixels drawn by one app appear in another, through the real camera stack.
-6. No producer registered? Step 4 falls back to drawing scrolling color bars,
-   so the camera is never black.
+1. VCamProducer starts and calls `registerCamera()`. The service pushes
+   `setProducerAvailable(true)` down the frozen AIDL; the HAL reports camera
+   100 `PRESENT`; every Camera2 client gets `onCameraAvailable("100")` —
+   VCamViewer (which had been waiting) auto-opens it.
+2. cameraserver calls the HAL's `configureStreams` (e.g. 3840×2160 RGBA). The
+   HAL calls back up: `onStreamsConfigured(w, h, fps)`.
+3. `VirtualCameraService` has the JNI pump create a BufferQueue of that shape
+   and relays its producer-end Surface to VCamProducer, which starts drawing
+   (~30 fps software canvas).
+4. Each queued buffer is consumed *by handle only* in system_server and
+   forwarded: `queueFrame(NativeHandle, w, h, stride, format, usage, ts)`.
+   The vendor HAL clones it into an `AHardwareBuffer`
+   (`AHardwareBuffer_createFromHandle`) and keeps just the newest frame.
+5. Independently, cameraserver streams capture requests. Per request the HAL
+   imports the framework's output buffer via the gralloc mapper (cached),
+   converts the newest producer frame RGBA→YUV into it, returns it.
+6. cameraserver hands the filled buffer to VCamViewer's preview. Pixels drawn
+   by one app appear in another, through the real camera stack, across the
+   Treble boundary, out of an updatable APEX.
+7. Producer stops (or dies — binder `linkToDeath`): availability goes false,
+   camera 100 turns `NOT_PRESENT`, open clients get `onDisconnected`, the
+   viewer returns to "waiting". Measured: add ≈7 ms, remove ≈35 ms.
+8. No producer frame yet (registered but idle)? The fill falls back to
+   animated SMPTE color bars, so a configured camera is never black.
 
-## 5. The one hard design decision: which side of the Treble wall?
+## 5. The one hard design problem: the Surface relay vs the Treble wall
 
-The HAL wants two things that live on **opposite sides** of the platform/vendor
-wall:
+The HAL wants two things that live on **opposite sides** of the wall:
 
-* **BufferQueue/Surface relay** → needs `libgui` + framework AIDL parcelables
-  → only linkable by **platform** code (`/system_ext`).
-* **Frictionless gralloc** → the mapper and its `/dev/dri` access are
-  **vendor**-side; a vendor HAL (domain `hal_camera_default`) gets them for
-  free, a system_ext process needs explicit SELinux allowances.
+* **BufferQueue/Surface machinery** → `libgui`, platform-only.
+* **Frictionless gralloc** → the mapper and `/dev/dri` access come free in the
+  vendor camera-HAL domain; a platform-side HAL needs policy exceptions *and*
+  (worse) the mapper initializes once-per-process, so a boot-time denial
+  poisons it permanently (§9.1).
 
-Both packagings exist in this repo:
+You cannot pass the queue itself across the wall: the stable
+graphics-bufferqueue interfaces standardize only the **producer** end, and the
+queue + consumer implementation is `libgui`. So the resolution is to **split
+along the wall exactly where the primitives allow**:
 
-* **Platform build** (default, this branch's validated path):
-  `system_ext`, relay enabled. Gralloc works once policy admits the HAL to
-  `/dev/dri` (demo shortcut: permissive + HAL restart, see §8.1).
-* **Vendor build** (`platform/vendor-variant/`): `vendor: true`, runs in
-  `hal_camera_default`, gralloc works out of the box — but the relay must be
-  compiled out (`libgui` is not vendor-linkable), so producers would feed
-  frames via the HAL's unix-socket sources (`VirtualCameraFrameSource[V2]`)
-  instead. Likely the production shape; the socket path needs a
-  vendor-writable location before it works there.
+* The **queue and its consumer stay platform-side** (in system_server), where
+  `libgui` lives. The producer app's experience is untouched — it just gets a
+  Surface.
+* What crosses the wall is the thing that *is* stable and cheap to move: the
+  **gralloc handle of each consumed frame**, carried by our **frozen VINTF
+  AIDL**. Handles travel; pixels do not — the zero-copy guarantee survives the
+  boundary.
+* Control (availability, stream lifecycle) rides the same frozen interface,
+  in the normal Treble direction (system calls down; the HAL answers through
+  a registered callback).
 
-## 5b. The shipping architecture: vendor APEX + a frozen AIDL boundary ✅
+Freezing the interface (`stable-aidl/aidl_api/.../1/`) is what makes the APEX
+meaningful: platform image and APEX can now rev independently, and any
+interface change forces a deliberate new frozen version.
 
-Validated end-to-end (4K30, producer↔viewer in lockstep): the HAL ships as a
-**vendor APEX** and the platform↔vendor conversation rides a **frozen VINTF
-AIDL** — resolving the §5 tradeoff without giving up the Surface relay.
+## 6. Shipping as a vendor APEX
+
+### What an APEX is
+
+An **APEX** is Android's updatable package for *system components* — a signed
+filesystem image (inside a zip) that `apexd` mounts at `/apex/<name>` early in
+boot, before ordinary apps exist. Where an APK ships app code, an APEX ships
+native binaries, libraries, init scripts, and config — exactly the payload of
+a HAL. A **vendor APEX** lives on `/vendor/apex` and carries vendor HALs
+(Cuttlefish itself ships several: wifi, bluetooth, vibrator…).
+
+### Anatomy of ours (`apex/`)
 
 ```
-producer app ──Surface──▶ BufferQueue (owned by system_server: platform-jni/)
-                              │ consumer side, handle-only (no pixel access)
-                              ▼
-        android.hardware.virtualcamera.hal (FROZEN V1, stable-aidl/)
-          setProducerAvailable(bool)      ← dynamic camera add/remove
-          queueFrame(NativeHandle,…)      ← zero-copy, per-frame
-          IVirtualCameraHalCallback       → onStreamsConfigured/onCameraClosed
-                              ▼
-        vendor APEX (apex/): provider + StableHal, AHardwareBuffer import,
-        RGBA→YUV → camera 100 → Camera2 → any camera app
+com.android.hardware.camera.provider.virtual.apex
+├── apex_manifest.json        name + version (the update counter)
+├── bin/hw/…provider-virtual-service          the HAL binary
+├── lib64/…-virtual-impl.so, …hal-V1-ndk.so   its libraries
+├── etc/…virtual.rc           init script (service path is /apex/…/bin/hw/…)
+└── etc/vintf/manifest/….xml  declares ICameraProvider/virtual_renderer
+                              AND IVirtualCameraHal/default (type="device")
 ```
 
-Key decisions, in one place:
+Build-side pieces (`apex/Android.bp`):
 
-* **The BufferQueue stays platform-side.** The HIDL/AIDL bufferqueue types only
-  standardize the *producer* end, and `libgui` (queue + consumer) is
-  platform-only — so the queue lives in system_server (`platform-jni/`,
-  loaded by `VirtualCameraNative`), and the *consumed buffers* cross the
-  boundary as `NativeHandle` + description. Same zero-copy guarantee: handles
-  travel, pixels do not.
-* **The interface is frozen** (`stable-aidl/aidl_api/.../1/`). The APEX and the
-  platform image can now rev independently; interface changes require a new
-  frozen version, which is exactly the discipline you want at a Treble seam.
-* **Update = replace one signed file.** `adb push <name>.apex /vendor/apex/`
-  (or the OTA equivalent) + reboot; apexd activates the new version
-  (`…provider.virtual@2`), cameraserver reconnects to the restarted provider,
-  and the pipeline resumes. Measured: 9-second incremental APEX build,
-  15-second boot, zero platform changes.
+* **`apex_key` + certificate** — the payload is AVB-signed and the container
+  APK-signed (dev keys in-repo; production would rotate them). apexd refuses
+  mismatched signatures, which is what makes "update = replace a file" safe.
+* **`file_contexts`** — SELinux labels for files *inside* the APEX (our
+  binary gets `hal_camera_default_exec`, so init transitions it into the
+  standard vendor camera-HAL domain — gralloc, GPU and binder permissions
+  included).
+* The `.rc` and VINTF fragment ship **inside** the APEX: init picks up
+  `/apex/*/etc/*.rc`, and libvintf reads APEX vintf fragments, so the HAL's
+  entire lifecycle travels with the package.
 
-### More field notes (earned during this phase)
+### What an APEX **cannot** carry
 
-8. **Never name an AIDL package segment after a C++ keyword.** Package
-   `…camera.virtual` generates `namespace …::virtual` — unbuildable. (Also
-   why AOSP's own is `android.companion.virtualcamera`.) Watch for namespace
-   *shadowing* too: our new `…hardware::virtualcamera` AIDL namespace captured
-   unqualified `virtualcamera::` references in the HAL — qualify with `::`.
-9. **R8 strips JNI-only Java methods from services.jar.** Callbacks invoked
-   only from native are "unused" to the optimizer and vanish, aborting
-   `JNI_OnLoad` with `NoSuchMethodError`. Give them a Java-visible use (or a
-   keep rule), and make JNI method lookups exception-safe.
-10. **A pushed services.jar can be shadowed by stale AOT artifacts** —
-   `/system/framework/oat/*/services.{odex,vdex,art}` and the ART apexdata
-   dalvik-cache. If new platform code "doesn't run", delete those and reboot.
-11. **Vendor binaries needing `AHardwareBuffer_createFromHandle` include
-   `<vndk/hardware_buffer.h>`**, and `libnativewindow` headers want `libarect`.
+The platform half stays on the image and follows platform OTAs: the
+`VirtualCameraService` code in `services.jar`, the JNI pump on
+`/system_ext`, the demo apps (updatable as ordinary APKs anyway), and —
+importantly — **SELinux policy**: an APEX may label its own files but cannot
+add domains or allow-rules. Policy must be on the image before the APEX can
+rely on it.
 
-## 6. The integration process
-
-AOSP has no plugin mechanism — integrating a HAL means **copying source into
-the device tree and rebuilding the image**. `scripts/integrate-a13-platform.sh
-<aosp_root>` automates it; here is what it does and why each piece exists:
-
-1. **HAL sources** → `hardware/interfaces/camera/provider/virtual/{core,aidl}`
-   plus `Android.bp` files (from `platform/bp/`). `Android.bp` is Soong's
-   build file: module names, sources, and — critically — the dependency lists
-   and the partition switch (`system_ext_specific: true` vs `vendor: true`).
-2. **AIDL + service + apps** → `platform-aidl/`, `platform-service/` (compiled
-   into `system_server`), and the two demo apps (preinstalled to
-   `system_ext/app`).
-3. **init `.rc`** → tells `init` to start our binary at boot, as which user,
-   in which service class. Installed to `<partition>/etc/init/`.
-4. **VINTF fragment** → declares `ICameraProvider/virtual_renderer` so
-   servicemanager will accept our registration. Installed to
-   `<partition>/etc/vintf/manifest/`. *Its `type=` must match the partition.*
-5. **sepolicy** → into the Cuttlefish device policy dir: the
-   `virtual_camera_hal` domain, the `virtual_camera_provider_service` service
-   label, and the allow rules binding them.
-6. Then a full image build (`m`) — first time only; afterwards you can rebuild
-   just the modules and `adb push` them (see §7).
-
-The A15 flow (`integrate.sh`, `main` branch) is the same idea with a vendor
-HAL and a `VirtualMediaService` instead of the relay.
-
-## 7. Build, run, demo
+### The update flow (validated)
 
 ```bash
-# one-time: integrate + full build (Cuttlefish target)
-./scripts/integrate-a13-platform.sh /path/to/aosp-a13
-cd /path/to/aosp-a13 && source build/envsetup.sh && lunch aosp_cf_x86_64_phone-userdebug && m
-
-# boot (real GPU — SwiftShader crashes app rendering, see §8.4)
-launch_cvd --daemon --gpu_mode=gfxstream --cpus=4 --memory_mb=4096
-
-# demo-mode SELinux (see §8.1 for why the restart is mandatory)
-adb root
-adb shell setenforce 0
-adb shell setprop ctl.restart camera-provider-virtual
-
-# run in either order - the viewer waits for the camera to appear
-# (camera 100 only exists while a producer is registered)
-adb shell pm grant com.example.vcamviewer android.permission.CAMERA
-adb shell am start-foreground-service -n com.example.vcamproducer/.VCamProducerService
-adb shell monkey -p com.example.vcamviewer -c android.intent.category.LAUNCHER 1
-# → viewer: "waiting for virtual camera" → producer registers → camera 100
-#   APPEARS (Camera2 availability event) → viewer auto-opens → producer frames.
-#   Stop the producer: camera 100 disappears, viewer returns to waiting.
+m com.android.hardware.camera.provider.virtual        # 9 s incremental
+adb push out/.../vendor/apex/com.android.hardware.camera.provider.virtual.apex /vendor/apex/
+adb reboot                                            # ~15 s
+adb shell ls /apex | grep provider.virtual            # …provider.virtual@2  ← new version live
 ```
 
-Iterating on the HAL without reflashing:
-`m <module>` → `adb root; adb remount` (needs one reboot the first time) →
-`adb push` the `.so`/binary → reboot. Verify pushes loudly — a read-only
-partition fails silently if you pipe to /dev/null.
+apexd activates the new version at boot; cameraserver reconnects to the
+restarted provider; the platform relay's death-recipient reconnects the
+frozen-AIDL session — the pipeline resumes with zero platform changes. (The
+manifest also opts into `supportsRebootlessUpdate`; `adb install --staged`
+paths vary by release, so the file-replace flow above is the portable one.)
 
-## 8. Field notes — the bugs you would otherwise hit
+## 7. The integration process
 
-Each of these cost real debugging time; they are the practical distillation of
-§2–§3.
+AOSP has no plugin mechanism — integrating means copying source into the
+device tree and rebuilding. `scripts/integrate-a13-platform.sh <aosp_root>`
+does it all; what it installs and why:
+
+1. **Stable AIDL + platform JNI + APEX config** → `stable-aidl/` (the frozen
+   contract), `platform-jni/`, `apex/` into
+   `hardware/interfaces/camera/provider/virtual/`.
+2. **HAL sources** → `core/` + `aidl/`, with `Android.bp` selected per
+   packaging (`platform/bp/` = system_ext relay build,
+   `platform/vendor-variant/` = the vendor/APEX build with
+   `VCAM_STABLE_AIDL`).
+3. **Service + AIDL + apps** → `platform-service/` (compiled into
+   `services.jar`), `platform-aidl/`, and the demo apps.
+4. **init `.rc` / VINTF fragment** → for the APEX build these ship inside the
+   package; loose copies exist for the non-APEX variants.
+5. **sepolicy** → into the device policy dir: the domains, service-name
+   labels, and app rules (see §11 — the demo currently runs permissive).
+6. First build is a full `m`; afterwards, per-module `m` + `adb push`
+   (see §8's iterate table).
+
+## 8. Build, run, demo
+
+```bash
+./scripts/integrate-a13-platform.sh /path/to/aosp-a13
+cd /path/to/aosp-a13 && source build/envsetup.sh \
+  && lunch aosp_cf_x86_64_phone-userdebug && m       # first time: full image
+
+launch_cvd --daemon --gpu_mode=gfxstream --cpus=4 --memory_mb=4096
+adb root && adb shell setenforce 0                    # demo-mode SELinux (§11)
+adb shell setprop ctl.restart vendor.camera-provider-virtual   # fresh mapper init (§9.1)
+
+# order-free: the viewer waits until a producer makes the camera exist
+adb shell pm grant com.example.vcamviewer android.permission.CAMERA
+adb shell monkey -p com.example.vcamviewer -c android.intent.category.LAUNCHER 1
+adb shell am start-foreground-service -n com.example.vcamproducer/.VCamProducerService
+# → camera 100 APPEARS, viewer auto-opens, producer frames on screen.
+# stop the producer: camera disappears, viewer returns to waiting.
+```
+
+Iterating without reflashing — what to push per change:
+
+| You changed | Rebuild | Push | Then |
+|---|---|---|---|
+| HAL (anything in the APEX) | `m com.android.…provider.virtual` | the `.apex` → `/vendor/apex/` | reboot |
+| `VirtualCameraService` / AIDL java | `m services` | `services.jar` → `/system/framework/` **and delete stale AOT**: `/system/framework/oat/*/services.*` + ART apexdata dalvik-cache (§9.10) | reboot |
+| JNI pump | `m libvirtualcamera_relay_jni` | the `.so` → `/system_ext/lib64/` (plus `…hal-V1-ndk.so` once) | reboot |
+| demo apps | `m VCamProducer VCamViewer` | the APKs → `system_ext/app/...` | reboot |
+
+## 9. Field notes — the bugs you would otherwise hit
 
 1. **Gralloc mapper initialization happens once per process.** minigbm opens
    the DRM device in its constructor at first use. If SELinux denies
-   `/dev/dri` *at that moment*, the mapper is dead for the life of the process
-   — every later import logs `Failed to import buffer. Driver is
-   uninitialized`, and **`setenforce 0` afterwards does not heal it.** Relax
-   policy, then **restart the HAL** (`ctl.restart camera-provider-virtual`).
-   Productization TODO: grant `virtual_camera_hal` access to `gpu_device` in
-   sepolicy instead of running permissive.
-2. **Usage flags must cover every accessor.** The HAL first allocated its
-   BufferQueue with only `SW_READ_OFTEN` (it reads frames on the CPU). The
-   producer draws with software `lockCanvas()` — a CPU *write* — which threw
-   `IllegalArgumentException` until `SW_WRITE_OFTEN` was added to the
-   consumer's usage. Rule: the buffer's flags are the union of *everyone's*
-   access pattern, producer and consumer alike.
-3. **A mistyped VINTF fragment can wedge boot.** Moving the service to
-   /vendor while leaving the fragment `type="framework"` corrupted the device
-   manifest → servicemanager rejected *every* vendor HAL → keymint never
-   registered → keystore2 hung → boot never completed. The failure appears
-   totally unrelated to the change; check fragment `type=` first when a
-   partition move breaks boot.
-4. **Emulator GPU mode matters.** With `--gpu_mode=guest_swiftshader`
-   (software GL), app HWUI rendering segfaults under load — the *viewer*
-   crashes and takes the demo with it. `gfxstream` (host-GPU passthrough) is
-   solid.
-5. **Service-name labels gate registration.** `virtual_renderer/0` is labeled
-   `virtual_camera_provider_service`, and policy only lets the
-   `virtual_camera_hal` domain register it. Run the HAL in any other domain
-   (e.g. as a vendor service in `hal_camera_default`) and it exits in a
-   crash-loop with `avc: denied { add }` — relabel or extend policy to move it.
+   `/dev/dri` at that moment, the mapper stays dead for the process's life —
+   `setenforce 0` afterwards does *not* recover it. Relax policy, then
+   **restart the HAL** (`ctl.restart …`). (The vendor/APEX packaging avoids
+   the problem entirely: `hal_camera_default` already has the access.)
+2. **Usage flags must cover every accessor.** The relay's BufferQueue needs
+   `SW_READ_OFTEN | SW_WRITE_OFTEN`: the HAL CPU-reads, and a software
+   `lockCanvas()` producer CPU-writes. Miss one and `lockCanvas` throws
+   `IllegalArgumentException`. A buffer's flags are the union of everyone's
+   access pattern.
+3. **A mistyped VINTF fragment can wedge boot.** A `type="framework"` fragment
+   left in `/vendor/etc/vintf/manifest` corrupts the device manifest →
+   servicemanager rejects *every* vendor HAL → keymint fails → keystore2
+   hangs → boot never completes. The failure looks totally unrelated; check
+   fragment `type=` first after any partition move.
+4. **Emulator GPU mode matters.** `guest_swiftshader` (software GL) segfaults
+   app HWUI rendering under load; use `gfxstream` (host GPU).
+5. **Service-name labels gate registration.** Only the domain that policy
+   pairs with a service label may `add` it; a HAL in another domain exits in
+   a crash-loop with `avc: denied { add }`. Our two names
+   (`…ICameraProvider/virtual_renderer/0`, `…IVirtualCameraHal/default`) need
+   labels registerable by `hal_camera_default` (§11).
 6. **Stale emulator state mimics real bugs.** Orphaned `crosvm` processes
-   (note: the binary lives at `bin/x86_64-linux-gnu/crosvm`, which naive
-   `pkill crosvm` patterns miss) hold instance disk locks and ports
-   (6520/6600/8443); the next launch then fails in ways that look like kernel
-   or driver incompatibilities. Before diagnosing anything exotic: kill all
-   cuttlefish processes by exe path, `cvd reset -y`, remove
-   `~/cuttlefish/instances` and `/tmp/cf_*`, confirm the ports are free.
+   (the binary lives at `bin/x86_64-linux-gnu/crosvm` — naive pkill patterns
+   miss it) hold instance disk locks and ports (6520/6600/8443), making
+   later launches fail in ways that look like kernel/driver issues. Kill by
+   exe path, `cvd reset -y`, remove `~/cuttlefish/instances` + `/tmp/cf_*`,
+   verify ports free.
+7. **Dynamic add/remove is push-driven.** cameraserver only reacts to
+   `cameraDeviceStatusChange`, and `getCameraIdList` must agree with the
+   pushed state. Availability transitions travel service→HAL over the frozen
+   AIDL; the platform side re-syncs after HAL death (APEX update).
+8. **Never name an AIDL package segment after a C++ keyword.** Package
+   `…camera.virtual` generates `namespace …::virtual` — unbuildable. Watch
+   for namespace *shadowing* too: a new `…hardware::virtualcamera` AIDL
+   namespace captured the HAL's unqualified `virtualcamera::` references —
+   qualify with leading `::`.
+9. **R8 strips JNI-only Java methods from services.jar.** Callbacks invoked
+   only from native look unused and vanish, aborting `JNI_OnLoad` with
+   `NoSuchMethodError`. Give them a Java-visible use (or a keep rule) and
+   make JNI `GetStaticMethodID` lookups exception-safe.
+10. **A pushed services.jar can be shadowed by stale AOT artifacts** —
+    `/system/framework/oat/*/services.{odex,vdex,art}` and the ART apexdata
+    dalvik-cache. If new platform code "doesn't run", delete those and reboot.
+11. **Vendor code using `AHardwareBuffer_createFromHandle` includes
+    `<vndk/hardware_buffer.h>`**, and `libnativewindow` headers want
+    `libarect`.
 
-7. **Dynamic camera add/remove is push-driven.** The HAL cannot poll the
-   service for producers cheaply, and cameraserver only reacts to
-   `cameraDeviceStatusChange`. The service therefore pushes 0↔N producer
-   transitions to the HAL over `IVirtualCameraHalListener` (registered by
-   `AvailabilityBridge`, which retries until system_server is up and
-   re-registers if it restarts). Remember: `getCameraIdList` must agree
-   with the pushed state, and a shared AIDL *cpp* lib change means
-   `libvirtualcamera_platform_aidl.so` must ship together with the impl —
-   a stale copy crash-loops the HAL with a missing `onTransact` symbol.
-
-## 9. Repository map
+## 10. Repository map
 
 ```
-hal/core/        AIDL-independent engine: frame sources (BufferQueue relay,
-                 v1 shm socket, v2 AHardwareBuffer socket), RGBA→YUV filler
-                 (+ color-bar fallback), metadata builder
-hal/aidl-v1/     Camera AIDL adapter used on A13 (provider/device/session)
-hal/aidl-v2/     Same adapter for the newer Camera AIDL (A15 path)
-platform/        A13 platform half: aidl-lib, services (system_server),
-                 apps (VCamProducer/VCamViewer), bp/rc/vintf/sepolicy,
-                 vendor-variant (alternative /vendor packaging)
-scripts/         integrate-a13-platform.sh, build/test/launch helpers
-v2-shared-memory/  zero-copy AHardwareBuffer pool + lock-free ring (design for
-                 the socket-fed vendor path)
+stable-aidl/       android.hardware.virtualcamera.hal — the FROZEN V1 boundary
+                   (aidl_api/…/1/ is the frozen contract + hash)
+platform-jni/      BufferQueue owner + frame pump inside system_server
+apex/              vendor APEX packaging: manifest, keys, rc, file_contexts, bp
+hal/core/          engine: frame sources (stable push, v1 shm socket, v2 AHB
+                   socket, legacy platform relay), RGBA→YUV filler (+ color
+                   bars), metadata builder
+hal/aidl-v1/       Camera AIDL adapter (A13): provider/device/session +
+                   VirtualCameraStableHal (the vendor endpoint of the boundary)
+hal/aidl-v2/       same adapter for the newer Camera AIDL (A15 path)
+service/           VirtualCameraService + VirtualCameraNative (system_server)
+platform/          A13 platform half: aidl-lib, services bp, apps
+                   (VCamProducer/VCamViewer), bp variants (bp/ = system_ext
+                   relay, vendor-variant/ = vendor+stable-AIDL/APEX), sepolicy
+scripts/           integrate-a13-platform.sh, build/test/launch helpers
+v2-shared-memory/  zero-copy AHardwareBuffer pool + lock-free ring (socket path)
 virtual-mic/, virtual-display/   companion virtual devices (same pattern)
 unified-test/, sample-renderer/, camera-test/, test-app/   A15-era test apps
 ```
 
-## 10. Where this goes next
+## 11. Where this goes next
 
-* Proper sepolicy for `/dev/dri` (drop the permissive shortcut).
-* Vendor-variant producer transport: move the socket path somewhere
-  vendor-writable and wire a producer to `VirtualCameraFrameSourceV2`
-  (zero-copy `AHardwareBuffer` ring — see `v2-shared-memory/`).
-* 30 fps pacing in the HAL request loop.
-* 4K60 via the v2 ring; multi-producer arbitration; virtual mic/display parity.
+* **Real SELinux policy** (drop the demo's permissive mode): allow
+  `hal_camera_default` to register both service names — or dedicated labels —
+  plus the `system_server ↔ IVirtualCameraHal` binder rules.
+* Fence-aware `queueFrame` (GPU producers) and 30 fps pacing in the HAL
+  request loop.
+* Freeze V2 of the boundary when the interface next changes (that's the
+  point of it).
+* Multi-producer arbitration; virtual mic/display brought up to the same
+  APEX + frozen-AIDL pattern.
 
 ## License
 
