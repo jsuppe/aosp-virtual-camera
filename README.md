@@ -27,6 +27,12 @@ are needed. Already know the platform? Skim the headers and jump to
 [§6 APEX](#6-shipping-as-a-vendor-apex) and
 [§9 Field notes](#9-field-notes--the-bugs-you-would-otherwise-hit).
 
+> **New to this stack?** There's a companion **[step-by-step tutorial](docs/tutorial/00-index.md)**
+> that teaches these concepts one at a time — camera HAL, gralloc, BufferQueue,
+> Binder, Treble, dynamic availability, frozen AIDL, APEX, and GPU compositing —
+> each building toward this system. This README is the reference; the tutorial is
+> the on-ramp.
+
 **Status:** validated end-to-end on Android 13 (Cuttlefish, host-GPU mode) at
 4K30 with producer/boundary/viewer frame counters in lockstep, including a
 v1→v2 APEX update cycle. The producer renders with **OpenGL ES** and the HAL
