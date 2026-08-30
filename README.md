@@ -232,41 +232,85 @@ interface change forces a deliberate new frozen version.
 
 ## 5b. The fill: GPU compositing with zero color conversion
 
-Once a producer frame reaches the HAL, the last step is putting its pixels into
-the framework's output buffer. Two honest facts shape how:
+Once a producer frame reaches the HAL, the last step is getting its pixels into
+the framework's output buffer. Two facts shape how — and it's worth being
+precise, because "zero-copy" gets overclaimed here:
 
-* **The copy is unavoidable.** The camera framework *owns* the output buffer —
-  it's bound to the consumer app's Surface (its ImageReader/SurfaceTexture
-  queue). The producer rendered into a *different* buffer. Two buffers, two
-  queues → the HAL must move pixels from one to the other. No topology with
-  producer ≠ consumer escapes this.
-* **The color conversion is avoidable.** If both sides are RGBA, moving pixels
-  is a pure blit with nothing to convert.
+* **The copy is unavoidable.** The camera framework *owns* the output buffer;
+  it belongs to the consumer app's Surface (its ImageReader/SurfaceTexture
+  queue) and the framework hands the HAL that specific buffer to fill. The
+  producer rendered into a *different* buffer (our relay queue's). Two buffers
+  in two different queues → the HAL must move pixels from one to the other. No
+  topology with producer ≠ consumer escapes this one move.
+* **The color conversion is avoidable.** *Moving* pixels and *converting* them
+  are separate costs. If both buffers are RGBA, the move is a plain blit with
+  nothing to convert. The producer already renders RGBA (§4); the trick is
+  getting the *output* buffer to be RGBA too — see the format nudge below.
 
-`core/GpuCompositor` does that move on the GPU and never on the CPU:
+So the honest target is: **one GPU blit, no color conversion, and no CPU
+touch** — not "zero copy." `core/GpuCompositor` hits it. To follow how, three
+GL concepts, each introduced as gralloc was in §2.
 
-1. The producer's `AHardwareBuffer` is imported as a GL texture
-   (`eglGetNativeClientBufferANDROID` → `EGLImage` →
-   `glEGLImageTargetTexture2DOES`) — zero-copy import.
-2. The framework's output buffer is imported as an FBO **renderbuffer**
-   (`glEGLImageTargetRenderbufferStorageOES` — the color-renderable path;
-   texture attachment is sample-only and fails FBO-completeness).
-3. One full-screen shader pass writes the result. **RGBA output → passthrough
-   (no conversion at all).** To make this the common case the HAL resolves
-   `IMPLEMENTATION_DEFINED` streams to `RGBA_8888` in `configureStreams`, so a
-   preview to a `SurfaceTexture` lands on the pure-blit path.
+**EGLImage — the same buffer, seen by the GPU.** §2 explained that a gralloc
+buffer is shared cross-process by handle. An **`EGLImage`** is the GPU's
+equivalent handle: a lightweight wrapper that lets a GL context *point at* an
+existing gralloc buffer without copying it. You build one from an
+`AHardwareBuffer` (`eglGetNativeClientBufferANDROID` → `eglCreateImageKHR`) and
+then bind it to a GL object. Creating it is cheap; the pixels stay put. This is
+the GPU-side version of "handles travel, pixels don't."
 
-This also **retires the fence hazard**: because the producer now renders with
-GL, the frames carry GPU fences, and the compositor's GL pipeline orders
-against them — so a GPU producer no longer tears (the old CPU `lockCanvas`
-path was only correct because it was synchronous). Validated at steady state:
-`0` GPU-composite errors, `0` CPU-fallback calls — no pixel touches the CPU.
+**Texture vs renderbuffer — reading vs writing.** A GL object backed by an
+EGLImage can be either:
+- a **texture**, which a shader *samples* (reads) — this is how we take the
+  producer's frame as input;
+- a **renderbuffer**, which the GPU *draws into* (writes) — this is how we
+  target the framework's output buffer.
 
-**Fallback:** if a consumer hard-requires a YUV stream, `composite()` returns
-false and the CPU `FrameFiller` (per-pixel RGB→YUV) fills that buffer. That
-path *does* cost a CPU pass; moving it onto the GPU (RGB→NV12 via per-plane
-`dma_buf` render targets) is future work — it's driver-dependent and wasn't
-needed for the RGBA preview case.
+The distinction matters and is a classic trap: you *cannot* attach an
+imported-gralloc texture as a render target on most drivers — the framebuffer
+comes back "incomplete." Imported buffers are only reliably *renderable*
+through a renderbuffer (`glEGLImageTargetRenderbufferStorageOES`). Texture for
+the source, renderbuffer for the destination.
+
+**FBO — an off-screen canvas.** Normally GL draws to the screen. A
+**Framebuffer Object (FBO)** redirects drawing to a buffer you choose — here,
+the renderbuffer wrapping the camera's output buffer. Attach it, set the
+viewport, draw a full-screen quad whose fragment shader samples the source
+texture, and the result lands in the output buffer.
+
+Putting it together, per capture request:
+
+```
+producer AHB ──EGLImage──▶ GL texture (sampled) ─┐
+                                                  ├─ full-screen shader pass ─▶
+output buffer ──EGLImage──▶ renderbuffer ─FBO────┘        (RGBA→RGBA: a copy,
+                                                            never a conversion)
+```
+
+**The format nudge.** A preview usually asks for `IMPLEMENTATION_DEFINED` —
+"HAL, you pick." We pick `RGBA_8888` (in `configureStreams`) and request
+`GPU_RENDER_TARGET` buffers. Now the output is RGBA, the source is RGBA, and
+the shader pass is a straight passthrough — **zero color conversion.** A
+`SurfaceTexture` consumer (like our viewer) samples RGBA happily, so the common
+preview case lands entirely on this path.
+
+**A bonus: the fence hazard is retired.** Earlier the producer drew with a
+*synchronous* software canvas, which is the only reason the old "keep the
+newest frame" design didn't tear. A GPU producer finishes asynchronously, so
+naively reading its buffer could catch a half-drawn frame. Because the producer
+now renders with GL and the compositor consumes with GL, the two share the
+driver's fence/pipeline ordering — the read waits for the write. What was a
+lurking correctness bug for GPU producers is now handled by construction.
+
+Validated at steady state: **0 GPU-composite errors, 0 CPU-fallback calls — no
+pixel touches the CPU.**
+
+**Fallback (honest).** If a consumer hard-requires a YUV stream, `composite()`
+returns false and the CPU `FrameFiller` does a per-pixel RGB→YUV fill of that
+buffer. That path *does* cost a CPU pass. Moving it onto the GPU (RGB→NV12 by
+binding the Y and UV planes as separate render targets via
+`EGL_EXT_image_dma_buf_import`) is future work — it's driver-dependent and
+wasn't needed for the RGBA preview case that the demo exercises.
 
 ## 6. Shipping as a vendor APEX
 
@@ -428,6 +472,25 @@ Iterating without reflashing — what to push per change:
 11. **Vendor code using `AHardwareBuffer_createFromHandle` includes
     `<vndk/hardware_buffer.h>`**, and `libnativewindow` headers want
     `libarect`.
+12. **Rendering into an imported gralloc buffer needs a *renderbuffer*, not a
+    texture.** Attaching an EGLImage-backed `GL_TEXTURE_2D` as an FBO color
+    attachment returns `GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT` — imported
+    buffers are sample-only as textures. Use
+    `glEGLImageTargetRenderbufferStorageOES` and attach the renderbuffer
+    (§5b). Symptom we hit: `glCheckFramebufferStatus` → not-complete.
+13. **An EGL context is current on one thread at a time — mind the binder
+    pool.** The HAL processes capture requests on binder threads, so the
+    thread that *initialized* the GL context is usually not the one that
+    *uses* it. Symptom: every GL call silently no-ops and
+    `glCheckFramebufferStatus` returns `0` (not an enum — "no context"). Fix:
+    `eglMakeCurrent(acquire)` at the top of each composite and
+    `eglMakeCurrent(…, EGL_NO_CONTEXT)` (release) at the end, serialized by a
+    mutex, and release at the end of init too so the first user can acquire.
+14. **`EGLImageKHR` and the `KHR`/`OES` entrypoints live in the *ext* headers.**
+    Include `<EGL/eglext.h>` / `<GLES2/gl2ext.h>`, and load the functions
+    (`eglCreateImageKHR`, `glEGLImageTarget*OES`,
+    `eglGetNativeClientBufferANDROID`) via `eglGetProcAddress` rather than
+    linking them directly.
 
 ## 10. Repository map
 
