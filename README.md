@@ -29,8 +29,10 @@ are needed. Already know the platform? Skim the headers and jump to
 
 **Status:** validated end-to-end on Android 13 (Cuttlefish, host-GPU mode) at
 4K30 with producer/boundary/viewer frame counters in lockstep, including a
-v1→v2 APEX update cycle. (SELinux runs permissive in the demo; proper policy
-is the top productization item, §11.)
+v1→v2 APEX update cycle. The producer renders with **OpenGL ES** and the HAL
+composites on the **GPU with zero color conversion** on the RGBA path (steady
+state: no pixel touches the CPU — §5b). (SELinux runs permissive in the demo;
+proper policy is the top productization item, §11.)
 
 ---
 
@@ -160,7 +162,7 @@ because each teaches something:
 | Piece | Runs as | Role |
 |---|---|---|
 | **stable-aidl/** `android.hardware.virtualcamera.hal` | build-time (frozen V1) | The Treble contract: `setProducerAvailable`, `queueFrame(NativeHandle+desc)`, `IVirtualCameraHalCallback.onStreamsConfigured/onCameraClosed` |
-| **HAL** (`hal/core` + `hal/aidl-v1` + `VirtualCameraStableHal`) | vendor APEX, domain `hal_camera_default` | Implements `ICameraProvider` (camera 100) *and* `IVirtualCameraHal`; keeps the newest pushed frame as an `AHardwareBuffer`; fills capture buffers (RGBA→YUV) |
+| **HAL** (`hal/core` + `hal/aidl-v1` + `VirtualCameraStableHal`) | vendor APEX, domain `hal_camera_default` | Implements `ICameraProvider` (camera 100) *and* `IVirtualCameraHal`; keeps the newest pushed frame as an `AHardwareBuffer`; fills capture buffers on the GPU (`GpuCompositor`, zero conversion) with a CPU converter fallback |
 | **VirtualCameraService** (`service/`) | inside `system_server` | Producer registry (`registerCamera`), availability push, stream relay orchestration |
 | **platform-jni/** (`libvirtualcamera_relay_jni`, via `VirtualCameraNative`) | inside `system_server` | Owns the BufferQueue; wraps the producer end as the app-facing Surface; forwards consumed gralloc handles down over the frozen AIDL; reconnects on HAL death (APEX update!) |
 | **VCamProducer / VCamViewer** (`platform/apps`) | normal apps | Demo producer (renders with `lockCanvas`) and availability-driven Camera2 viewer |
@@ -176,14 +178,19 @@ because each teaches something:
    HAL calls back up: `onStreamsConfigured(w, h, fps)`.
 3. `VirtualCameraService` has the JNI pump create a BufferQueue of that shape
    and relays its producer-end Surface to VCamProducer, which starts drawing
-   (~30 fps software canvas).
+   with **OpenGL ES** (`EGL` over the Surface) into RGBA buffers — no CPU
+   touches the producer's pixels.
 4. Each queued buffer is consumed *by handle only* in system_server and
    forwarded: `queueFrame(NativeHandle, w, h, stride, format, usage, ts)`.
    The vendor HAL clones it into an `AHardwareBuffer`
    (`AHardwareBuffer_createFromHandle`) and keeps just the newest frame.
-5. Independently, cameraserver streams capture requests. Per request the HAL
-   imports the framework's output buffer via the gralloc mapper (cached),
-   converts the newest producer frame RGBA→YUV into it, returns it.
+5. Independently, cameraserver streams capture requests. Per request the HAL's
+   **GpuCompositor** imports the producer frame and the framework's output
+   buffer as `EGLImage`s and does one GPU blit into the output (§5b). When both
+   are RGBA — which the HAL arranges by resolving `IMPLEMENTATION_DEFINED`
+   streams to `RGBA_8888` — the blit is a straight passthrough: **zero color
+   conversion, and no pixel touches the CPU.** (A consumer that hard-requires
+   YUV falls back to a CPU converter; see §5b.)
 6. cameraserver hands the filled buffer to VCamViewer's preview. Pixels drawn
    by one app appear in another, through the real camera stack, across the
    Treble boundary, out of an updatable APEX.
@@ -222,6 +229,44 @@ along the wall exactly where the primitives allow**:
 Freezing the interface (`stable-aidl/aidl_api/.../1/`) is what makes the APEX
 meaningful: platform image and APEX can now rev independently, and any
 interface change forces a deliberate new frozen version.
+
+## 5b. The fill: GPU compositing with zero color conversion
+
+Once a producer frame reaches the HAL, the last step is putting its pixels into
+the framework's output buffer. Two honest facts shape how:
+
+* **The copy is unavoidable.** The camera framework *owns* the output buffer —
+  it's bound to the consumer app's Surface (its ImageReader/SurfaceTexture
+  queue). The producer rendered into a *different* buffer. Two buffers, two
+  queues → the HAL must move pixels from one to the other. No topology with
+  producer ≠ consumer escapes this.
+* **The color conversion is avoidable.** If both sides are RGBA, moving pixels
+  is a pure blit with nothing to convert.
+
+`core/GpuCompositor` does that move on the GPU and never on the CPU:
+
+1. The producer's `AHardwareBuffer` is imported as a GL texture
+   (`eglGetNativeClientBufferANDROID` → `EGLImage` →
+   `glEGLImageTargetTexture2DOES`) — zero-copy import.
+2. The framework's output buffer is imported as an FBO **renderbuffer**
+   (`glEGLImageTargetRenderbufferStorageOES` — the color-renderable path;
+   texture attachment is sample-only and fails FBO-completeness).
+3. One full-screen shader pass writes the result. **RGBA output → passthrough
+   (no conversion at all).** To make this the common case the HAL resolves
+   `IMPLEMENTATION_DEFINED` streams to `RGBA_8888` in `configureStreams`, so a
+   preview to a `SurfaceTexture` lands on the pure-blit path.
+
+This also **retires the fence hazard**: because the producer now renders with
+GL, the frames carry GPU fences, and the compositor's GL pipeline orders
+against them — so a GPU producer no longer tears (the old CPU `lockCanvas`
+path was only correct because it was synchronous). Validated at steady state:
+`0` GPU-composite errors, `0` CPU-fallback calls — no pixel touches the CPU.
+
+**Fallback:** if a consumer hard-requires a YUV stream, `composite()` returns
+false and the CPU `FrameFiller` (per-pixel RGB→YUV) fills that buffer. That
+path *does* cost a CPU pass; moving it onto the GPU (RGB→NV12 via per-plane
+`dma_buf` render targets) is future work — it's driver-dependent and wasn't
+needed for the RGBA preview case.
 
 ## 6. Shipping as a vendor APEX
 
@@ -392,7 +437,8 @@ stable-aidl/       android.hardware.virtualcamera.hal — the FROZEN V1 boundary
 platform-jni/      BufferQueue owner + frame pump inside system_server
 apex/              vendor APEX packaging: manifest, keys, rc, file_contexts, bp
 hal/core/          engine: frame sources (stable push, v1 shm socket, v2 AHB
-                   socket, legacy platform relay), RGBA→YUV filler (+ color
+                   socket, legacy platform relay), GpuCompositor (GLES
+                   zero-conversion fill), CPU RGBA→YUV filler fallback (+ color
                    bars), metadata builder
 hal/aidl-v1/       Camera AIDL adapter (A13): provider/device/session +
                    VirtualCameraStableHal (the vendor endpoint of the boundary)
@@ -412,8 +458,11 @@ unified-test/, sample-renderer/, camera-test/, test-app/   A15-era test apps
 * **Real SELinux policy** (drop the demo's permissive mode): allow
   `hal_camera_default` to register both service names — or dedicated labels —
   plus the `system_server ↔ IVirtualCameraHal` binder rules.
-* Fence-aware `queueFrame` (GPU producers) and 30 fps pacing in the HAL
-  request loop.
+* GPU RGB→YUV (NV12 via per-plane `dma_buf` render targets) so YUV-only
+  consumers also avoid the CPU converter (the RGBA preview path is already
+  fully GPU / zero-conversion, §5b). Plus 30 fps pacing in the request loop.
+* Pass the producer's GPU fence explicitly through `queueFrame` rather than
+  relying on GL pipeline ordering.
 * Freeze V2 of the boundary when the interface next changes (that's the
   point of it).
 * Multi-producer arbitration; virtual mic/display brought up to the same

@@ -13,9 +13,12 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Intent;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
+import android.opengl.EGL14;
+import android.opengl.EGLConfig;
+import android.opengl.EGLContext;
+import android.opengl.EGLDisplay;
+import android.opengl.EGLSurface;
+import android.opengl.GLES20;
 import android.hardware.virtualcamera.IVirtualCameraCallback;
 import android.hardware.virtualcamera.IVirtualCameraService;
 import android.hardware.virtualcamera.StreamConfig;
@@ -146,15 +149,45 @@ public class VCamProducerService extends Service {
         }
     }
 
-    /** Draws an animated pattern into the Surface at the stream frame rate. */
+    /**
+     * Renders an animated scene into the Surface with OpenGL ES 2.0 (GPU).
+     * The Surface is an ANativeWindow whose buffers EGL allocates with GPU
+     * render-target usage, so no CPU touches the pixels on the producer side.
+     * A single full-screen fragment shader draws a time-varying gradient plus
+     * a moving disc — clearly GPU-generated, and RGBA so the HAL can consume
+     * it with zero color conversion.
+     */
     private static class RenderThread extends Thread {
         private final Surface mSurface;
         private final int mWidth, mHeight, mFps;
         private volatile boolean mRunning = true;
         private long mFrames = 0;
 
+        private static final String VERT =
+                "attribute vec2 aPos;\n" +
+                "varying vec2 vUv;\n" +
+                "void main() {\n" +
+                "  vUv = aPos * 0.5 + 0.5;\n" +
+                "  gl_Position = vec4(aPos, 0.0, 1.0);\n" +
+                "}\n";
+        // uBall/uBallR are in uv space; aspect corrects the disc to a circle.
+        private static final String FRAG =
+                "precision mediump float;\n" +
+                "varying vec2 vUv;\n" +
+                "uniform float uTime;\n" +
+                "uniform vec2 uBall;\n" +
+                "uniform float uBallR;\n" +
+                "uniform float uAspect;\n" +
+                "void main() {\n" +
+                "  vec3 bg = vec3(vUv.x, vUv.y, 0.5 + 0.5 * sin(uTime));\n" +
+                "  vec2 d = (vUv - uBall) * vec2(uAspect, 1.0);\n" +
+                "  float disc = smoothstep(uBallR, uBallR * 0.85, length(d));\n" +
+                "  vec3 col = mix(bg, vec3(0.95), disc);\n" +
+                "  gl_FragColor = vec4(col, 1.0);\n" +
+                "}\n";
+
         RenderThread(Surface surface, int width, int height, int fps) {
-            super("VCamRender");
+            super("VCamRenderGL");
             mSurface = surface;
             mWidth = width;
             mHeight = height;
@@ -166,55 +199,98 @@ public class VCamProducerService extends Service {
             interrupt();
         }
 
+        private static int compile(int type, String src) {
+            int s = GLES20.glCreateShader(type);
+            GLES20.glShaderSource(s, src);
+            GLES20.glCompileShader(s);
+            int[] ok = new int[1];
+            GLES20.glGetShaderiv(s, GLES20.GL_COMPILE_STATUS, ok, 0);
+            if (ok[0] == 0) {
+                throw new RuntimeException("shader compile: " + GLES20.glGetShaderInfoLog(s));
+            }
+            return s;
+        }
+
         @Override
         public void run() {
-            Log.i(TAG, "Render thread started " + mWidth + "x" + mHeight + "@" + mFps);
-            Paint textPaint = new Paint();
-            textPaint.setColor(Color.WHITE);
-            textPaint.setTextSize(Math.max(24, mHeight / 12));
-            textPaint.setAntiAlias(true);
-            Paint ballPaint = new Paint();
-            ballPaint.setColor(Color.WHITE);
-            ballPaint.setAntiAlias(true);
+            Log.i(TAG, "GL render thread started " + mWidth + "x" + mHeight + "@" + mFps);
+            EGLDisplay dpy = EGL14.EGL_NO_DISPLAY;
+            EGLContext ctx = EGL14.EGL_NO_CONTEXT;
+            EGLSurface win = EGL14.EGL_NO_SURFACE;
+            try {
+                dpy = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
+                EGL14.eglInitialize(dpy, new int[2], 0, new int[2], 0);
+                int[] cfgAttrs = {
+                        EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT,
+                        EGL14.EGL_SURFACE_TYPE, EGL14.EGL_WINDOW_BIT,
+                        EGL14.EGL_RED_SIZE, 8, EGL14.EGL_GREEN_SIZE, 8,
+                        EGL14.EGL_BLUE_SIZE, 8, EGL14.EGL_ALPHA_SIZE, 8,
+                        EGL14.EGL_NONE };
+                EGLConfig[] cfgs = new EGLConfig[1];
+                int[] n = new int[1];
+                EGL14.eglChooseConfig(dpy, cfgAttrs, 0, cfgs, 0, 1, n, 0);
+                if (n[0] == 0) throw new RuntimeException("no EGL config");
+                ctx = EGL14.eglCreateContext(dpy, cfgs[0], EGL14.EGL_NO_CONTEXT,
+                        new int[] { EGL14.EGL_CONTEXT_CLIENT_VERSION, 2, EGL14.EGL_NONE }, 0);
+                win = EGL14.eglCreateWindowSurface(dpy, cfgs[0], mSurface,
+                        new int[] { EGL14.EGL_NONE }, 0);
+                EGL14.eglMakeCurrent(dpy, win, win, ctx);
 
-            long frameIntervalMs = 1000L / mFps;
-            while (mRunning && mSurface.isValid()) {
-                long t0 = System.currentTimeMillis();
-                try {
-                    Canvas c = mSurface.lockCanvas(null);
-                    try {
-                        float hue = (mFrames % 360);
-                        c.drawColor(Color.HSVToColor(new float[] { hue, 0.8f, 0.6f }));
-                        // bouncing ball
-                        float phase = (mFrames % 120) / 120f;
-                        float x = mWidth * 0.1f + (mWidth * 0.8f) * phase;
-                        float y = mHeight * 0.5f
-                                + (float) (Math.sin(phase * 2 * Math.PI) * mHeight * 0.3f);
-                        c.drawCircle(x, y, Math.max(12, mWidth / 24f), ballPaint);
-                        c.drawText("AIDL frame " + mFrames, mWidth / 16f, mHeight / 6f,
-                                textPaint);
-                    } finally {
-                        mSurface.unlockCanvasAndPost(c);
+                int prog = GLES20.glCreateProgram();
+                GLES20.glAttachShader(prog, compile(GLES20.GL_VERTEX_SHADER, VERT));
+                GLES20.glAttachShader(prog, compile(GLES20.GL_FRAGMENT_SHADER, FRAG));
+                GLES20.glLinkProgram(prog);
+                GLES20.glUseProgram(prog);
+
+                java.nio.FloatBuffer quad = java.nio.ByteBuffer
+                        .allocateDirect(8 * 4).order(java.nio.ByteOrder.nativeOrder())
+                        .asFloatBuffer();
+                quad.put(new float[] { -1, -1, 1, -1, -1, 1, 1, 1 }).position(0);
+                int aPos = GLES20.glGetAttribLocation(prog, "aPos");
+                GLES20.glEnableVertexAttribArray(aPos);
+                GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, quad);
+                int uTime = GLES20.glGetUniformLocation(prog, "uTime");
+                int uBall = GLES20.glGetUniformLocation(prog, "uBall");
+                int uBallR = GLES20.glGetUniformLocation(prog, "uBallR");
+                int uAspect = GLES20.glGetUniformLocation(prog, "uAspect");
+                float aspect = (float) mWidth / Math.max(1, mHeight);
+
+                GLES20.glViewport(0, 0, mWidth, mHeight);
+                long frameIntervalMs = 1000L / mFps;
+                while (mRunning && mSurface.isValid()) {
+                    long t0 = System.currentTimeMillis();
+                    float t = mFrames / (float) mFps;
+                    float phase = (mFrames % 120) / 120f;
+                    float bx = 0.1f + 0.8f * phase;
+                    float by = 0.5f + (float) (Math.sin(phase * 2 * Math.PI) * 0.3f);
+                    GLES20.glUniform1f(uTime, t);
+                    GLES20.glUniform2f(uBall, bx, by);
+                    GLES20.glUniform1f(uBallR, 0.08f);
+                    GLES20.glUniform1f(uAspect, aspect);
+                    GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+                    if (!EGL14.eglSwapBuffers(dpy, win)) {
+                        Log.w(TAG, "eglSwapBuffers failed (surface gone?)");
+                        break;
                     }
                     mFrames++;
-                    if (mFrames % 30 == 0) {
-                        Log.i(TAG, "PRODUCED " + mFrames + " frames");
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "render failed (surface gone?)", e);
-                    break;
-                }
-                long elapsed = System.currentTimeMillis() - t0;
-                long sleepMs = frameIntervalMs - elapsed;
-                if (sleepMs > 2) {
-                    try {
-                        Thread.sleep(sleepMs);
-                    } catch (InterruptedException e) {
-                        // quitting
+                    if (mFrames % 30 == 0) Log.i(TAG, "PRODUCED " + mFrames + " frames (GL)");
+                    long sleepMs = frameIntervalMs - (System.currentTimeMillis() - t0);
+                    if (sleepMs > 2) {
+                        try { Thread.sleep(sleepMs); } catch (InterruptedException e) { /* quitting */ }
                     }
                 }
+            } catch (Exception e) {
+                Log.e(TAG, "GL render failed", e);
+            } finally {
+                if (dpy != EGL14.EGL_NO_DISPLAY) {
+                    EGL14.eglMakeCurrent(dpy, EGL14.EGL_NO_SURFACE,
+                            EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT);
+                    if (win != EGL14.EGL_NO_SURFACE) EGL14.eglDestroySurface(dpy, win);
+                    if (ctx != EGL14.EGL_NO_CONTEXT) EGL14.eglDestroyContext(dpy, ctx);
+                    EGL14.eglTerminate(dpy);
+                }
+                Log.i(TAG, "GL render thread exiting after " + mFrames + " frames");
             }
-            Log.i(TAG, "Render thread exiting after " + mFrames + " frames");
         }
     }
 

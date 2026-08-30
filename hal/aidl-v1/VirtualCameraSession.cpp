@@ -28,6 +28,9 @@
 #include "FrameFiller.h"
 #include "AidlFrameSource.h"
 #include "VirtualCameraStableHal.h"
+#ifdef VCAM_GPU_COMPOSITOR
+#include "GpuCompositor.h"
+#endif
 
 namespace aidl::android::hardware::camera::provider::implementation {
 
@@ -110,16 +113,37 @@ ndk::ScopedAStatus VirtualCameraSession::configureStreams(
               stream.id, stream.width, stream.height,
               static_cast<int>(stream.format));
 
-        // Store stream config
-        mStreams[stream.id] = stream;
+        // Resolve the buffer format. IMPLEMENTATION_DEFINED (0x22) lets the HAL
+        // pick; we choose RGBA_8888 so the producer's GPU-rendered RGBA frame
+        // can be blitted straight in with ZERO color conversion (GpuCompositor).
+        constexpr int kImplDefined = 0x22;   // HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED
+        constexpr int kRGBA8888 = 0x1;       // HAL_PIXEL_FORMAT_RGBA_8888
+        int resolvedFormat = static_cast<int>(stream.format);
+        if (resolvedFormat == kImplDefined) {
+            resolvedFormat = kRGBA8888;
+        }
+        const bool rgbaPath = (resolvedFormat == kRGBA8888);
+
+        // Store stream config (with the resolved format, so the fill path knows
+        // what the allocated output buffer actually is).
+        Stream stored = stream;
+        stored.format = static_cast<decltype(stream.format)>(resolvedFormat);
+        mStreams[stream.id] = stored;
 
         // Return HAL stream configuration
         HalStream halStream;
         halStream.id = stream.id;
-        halStream.overrideFormat = stream.format;
-        halStream.producerUsage = static_cast<BufferUsage>(
-                static_cast<int64_t>(BufferUsage::CPU_WRITE_OFTEN) |
-                static_cast<int64_t>(BufferUsage::CAMERA_OUTPUT));
+        halStream.overrideFormat = static_cast<decltype(halStream.overrideFormat)>(resolvedFormat);
+        // RGBA path: allocate GPU-renderable buffers (GpuCompositor writes them
+        // via an FBO renderbuffer) — no CPU_WRITE, so gralloc is free to pick a
+        // GPU-optimal layout. YUV/other paths keep CPU_WRITE for the CPU filler.
+        int64_t producerUsage = static_cast<int64_t>(BufferUsage::CAMERA_OUTPUT);
+        if (rgbaPath) {
+            producerUsage |= static_cast<int64_t>(BufferUsage::GPU_RENDER_TARGET);
+        } else {
+            producerUsage |= static_cast<int64_t>(BufferUsage::CPU_WRITE_OFTEN);
+        }
+        halStream.producerUsage = static_cast<BufferUsage>(producerUsage);
         halStream.consumerUsage = static_cast<BufferUsage>(0);
         halStream.maxBuffers = 4;
         halStream.overrideDataSpace = stream.dataSpace;
@@ -370,8 +394,21 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
                 if (auto* hal = VirtualCameraStableHal::get()) {
                     int64_t srcTs = 0;
                     if (AHardwareBuffer* src = hal->acquireLatest(&srcTs)) {
-                        filled = ::virtualcamera::FrameFiller::fillFromAHardwareBuffer(
-                                sHandleImporter, handle, width, height, src);
+                        int dstFormat = static_cast<int>(streamIt->second.format);
+#ifdef VCAM_GPU_COMPOSITOR
+                        // GPU fast path: RGBA dst -> passthrough blit, ZERO
+                        // color conversion, no CPU touch. Returns false for YUV
+                        // or if the GPU stack is unavailable -> CPU fallback.
+                        filled = ::virtualcamera::GpuCompositor::get().composite(
+                                src, handle, width, height, /*stride*/ width,
+                                dstFormat,
+                                AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
+                                AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT);
+#endif
+                        if (!filled) {
+                            filled = ::virtualcamera::FrameFiller::fillFromAHardwareBuffer(
+                                    sHandleImporter, handle, width, height, src);
+                        }
                         AHardwareBuffer_release(src);
                     }
                 }

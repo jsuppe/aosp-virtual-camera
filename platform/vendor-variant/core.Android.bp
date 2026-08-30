@@ -26,6 +26,7 @@ cc_library_static {
         "VirtualCameraSocket.cpp",
         "FrameFiller.cpp",
         "MetadataBuilder.cpp",
+        "GpuCompositor.cpp",
     ],
 
     shared_libs: [
@@ -45,6 +46,8 @@ cc_library_static {
         "libbase",
         "libnativewindow",
         "libsync",
+        "libEGL",
+        "libGLESv2",
     ],
 
     static_libs: [
@@ -60,7 +63,7 @@ cc_library_static {
     export_include_dirs: ["."],
 
     cflags: [
-        "-Wall", "-DVCAM_COMPAT_A13=1",
+        "-Wall", "-DVCAM_COMPAT_A13=1", "-DVCAM_GPU_COMPOSITOR=1",
         "-Wno-unused-parameter",
     ],
 }

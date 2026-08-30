@@ -186,7 +186,9 @@ jobject nativeCreateSurface(JNIEnv* env, jclass, jint width, jint height) {
 
     sp<BufferItemConsumer> bic = new BufferItemConsumer(
             consumer,
-            GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN,
+            // GPU producer (EGL) renders these; the HAL samples them as a GL
+            // texture. HW_TEXTURE keeps them GPU-optimal (no CPU/linear layout).
+            GRALLOC_USAGE_HW_TEXTURE,
             /*maxAcquiredBuffers*/ 2, /*controlledByApp*/ false);
     bic->setName(::android::String8("VCamPlatformRelay"));
     bic->setDefaultBufferSize(width, height);

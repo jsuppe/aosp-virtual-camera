@@ -51,6 +51,8 @@ cc_library_shared {
         "libbase",
         "libnativewindow",
         "libsync",
+        "libEGL",
+        "libGLESv2",
     ],
 
     static_libs: [
@@ -69,7 +71,7 @@ cc_library_shared {
     local_include_dirs: ["."],
 
     cflags: [
-        "-Wall", "-DVCAM_COMPAT_A13=1", "-DVCAM_STABLE_AIDL=1",
+        "-Wall", "-DVCAM_COMPAT_A13=1", "-DVCAM_STABLE_AIDL=1", "-DVCAM_GPU_COMPOSITOR=1",
         "-Wno-unused-parameter",
     ],
 
