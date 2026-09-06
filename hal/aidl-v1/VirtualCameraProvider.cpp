@@ -21,6 +21,7 @@ namespace aidl::android::hardware::camera::provider::implementation {
 VirtualCameraProvider::VirtualCameraProvider() {
     ALOGI("VirtualCameraProvider created (AIDL V1 adapter)");
 
+#ifndef VCAM_STABLE_AIDL
     // Create and start the shared FrameSource (v1 - ashmem)
     mFrameSource = std::make_shared<::virtualcamera::VirtualCameraFrameSource>();
     if (mFrameSource->start()) {
@@ -36,6 +37,12 @@ VirtualCameraProvider::VirtualCameraProvider() {
     } else {
         ALOGE("Failed to start FrameSource v2 socket server");
     }
+#else
+    // Stable-AIDL (vendor APEX) build: frames arrive only through
+    // IVirtualCameraHal.queueFrame(). The unix-socket sources bind under
+    // /data/local/tmp, which a vendor HAL domain must not touch (and SELinux
+    // rightly denies) — so they are not started at all.
+#endif
 
 #ifdef VCAM_AIDL_SOURCE
     // Platform relay mode: frames arrive from a producer app registered with

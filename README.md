@@ -37,8 +37,9 @@ are needed. Already know the platform? Skim the headers and jump to
 4K30 with producer/boundary/viewer frame counters in lockstep, including a
 v1→v2 APEX update cycle. The producer renders with **OpenGL ES** and the HAL
 composites on the **GPU with zero color conversion** on the RGBA path (steady
-state: no pixel touches the CPU — §5b). (SELinux runs permissive in the demo;
-proper policy is the top productization item, §11.)
+state: no pixel touches the CPU — §5b). The device runs **SELinux enforcing**
+with real policy for the HAL's two service names and the system_server↔HAL
+binder path (§9.15).
 
 ---
 
@@ -395,8 +396,12 @@ does it all; what it installs and why:
    `services.jar`), `platform-aidl/`, and the demo apps.
 4. **init `.rc` / VINTF fragment** → for the APEX build these ship inside the
    package; loose copies exist for the non-APEX variants.
-5. **sepolicy** → into the device policy dir: the domains, service-name
-   labels, and app rules (see §11 — the demo currently runs permissive).
+5. **sepolicy** → into the device policy dirs. Vendor side
+   (`platform/sepolicy/vendor/`): the `hal_virtualcamera_service` label for
+   `IVirtualCameraHal/default`, the provider name labeled `hal_camera_service`,
+   and `system_server ↔ hal_camera_default` binder rules. system_ext side: the
+   two `VirtualCameraService` names. Pass `system_ext` as the second argument
+   for the iteration-1 relay prototype instead (prototype-grade policy).
 6. First build is a full `m`; afterwards, per-module `m` + `adb push`
    (see §8's iterate table).
 
@@ -408,8 +413,7 @@ cd /path/to/aosp-a13 && source build/envsetup.sh \
   && lunch aosp_cf_x86_64_phone-userdebug && m       # first time: full image
 
 launch_cvd --daemon --gpu_mode=gfxstream --cpus=4 --memory_mb=4096
-adb root && adb shell setenforce 0                    # demo-mode SELinux (§11)
-adb shell setprop ctl.restart vendor.camera-provider-virtual   # fresh mapper init (§9.1)
+adb root                                              # only for pm grant / logs below
 
 # order-free: the viewer waits until a producer makes the camera exist
 adb shell pm grant com.example.vcamviewer android.permission.CAMERA
@@ -424,6 +428,7 @@ Iterating without reflashing — what to push per change:
 | You changed | Rebuild | Push | Then |
 |---|---|---|---|
 | HAL (anything in the APEX) | `m com.android.…provider.virtual` | the `.apex` → `/vendor/apex/` | reboot |
+| SELinux policy | `m selinux_policy` | `vendor_sepolicy.cil` + `vendor_service_contexts` → `/vendor/etc/selinux/`, `system_ext_sepolicy.cil` + `system_ext_service_contexts` + `system_ext_sepolicy_and_mapping.sha256` → `/system_ext/etc/selinux/`, **and** `odm/etc/selinux/precompiled_sepolicy` + its `.sha256` files → `/odm/etc/selinux/` (§9.16) | reboot |
 | `VirtualCameraService` / AIDL java | `m services` | `services.jar` → `/system/framework/` **and delete stale AOT**: `/system/framework/oat/*/services.*` + ART apexdata dalvik-cache (§9.10) | reboot |
 | JNI pump | `m libvirtualcamera_relay_jni` | the `.so` → `/system_ext/lib64/` (plus `…hal-V1-ndk.so` once) | reboot |
 | demo apps | `m VCamProducer VCamViewer` | the APKs → `system_ext/app/...` | reboot |
@@ -452,7 +457,7 @@ Iterating without reflashing — what to push per change:
    pairs with a service label may `add` it; a HAL in another domain exits in
    a crash-loop with `avc: denied { add }`. Our two names
    (`…ICameraProvider/virtual_renderer/0`, `…IVirtualCameraHal/default`) need
-   labels registerable by `hal_camera_default` (§11).
+   labels registerable by `hal_camera_default` — see 15.
 6. **Stale emulator state mimics real bugs.** Orphaned `crosvm` processes
    (the binary lives at `bin/x86_64-linux-gnu/crosvm` — naive pkill patterns
    miss it) hold instance disk locks and ports (6520/6600/8443), making
@@ -497,6 +502,33 @@ Iterating without reflashing — what to push per change:
     (`eglCreateImageKHR`, `glEGLImageTarget*OES`,
     `eglGetNativeClientBufferANDROID`) via `eglGetProcAddress` rather than
     linking them directly.
+15. **Service labels must live on the same side of Treble as the domain that
+    registers them.** A vendor domain may only `add` names typed
+    `vendor_service` (neverallow in `public/domain.te`), and a label declared
+    in system_ext policy is not that — so the shipping HAL crash-looped under
+    enforcing while the iteration-1 label for `ICameraProvider/virtual_renderer/0`
+    still sat in `system_ext_service_contexts`. Fix: label the provider name
+    `hal_camera_service` in *vendor* `service_contexts`, declare
+    `hal_virtualcamera_service` (`vendor_service, protected_service`) for
+    `IVirtualCameraHal/default`, and grant `system_server` `find` plus
+    two-way `binder_call` with `hal_camera_default`. The HAL also needs
+    `hal_client_domain(hal_camera_default, hal_configstore)` because EGL
+    init queries `ISurfaceFlingerConfigs`. Two labels for one name shadow
+    each other, so the integrate script removes the other mode's entries.
+    The stable-AIDL build no longer starts the v1/v2 unix-socket sources
+    either — they bound under `/data/local/tmp`, which is off-limits (and
+    pointless) for a vendor HAL. Result: `getenforce` = Enforcing, zero
+    `avc: denied` lines through register → stream → teardown.
+16. **Pushing new `.cil` files does nothing while a precompiled policy blob
+    still matches.** Cuttlefish ships `/odm/etc/selinux/precompiled_sepolicy`;
+    init loads it whenever its `.sha256` sidecars match the platform policy
+    hashes, and only falls back to compiling the `.cil` files when they
+    don't. Symptom: the pushed CIL contains the allow rule, `dmesg` shows the
+    new type name in the denial, yet the kernel rejects the context
+    (`echo -n u:object_r:<type>:s0 > /sys/fs/selinux/context` fails). Push
+    the rebuilt blob and hashes too — or delete the blob to force a compile.
+    `/sys/fs/selinux/access` answers "what does the *loaded* policy say"
+    directly, which is faster than guessing.
 
 ## 10. Repository map
 
@@ -524,9 +556,10 @@ unified-test/, sample-renderer/, camera-test/, test-app/   A15-era test apps
 
 ## 11. Where this goes next
 
-* **Real SELinux policy** (drop the demo's permissive mode): allow
-  `hal_camera_default` to register both service names — or dedicated labels —
-  plus the `system_server ↔ IVirtualCameraHal` binder rules.
+* **A dedicated HAL attribute** (`hal_virtualcamera` via `hal_attribute` /
+  `hal_client_domain(system_server, …)` in *public* policy) instead of the
+  explicit `system_server ↔ hal_camera_default` rules in vendor policy — the
+  idiomatic Treble form, but it needs a system/system_ext public policy dir.
 * GPU RGB→YUV (NV12 via per-plane `dma_buf` render targets) so YUV-only
   consumers also avoid the CPU converter (the RGBA preview path is already
   fully GPU / zero-conversion, §5b). Plus 30 fps pacing in the request loop.

@@ -1,0 +1,2 @@
+android.hardware.camera.provider.ICameraProvider/virtual_renderer/0 u:object_r:hal_camera_service:s0
+android.hardware.virtualcamera.hal.IVirtualCameraHal/default        u:object_r:hal_virtualcamera_service:s0

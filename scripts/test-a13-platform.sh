@@ -17,7 +17,8 @@ echo "=== Device state ==="
 $ADB wait-for-device
 $ADB root >/dev/null 2>&1 || true
 sleep 2
-$ADB shell setenforce 0 2>/dev/null || true   # prototype: permissive (sepolicy hardening is follow-up work)
+echo "--- SELinux: $($ADB shell getenforce) (apex mode ships real policy; expect Enforcing)"
+$ADB shell "dmesg -c >/dev/null" 2>/dev/null || true   # baseline for the denial count below
 $ADB shell settings put global hidden_api_policy 1 2>/dev/null || true
 
 echo "--- system services ---"
@@ -46,8 +47,8 @@ echo "--- producer frames ---"
 $ADB logcat -d -s VCamProducer:* | grep -E "REGISTERED|onStreamsConfigured|PRODUCED" | tail -6
 echo "--- service relay ---"
 $ADB logcat -d -s VirtualCameraService:* | tail -6
-echo "--- HAL AIDL source ---"
-$ADB logcat -d -s VCamAidlSource:* VirtualCameraSession:* | grep -E "AIDL|Filled|configured" | tail -8
+echo "--- boundary (apex mode: JNI pump -> IVirtualCameraHal.queueFrame; system_ext mode: VCamAidlSource) ---"
+$ADB logcat -d -s VCamRelayJni:* VCamStableHal:* VCamAidlSource:* VirtualCameraSession:* | grep -E "Pushed|queueFrame|AIDL|Filled|configured" | tail -8
 echo "--- viewer frames ---"
 $ADB logcat -d -s VCamViewer:* | grep -E "Camera opened|RECEIVED|previewing|error" | tail -6
 
@@ -56,9 +57,14 @@ echo "--- screenshot ---"
 $ADB exec-out screencap -p > /home/melchior/vcam_validation.png && echo "saved ~/vcam_validation.png"
 
 echo ""
+echo "--- SELinux denials during the run (virtual-camera related) ---"
+AVC=$($ADB shell "dmesg | grep -E 'avc: *denied'" | grep -E 'hal_camera_default|virtual_?camera|virtualcamera|vcamproducer|vcamviewer' || true)
+if [ -n "$AVC" ]; then echo "$AVC" | sed -E 's/^.*avc: /avc: /' | sort | uniq -c | sort -rn | head -20; else echo "none"; fi
+
+echo ""
 PROD=$($ADB logcat -d -s VCamProducer:* | grep -c "PRODUCED" || true)
 RECV=$($ADB logcat -d -s VCamViewer:* | grep -c "RECEIVED" || true)
-FILL=$($ADB logcat -d -s VCamAidlSource:* | grep -c "Filled" || true)
+FILL=$($ADB logcat -d -s VCamStableHal:* VCamAidlSource:* | grep -cE "queueFrame: .* frames received|Filled" || true)
 echo "Summary: producer-log-batches=$PROD hal-fill-batches=$FILL viewer-log-batches=$RECV"
 if [ "$PROD" -gt 0 ] && [ "$FILL" -gt 0 ] && [ "$RECV" -gt 0 ]; then
     echo "RESULT: END-TO-END AIDL FRAME FLOW VALIDATED ✅"

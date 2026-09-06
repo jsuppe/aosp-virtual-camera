@@ -1,0 +1,31 @@
+# Virtual camera HAL — vendor APEX packaging (the shipping architecture).
+#
+# The HAL binary is labeled hal_camera_default_exec by the APEX file_contexts,
+# so it runs in hal_camera_default: the standard vendor camera-HAL domain that
+# already carries gralloc/GPU/binder access and may register
+# hal_camera_service names (ICameraProvider/virtual_renderer/0 is one, see
+# service_contexts next to this file).
+#
+# What that domain does NOT have out of the box is the second interface the
+# HAL exposes — the frozen android.hardware.virtualcamera.hal boundary that
+# system_server's VirtualCameraService drives (setProducerAvailable,
+# queueFrame). These rules add exactly that.
+
+# Service name label for IVirtualCameraHal/default. vendor_service: only a
+# vendor domain may add it (Treble neverallow). protected_service: untrusted
+# apps may not even find it — the platform relay is the sole client.
+type hal_virtualcamera_service, vendor_service, protected_service, hal_service_type, service_manager_type;
+
+# HAL registers it (add + find, plus the neverallow that nobody else may add).
+add_service(hal_camera_default, hal_virtualcamera_service)
+
+# system_server (VirtualCameraService + the JNI relay pump) looks it up and
+# calls it; the HAL calls back (IVirtualCameraHalCallback.onStreamsConfigured /
+# onCameraClosed).
+allow system_server hal_virtualcamera_service:service_manager find;
+binder_call(system_server, hal_camera_default)
+binder_call(hal_camera_default, system_server)
+
+# GpuCompositor: EGL/GLES initialization inside the HAL queries
+# ISurfaceFlingerConfigs through the configstore HAL.
+hal_client_domain(hal_camera_default, hal_configstore)
