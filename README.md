@@ -614,17 +614,38 @@ unified-test/, sample-renderer/, camera-test/, test-app/   A15-era test apps
 
 ## 11. Where this goes next
 
-* **A dedicated HAL attribute** (`hal_virtualcamera` via `hal_attribute` /
-  `hal_client_domain(system_server, …)` in *public* policy) instead of the
-  explicit `system_server ↔ hal_camera_default` rules in vendor policy — the
-  idiomatic Treble form, but it needs a system/system_ext public policy dir.
-* GPU RGB→YUV (NV12 via per-plane `dma_buf` render targets) so YUV-only
-  consumers also avoid the CPU converter (the RGBA preview path is already
-  fully GPU / zero-conversion, §5b).
-* Exercise the V2-platform / V1-APEX mix live (install the pre-V2 APEX under
-  the current platform) to prove the version negotiation end-to-end.
-* Multi-producer arbitration; virtual mic/display brought up to the same
-  APEX + frozen-AIDL pattern.
+Three of the original items have shipped (real SELinux policy; the fenced V2
+boundary; 30 fps pacing). What remains, in the order it should be done and
+why:
+
+### Phase A — make it reproducible (do first, small)
+
+| # | Item | Why now | Done when |
+|---|---|---|---|
+| A1 | **Full image build + clean boot.** Run a full `m`, launch Cuttlefish from the fresh images with no overlay. | Everything validated so far lives in the Cuttlefish overlay on top of July base images. Until it boots from images, nobody else can reproduce it and a stale overlay can mask a missing tree change. | `test-a13-platform.sh` passes on a first boot with an empty `~/cuttlefish/instances`. |
+| A2 | **Live V2-platform / V1-APEX mix.** Build the APEX from the pre-V2 commit (642c141), install it under the current platform, run the demo. | The version negotiation (`getInterfaceVersion` → unfenced `queueFrame`, CPU-waited acquire) is compiled and reviewed but never exercised. It is the one claim in §5c without a log line behind it. | Pump logs "HAL implements V1; unfenced" and frames flow; then swap the V2 APEX back in without reboot (§6) and see "fenced". |
+| A3 | **Producer timestamp end-to-end.** Carry `queueFrameFenced`'s `timestampNs` into the capture result (vendor tag or `SENSOR_TIMESTAMP` when the consumer opts in) instead of restamping with the paced slot. | Today no latency number is real: the HAL restamps, so producer→viewer latency cannot be measured from the consumer side (a recurring point of confusion). Tiny change, unlocks honest numbers. | The viewer prints producer-to-delivery latency from result metadata. |
+
+### Phase B — cover the consumers that exist (the substantive work)
+
+| # | Item | Why | Done when |
+|---|---|---|---|
+| B1 | **GPU RGB→YUV (NV12).** Render the producer frame into the framework's YUV output on the GPU: import the `YCbCr_420_888` gralloc buffer per plane (`EGL_EXT_image_dma_buf_import` with `DRM_FORMAT_NV12`, or two EGLImages over the Y and UV planes) and run a two-pass BT.601 shader. Keep the CPU converter as the fallback it already is. | The zero-conversion path covers `SurfaceTexture` previews only. `ImageReader`, `MediaCodec`, ML pipelines — most real consumers — request YUV and today land on the CPU converter at 4K. This is the largest remaining performance item and the most driver-dependent; expect gfxstream to need the two-plane variant. | A YUV `ImageReader` consumer in VCamViewer shows 0 CPU-fallback calls at 4K30. |
+| B2 | **Conformance: run the camera provider VTS against camera 100.** `VtsHalCameraProviderTargetTest` (AIDL V1) with a producer registered. | We have exactly one consumer (our own viewer). VTS is the checklist real apps implicitly depend on: metadata completeness, template settings, flush/close ordering, buffer-management corner cases. It will find gaps the demo cannot. | Test list passes or each failure is a documented, deliberate omission. |
+| B3 | **Multi-producer.** One virtual camera per registered producer (100, 101, …) instead of "first producer feeds camera 100". Needs a camera id in the boundary → **V3** of the interface (`onStreamsConfigured(cameraId, …)`, `queueFrameFenced(cameraId, …)`), and the provider enumerating N devices. | The service already has a registry keyed by id; the HAL and the boundary do not. This is the second real use of the freeze discipline. | Two producers, two Camera2 devices, each viewer sees its own producer. |
+
+### Phase C — the pattern beyond the camera
+
+| # | Item | Why | Done when |
+|---|---|---|---|
+| C1 | **Idiomatic SELinux.** Replace the explicit `system_server ↔ hal_camera_default` rules with a `hal_virtualcamera` attribute (`hal_attribute`, `hal_client_domain(system_server, …)`) in a system_ext *public* policy dir. | Functionally equivalent to what ships; this is what an AOSP reviewer asks for. Cosmetic until then. | Same zero-denial run; the vendor `.te` shrinks to `hal_server_domain` + the service type. |
+| C2 | **Virtual mic and display on the same pattern.** Vendor APEX + frozen AIDL + platform-owned queue, reusing the fence protocol (audio: FMQ instead of gralloc). | They are scaffolds today (`virtual-mic/`, `virtual-display/`). The camera has proven the shape; the others should not reinvent it. | Each has its own `stable-aidl/`, APEX, policy, and a demo that survives an APEX update. |
+| C3 | **Forward-port to Android 15 (`main` branch).** The A15 NDK AIDL can carry `HardwareBuffer` directly, so the boundary loses `NativeHandle`+descriptor and the platform-side JNI pump shrinks. | The A13 branch is the shipping design because A13 was the constraint; the design should be shown on a current platform too, where it gets simpler. | Same demo, same counters, on `aosp_cf_x86_64_only_phone-trunk_staging`. |
+
+### Deliberately not on the list
+
+* **Copy elimination past the framework.** The one remaining copy (HAL output → framework-owned buffer) is structural to Camera2; §2/§4 explain why. Not a goal.
+* **Latency below one frame.** Framework-bound (§2). Measure it (A3), don't chase it.
 
 ## License
 
