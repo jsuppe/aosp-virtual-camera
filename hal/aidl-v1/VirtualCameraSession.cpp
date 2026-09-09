@@ -20,6 +20,8 @@
 
 #include <android/hardware_buffer.h>
 #include <android/sync.h>
+#include <android-base/properties.h>
+#include <hardware/gralloc.h>
 #include <unistd.h>
 #include <algorithm>
 #include <chrono>
@@ -29,6 +31,8 @@
 
 // Core frame filling
 #include "FrameFiller.h"
+#include "JpegEncoder.h"
+#include "MetadataBuilder.h"
 #include "AidlFrameSource.h"
 #include "VirtualCameraStableHal.h"
 #ifdef VCAM_GPU_COMPOSITOR
@@ -55,7 +59,9 @@ VirtualCameraSession::VirtualCameraSession(
       mFrameSource(frameSource),
       mFrameSourceV2(frameSourceV2),
       mAidlSource(aidlSource) {
-    ALOGI("VirtualCameraSession created (AIDL V1 adapter, v1 + v2 frame sources)");
+    mForceCpuYuv = ::android::base::GetBoolProperty("vendor.vcam.yuv.cpu", false);
+    ALOGI("VirtualCameraSession created (AIDL V1 adapter, v1 + v2 frame sources)%s",
+          mForceCpuYuv ? " [vendor.vcam.yuv.cpu=1: CPU YUV converter forced]" : "");
 }
 
 VirtualCameraSession::~VirtualCameraSession() {
@@ -101,6 +107,7 @@ ndk::ScopedAStatus VirtualCameraSession::configureStreams(
 
     // Clear old streams and buffer cache
     mStreams.clear();
+    mHaveSettings = false;
     for (auto& pair : mBufferCache) {
         if (pair.second != nullptr) {
             sHandleImporter.freeBuffer(pair.second);
@@ -110,6 +117,23 @@ ndk::ScopedAStatus VirtualCameraSession::configureStreams(
     halStreams->clear();
 
     ALOGI("Configuring %zu streams", requestedConfiguration.streams.size());
+
+    // Same rule as ICameraDevice.isStreamCombinationSupported: only advertised
+    // formats/sizes, no input streams, no stream use cases (none advertised).
+    {
+        std::vector<::virtualcamera::MetadataBuilder::StreamDesc> descs;
+        for (const auto& s : requestedConfiguration.streams) {
+            descs.push_back({static_cast<int>(s.format), s.width, s.height,
+                             static_cast<int64_t>(s.useCase),
+                             s.streamType == ::aidl::android::hardware::camera::device::StreamType::INPUT,
+                             static_cast<int>(s.rotation)});
+        }
+        if (!::virtualcamera::MetadataBuilder::isStreamCombinationSupported(descs)) {
+            ALOGE("configureStreams: unsupported stream combination");
+            return ndk::ScopedAStatus::fromServiceSpecificError(
+                    static_cast<int32_t>(CameraStatus::ILLEGAL_ARGUMENT));
+        }
+    }
 
     for (const auto& stream : requestedConfiguration.streams) {
         ALOGI("Stream %d: %dx%d format=%d",
@@ -121,11 +145,13 @@ ndk::ScopedAStatus VirtualCameraSession::configureStreams(
         // can be blitted straight in with ZERO color conversion (GpuCompositor).
         constexpr int kImplDefined = 0x22;   // HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED
         constexpr int kRGBA8888 = 0x1;       // HAL_PIXEL_FORMAT_RGBA_8888
+        constexpr int kBlob = 0x21;          // HAL_PIXEL_FORMAT_BLOB (JPEG)
         int resolvedFormat = static_cast<int>(stream.format);
         if (resolvedFormat == kImplDefined) {
             resolvedFormat = kRGBA8888;
         }
         const bool rgbaPath = (resolvedFormat == kRGBA8888);
+        const bool blobPath = (resolvedFormat == kBlob);
 
         // Store stream config (with the resolved format, so the fill path knows
         // what the allocated output buffer actually is).
@@ -148,7 +174,7 @@ ndk::ScopedAStatus VirtualCameraSession::configureStreams(
         }
         halStream.producerUsage = static_cast<BufferUsage>(producerUsage);
         halStream.consumerUsage = static_cast<BufferUsage>(0);
-        halStream.maxBuffers = 4;
+        halStream.maxBuffers = blobPath ? 2 : 4;   // stills stall; keep the queue short
         halStream.overrideDataSpace = stream.dataSpace;
         halStream.physicalCameraId = "";
         halStream.supportOffline = false;
@@ -339,10 +365,33 @@ ndk::ScopedAStatus VirtualCameraSession::processCaptureRequest(
     *numRequestsProcessed = 0;
 
     for (const auto& request : requests) {
+        // Validate before any callback fires: a request with no output
+        // buffers, an unknown stream, or a buffer we can neither import nor
+        // find in the cache is an ILLEGAL_ARGUMENT (VTS: InvalidBuffer).
+        bool valid = !request.outputBuffers.empty() && request.inputBuffer.streamId == -1;
+        // Settings: the first request after configureStreams must carry
+        // them (later ones may be empty = "unchanged").
+        if (request.settings.metadata.empty() && request.fmqSettingsSize == 0 && !mHaveSettings) {
+            valid = false;
+        }
+        for (const auto& b : request.outputBuffers) {
+            if (!valid) break;
+            if (mStreams.find(b.streamId) == mStreams.end()) valid = false;
+            else if (b.buffer.fds.empty() &&
+                     mBufferCache.find(BufferKey(b.streamId, b.bufferId)) == mBufferCache.end()) {
+                valid = false;
+            }
+        }
+        if (!valid) {
+            ALOGE("processCaptureRequest: invalid request %d (%zu buffers)",
+                  request.frameNumber, request.outputBuffers.size());
+            return ndk::ScopedAStatus::fromServiceSpecificError(
+                    static_cast<int32_t>(CameraStatus::ILLEGAL_ARGUMENT));
+        }
         CameraStatus status = processSingleRequest(request);
         if (status != CameraStatus::OK) {
             ALOGE("Failed to process request %d", request.frameNumber);
-            break;
+            return ndk::ScopedAStatus::fromServiceSpecificError(static_cast<int32_t>(status));
         }
         (*numRequestsProcessed)++;
     }
@@ -352,6 +401,7 @@ ndk::ScopedAStatus VirtualCameraSession::processCaptureRequest(
 
 void VirtualCameraSession::updateTargetFps(const CameraMetadata& settings) {
     if (settings.metadata.empty()) return;   // unchanged since the last request
+    mHaveSettings = true;
     const auto* meta = reinterpret_cast<const camera_metadata_t*>(settings.metadata.data());
     const size_t size = settings.metadata.size();
     if (validate_camera_metadata_structure(meta, &size) != 0) return;
@@ -365,6 +415,9 @@ void VirtualCameraSession::updateTargetFps(const CameraMetadata& settings) {
         ALOGI("Target fps %d -> %d (AE_TARGET_FPS_RANGE [%d,%d])",
               mTargetFps, fps, e.data.i32[0], e.data.i32[1]);
         mTargetFps = fps;
+    }
+    if (find_camera_metadata_ro_entry(meta, ANDROID_JPEG_QUALITY, &e) == 0 && e.count >= 1) {
+        mJpegQuality = e.data.u8[0];
     }
 }
 
@@ -439,25 +492,81 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
                         producerTs = srcTs;
                         int dstFormat = static_cast<int>(streamIt->second.format);
                         int doneFence = -1;      // our GPU read+write completion
+                        constexpr int kFmtBlob = 0x21;
+                        constexpr int kFmtYcbcr420 = 0x23;
+                        using clk = std::chrono::steady_clock;
+                        if (dstFormat == kFmtBlob) {
+                            // JPEG still: CPU encode straight from the RGBA
+                            // source; the buffer is jpegMaxSize x 1 bytes.
+                            const auto t0 = clk::now();
+                            // BLOB buffers are bufferSize x 1 bytes; the framework
+                            // sizes them per resolution from JPEG_MAX_SIZE and tells
+                            // us in Stream.bufferSize. The trailer goes at the end.
+                            const int32_t bs = streamIt->second.bufferSize;
+                            const size_t cap = static_cast<size_t>(
+                                    bs > 0 ? bs : ::virtualcamera::MetadataBuilder::kJpegMaxSize);
+                            void* blob = sHandleImporter.lock(handle, GRALLOC_USAGE_SW_WRITE_OFTEN, cap);
+                            if (blob) {
+                                size_t n = ::virtualcamera::JpegEncoder::encodeToBlob(
+                                        src, acquireFence, width, height, mJpegQuality, blob, cap);
+                                sHandleImporter.unlock(handle);
+                                filled = (n > 0);
+                                if (filled) {
+                                    mStats.jpeg++;
+                                    mStats.jpegNs += std::chrono::duration_cast<std::chrono::nanoseconds>(clk::now() - t0).count();
+                                    if (mStats.jpeg <= 3 || mStats.jpeg % 100 == 0) {
+                                        ALOGI("JPEG %dx%d q%d: %zu bytes in %.1f ms", width, height,
+                                              mJpegQuality, n,
+                                              std::chrono::duration_cast<std::chrono::nanoseconds>(clk::now() - t0).count() / 1e6);
+                                    }
+                                }
+                            }
+                        }
 #ifdef VCAM_GPU_COMPOSITOR
-                        // GPU fast path: RGBA dst -> passthrough blit, ZERO
-                        // color conversion, no CPU touch, no CPU wait: the GPU
-                        // waits on the producer's fence and hands back its own.
-                        // Returns false for YUV or if the GPU stack is
-                        // unavailable -> CPU fallback.
-                        filled = ::virtualcamera::GpuCompositor::get().composite(
-                                src, acquireFence, handle, width, height,
-                                /*stride*/ width, dstFormat,
-                                AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
-                                AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT,
-                                &doneFence);
+                        if (!filled && dstFormat == kFmtYcbcr420 && !mForceCpuYuv) {
+                            // GPU color conversion into packed planes + CPU
+                            // row copy (no per-pixel CPU work; see
+                            // GpuCompositor::compositeToYcbcr for why not a
+                            // direct YUV render target on this GL stack).
+                            const auto t0 = clk::now();
+                            auto dst = ::virtualcamera::lockYCbCrCompat(
+                                    sHandleImporter, handle, GRALLOC_USAGE_SW_WRITE_OFTEN, width, height);
+                            if (dst.y) {
+                                filled = ::virtualcamera::GpuCompositor::get().compositeToYcbcr(
+                                        src, acquireFence, dst, width, height);
+                                sHandleImporter.unlock(handle);
+                            }
+                            if (filled) {
+                                mStats.gpuYuv++;
+                                mStats.gpuYuvNs += std::chrono::duration_cast<std::chrono::nanoseconds>(clk::now() - t0).count();
+                            }
+                        }
+                        if (!filled && dstFormat != kFmtBlob) {
+                            // GPU fast path: RGBA dst -> passthrough blit, ZERO
+                            // color conversion, no CPU touch, no CPU wait: the GPU
+                            // waits on the producer's fence and hands back its own.
+                            // Returns false for YUV or if the GPU stack is
+                            // unavailable -> CPU fallback.
+                            filled = ::virtualcamera::GpuCompositor::get().composite(
+                                    src, acquireFence, handle, width, height,
+                                    /*stride*/ width, dstFormat,
+                                    AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
+                                    AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT,
+                                    &doneFence);
+                            if (filled) mStats.gpuRgba++;
+                        }
 #endif
-                        if (!filled) {
+                        if (!filled && dstFormat != kFmtBlob) {
                             // CPU converter reads src directly: wait for the
                             // producer's render to land first.
+                            const auto t0 = clk::now();
                             if (acquireFence >= 0) sync_wait(acquireFence, 100);
                             filled = ::virtualcamera::FrameFiller::fillFromAHardwareBuffer(
                                     sHandleImporter, handle, width, height, src);
+                            if (filled) {
+                                mStats.cpuYuv++;
+                                mStats.cpuYuvNs += std::chrono::duration_cast<std::chrono::nanoseconds>(clk::now() - t0).count();
+                            }
                         }
                         if (acquireFence >= 0) ::close(acquireFence);
                         if (doneFence >= 0) {
@@ -499,9 +608,14 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
         mFrameCounter++;
     }
 
-    // Log periodically
+    // Log periodically, with the fill-path mix and per-path cost.
     if (mFrameCounter % 100 == 0) {
-        ALOGI("Processed %d frames", mFrameCounter.load());
+        auto ms = [](int64_t ns, uint64_t n) { return n ? (ns / 1e6) / n : 0.0; };
+        ALOGI("Processed %d frames: gpu-rgba %llu, gpu-yuv %llu (%.1f ms), cpu-yuv %llu (%.1f ms), jpeg %llu (%.1f ms)",
+              mFrameCounter.load(), (unsigned long long)mStats.gpuRgba,
+              (unsigned long long)mStats.gpuYuv, ms(mStats.gpuYuvNs, mStats.gpuYuv),
+              (unsigned long long)mStats.cpuYuv, ms(mStats.cpuYuvNs, mStats.cpuYuv),
+              (unsigned long long)mStats.jpeg, ms(mStats.jpegNs, mStats.jpeg));
     }
 
     // Build result metadata via core::MetadataBuilder

@@ -314,6 +314,46 @@ preview case lands entirely on this path.
 Validated at steady state: **0 GPU-composite errors, 0 CPU-fallback calls — no
 pixel touches the CPU.**
 
+## 5b'. YUV and JPEG consumers
+
+Most real consumers do not sample RGBA: `ImageReader`, `MediaCodec` and ML
+pipelines ask for `YUV_420_888`, and every camera app takes JPEG stills. Both
+now have real paths.
+
+**YUV on the GPU, with a constraint stated honestly.** The ideal is to render
+straight into the framework's YUV buffer. That needs either
+`GL_EXT_YUV_target` or `EGL_EXT_image_dma_buf_import` (to alias the planes),
+and this GL stack — gfxstream on Android 13 — has neither
+(`dumpsys SurfaceFlinger` lists no such extension). So `GpuCompositor::
+compositeToYcbcr` does the next best thing: two RGBA passes write
+**byte-packed planes** — each texel of the Y target holds four consecutive
+luma bytes, each texel of the UV target holds `U0 V0 U1 V1` — into two GPU
+buffers whose memory is therefore laid out exactly like NV12 planes. Those are
+locked and row-copied into the framework's buffer (NV12, NV21 and planar
+layouts handled). The per-pixel arithmetic never touches the CPU; what
+remains is a 1.5-byte-per-pixel memcpy (and, on gfxstream, the host→guest
+readback that any CPU access to a GPU buffer implies).
+
+Measured on the same 4K30 stream, same producer (`vendor.vcam.yuv.cpu=1`
+forces the old converter for comparison):
+
+| YUV fill path | per frame (4K) | at 30 fps |
+|---|---|---|
+| CPU converter (`FrameFiller`) | 34 ms | saturates the slot — one core fully busy |
+| GPU packed planes + row copy | 15–16 ms | half a slot; 0 CPU-converter calls |
+
+On hardware with dma_buf import the copy disappears too; the shaders and the
+plane layout are already what that path needs.
+
+**JPEG (BLOB).** `JpegEncoder` feeds the producer's RGBA frame to
+libjpeg-turbo directly (`JCS_EXT_RGBA`, no colour pre-pass; nearest-neighbour
+downscale for smaller BLOB streams) and writes the `camera3_jpeg_blob`
+trailer at the end of the buffer, which is how the framework finds the JPEG
+length. 4K at quality 90: ~260 KB in 60–85 ms, CPU by design — stills are rare
+and BLOB is advertised as a stalling format (100 ms). The viewer's
+`--ez jpeg true` mode takes one still with `TEMPLATE_STILL_CAPTURE` and checks
+the SOI/EOI markers.
+
 ## 5c. Fences and pacing: making the ordering explicit
 
 A GPU producer finishes asynchronously, and the HAL's GPU read of the frame is
@@ -648,6 +688,33 @@ Iterating without reflashing — what to push per change:
     system_ext pump instead: nothing lands in `/system`, and the "push the
     ndk `.so` to `/system_ext/lib64` once" step from the old iterate table
     disappears with it.
+23. **Run the provider VTS before believing the demo.** One consumer of your
+    own proves almost nothing about the contract. The first VTS run against
+    a HAL that had streamed 4K for weeks failed 12/37: it accepted a null
+    provider callback, processed requests with no output buffers (and sent
+    shutter/result callbacks for them), accepted stream use cases it never
+    advertised and rotations outside the enum, lacked `CONTROL_AVAILABLE_MODES`
+    / `SCALER_CROPPING_TYPE` / `JPEG_MAX_SIZE`, advertised a zoom result key
+    without the matching request key ("all four or none"), and had no BLOB
+    stream — so `configureStreamsPreviewStillOutputs`, the shape of every
+    camera app, could not even be configured. Build:
+    `m VtsAidlHalCameraProvider_TargetTest`, push the binary, run with
+    `--gtest_filter='*virtual_renderer*'` while a producer is registered.
+24. **The JPEG trailer must match the framework's struct layout, not a
+    packed one.** `camera3_jpeg_blob` is `{uint16 id; uint32 size}` with
+    natural alignment: 8 bytes, size at offset 4, read from the *last 8
+    bytes* of a buffer whose byte width is `Stream.bufferSize`. A
+    `__attribute__((packed))` copy is 6 bytes, lands two bytes off, and
+    `ImageReader` silently reports the whole buffer (8 MB) as the JPEG.
+    Symptom: SOI marker present, EOI absent.
+25. **libjpeg is VNDK; the static core lib's `shared_libs` do not reach the
+    final link.** Add `libjpeg` to the HAL impl/service `shared_libs`
+    (a vendor APEX may link a VNDK lib without bundling it).
+26. **No YUV render targets on gfxstream (A13).** Neither `GL_EXT_YUV_target`
+    nor `EGL_EXT_image_dma_buf_import` is exported, so a `YCbCr_420_888`
+    gralloc buffer cannot be an FBO attachment. Byte-packed RGBA planes
+    (§5b') are the portable answer; check the extension strings before
+    designing around a direct YUV write.
 
 ## 10. Repository map
 
@@ -687,13 +754,13 @@ why:
 | A2 | **Live V2-platform / V1-APEX mix.** | Pump logs "HAL implements V1; unfenced V1 frame delivery" against the 642c141 APEX and streams; V2 APEX back → "fenced". Version negotiation proven both ways (§9.18). |
 | A3 | **Producer timestamp end-to-end.** | Vendor tag `com.virtualcamera.producerTimestampNs`; viewer reports 9–35 ms producer→result at 4K30 (§5c). |
 
-### Phase B — cover the consumers that exist (the substantive work)
+### Phase B — cover the consumers that exist — **B1, B2 done; B3 open**
 
-| # | Item | Why | Done when |
-|---|---|---|---|
-| B1 | **GPU RGB→YUV (NV12).** Render the producer frame into the framework's YUV output on the GPU: import the `YCbCr_420_888` gralloc buffer per plane (`EGL_EXT_image_dma_buf_import` with `DRM_FORMAT_NV12`, or two EGLImages over the Y and UV planes) and run a two-pass BT.601 shader. Keep the CPU converter as the fallback it already is. | The zero-conversion path covers `SurfaceTexture` previews only. `ImageReader`, `MediaCodec`, ML pipelines — most real consumers — request YUV and today land on the CPU converter at 4K. This is the largest remaining performance item and the most driver-dependent; expect gfxstream to need the two-plane variant. | A YUV `ImageReader` consumer in VCamViewer shows 0 CPU-fallback calls at 4K30. |
-| B2 | **Conformance: run the camera provider VTS against camera 100.** `VtsHalCameraProviderTargetTest` (AIDL V1) with a producer registered. | We have exactly one consumer (our own viewer). VTS is the checklist real apps implicitly depend on: metadata completeness, template settings, flush/close ordering, buffer-management corner cases. It will find gaps the demo cannot. | Test list passes or each failure is a documented, deliberate omission. |
-| B3 | **Multi-producer.** One virtual camera per registered producer (100, 101, …) instead of "first producer feeds camera 100". Needs a camera id in the boundary → **V3** of the interface (`onStreamsConfigured(cameraId, …)`, `queueFrameFenced(cameraId, …)`), and the provider enumerating N devices. | The service already has a registry keyed by id; the HAL and the boundary do not. This is the second real use of the freeze discipline. | Two producers, two Camera2 devices, each viewer sees its own producer. |
+| # | Item | Outcome |
+|---|---|---|
+| B1 | **GPU RGB→YUV.** | Done, with the driver constraint documented (§5b'): no YUV render targets on gfxstream/A13, so packed-plane shaders + row copy. 4K YUV `ImageReader` consumer: 0 CPU-converter calls, 15–16 ms/frame vs 34 ms on the CPU. |
+| B2 | **Camera provider VTS.** | **37/37 pass** on `VtsAidlHalCameraProvider_TargetTest` (from 25/37 on first run). The 12 failures were all real: null-callback handling, requests with no/invalid buffers or missing first-request settings accepted instead of rejected, stream use cases and invalid rotations accepted, missing static metadata (`CONTROL_AVAILABLE_MODES`, `SCALER_CROPPING_TYPE`, `JPEG_MAX_SIZE`, zoom-key consistency), and **no JPEG output at all** — every camera app's still path (§9.23–25). |
+| B3 | **Multi-producer.** One virtual camera per registered producer (100, 101, …). Needs a camera id in the boundary → **V3** (`onStreamsConfigured(cameraId, …)`, `queueFrameFenced(cameraId, …)`), and the provider enumerating N devices. The service already has a registry keyed by id; the HAL and the boundary do not. Done when two producers give two Camera2 devices and each viewer sees its own. |
 
 ### Phase C — the pattern beyond the camera
 

@@ -150,6 +150,15 @@ private:
     // Pacing state (touched only on the request path)
     int32_t mTargetFps = 30;
     int64_t mNextFrameNs = 0;
+    int32_t mJpegQuality = 90;
+    bool mHaveSettings = false;   // first request after configure must carry settings
+    bool mForceCpuYuv = false;    // vendor.vcam.yuv.cpu=1: measurement baseline
+
+    // Fill-path statistics (logged periodically)
+    struct FillStats {
+        uint64_t gpuRgba = 0, gpuYuv = 0, cpuYuv = 0, jpeg = 0;
+        int64_t gpuYuvNs = 0, cpuYuvNs = 0, jpegNs = 0;
+    } mStats;
 
     // Core frame sources (shared with provider)
     std::shared_ptr<::virtualcamera::VirtualCameraFrameSource> mFrameSource;

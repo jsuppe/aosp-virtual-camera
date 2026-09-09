@@ -28,6 +28,7 @@ cc_library_static {
         "MetadataBuilder.cpp",
         "GpuCompositor.cpp",
         "VendorTags.cpp",
+        "JpegEncoder.cpp",
     ],
 
     shared_libs: [
@@ -42,6 +43,7 @@ cc_library_static {
         "libhardware",
         "libhidlbase",
         "liblog",
+        "libjpeg",
         "libui",
         "libutils",
         "libbase",

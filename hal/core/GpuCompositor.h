@@ -28,6 +28,8 @@
 
 #include <mutex>
 
+#include "HandleImporterCompat.h"
+
 namespace virtualcamera {
 
 class GpuCompositor {
@@ -57,9 +59,31 @@ public:
                    int width, int height, int stride, int dstFormat,
                    uint64_t dstUsage, int* outFence);
 
+    /**
+     * YUV 4:2:0 output with the color conversion on the GPU.
+     *
+     * This GL stack (gfxstream on Android 13) has neither GL_EXT_YUV_target
+     * nor EGL_EXT_image_dma_buf_import, so a YUV gralloc buffer cannot be a
+     * render target. Instead two RGBA passes write *byte-packed* planes —
+     * each RGBA texel of the Y target holds 4 consecutive luma bytes, each
+     * texel of the UV target holds U0 V0 U1 V1 — into two GPU buffers whose
+     * memory is therefore laid out exactly like NV12 planes. Those are then
+     * CPU-locked and row-copied into the framework's YUV buffer (dst, already
+     * locked by the caller). The per-pixel arithmetic — the expensive part of
+     * the old converter — never touches the CPU; what remains is a memcpy of
+     * 1.5 bytes per pixel. Handles NV12/NV21 (chroma_step 2) and planar
+     * (chroma_step 1) destinations. Synchronous (the CPU copy needs the GPU
+     * result). Returns false if the GPU path is unavailable -> CPU fallback.
+     */
+    bool compositeToYcbcr(AHardwareBuffer* src, int srcAcquireFence,
+                          const YCbCrBuffer& dst, int width, int height);
+
 private:
     GpuCompositor() = default;
     bool ensureInit();                       // caller holds mLock
+    bool ensureYuvTargets(int width, int height);   // caller holds mLock + context
+    void releaseYuvTargets();
+    GLuint buildProgram(const char* vert, const char* frag);
     EGLImageKHR imageFromAhb(AHardwareBuffer* ahb);
     EGLImageKHR imageFromHandle(buffer_handle_t h, int w, int hgt, int fmt,
                                 uint64_t usage, int stride, void** keepAlive);
@@ -78,6 +102,17 @@ private:
     GLuint mFbo = 0;
     GLint mAttrPos = -1;
     GLint mUniTex = -1;
+
+    // YUV path: packed-plane render targets, cached per output size.
+    int mYuvW = 0, mYuvH = 0;
+    AHardwareBuffer* mYPack = nullptr;       // RGBA (W/4) x H     == Y plane bytes
+    AHardwareBuffer* mUvPack = nullptr;      // RGBA (W/4) x (H/2) == interleaved UV bytes
+    EGLImageKHR mYImg = EGL_NO_IMAGE_KHR;
+    EGLImageKHR mUvImg = EGL_NO_IMAGE_KHR;
+    GLuint mYRb = 0, mUvRb = 0;
+    GLuint mProgY = 0, mProgUv = 0;
+    GLint mYAttrPos = -1, mYUniTex = -1, mYUniSize = -1;
+    GLint mUvAttrPos = -1, mUvUniTex = -1, mUvUniSize = -1, mUvUniSwap = -1;
 };
 
 }  // namespace virtualcamera

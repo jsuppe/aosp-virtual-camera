@@ -60,6 +60,49 @@ const char* kFrag =
         "  gl_FragColor = texture2D(uTex, vUv);\n"
         "}\n";
 
+// ---- YUV packed-plane shaders (BT.601 limited range, same coefficients as
+// FrameFiller::rgbaToYuv: Y = 66R+129G+25B >>8 +16, U = -38R-74G+112B, V = 112R-94G-18B).
+const char* kVertYuv =
+        "attribute vec2 aPos;\n"
+        "void main() { gl_Position = vec4(aPos, 0.0, 1.0); }\n";
+// Each fragment = one RGBA texel = 4 consecutive Y bytes of one row.
+const char* kFragY =
+        "precision highp float;\n"
+        "uniform sampler2D uTex;\n"
+        "uniform vec2 uSize;\n"            // source width, height in pixels
+        "float luma(vec2 uv) {\n"
+        "  vec3 c = texture2D(uTex, uv).rgb;\n"
+        "  return dot(c, vec3(66.0, 129.0, 25.0)) / 256.0 + 16.0 / 255.0;\n"
+        "}\n"
+        "void main() {\n"
+        "  float x0 = (gl_FragCoord.x - 0.5) * 4.0;\n"      // first source column
+        "  float v = gl_FragCoord.y / uSize.y;\n"
+        "  gl_FragColor = vec4(luma(vec2((x0 + 0.5) / uSize.x, v)),\n"
+        "                      luma(vec2((x0 + 1.5) / uSize.x, v)),\n"
+        "                      luma(vec2((x0 + 2.5) / uSize.x, v)),\n"
+        "                      luma(vec2((x0 + 3.5) / uSize.x, v)));\n"
+        "}\n";
+// Each fragment = U0 V0 U1 V1 for two chroma samples (4 source columns, 2 rows).
+// Sampling at the centre of each 2x2 block with LINEAR filtering averages it.
+const char* kFragUv =
+        "precision highp float;\n"
+        "uniform sampler2D uTex;\n"
+        "uniform vec2 uSize;\n"
+        "uniform float uSwap;\n"          // 1.0 -> V first (NV21)
+        "vec2 chroma(vec2 uv) {\n"
+        "  vec3 c = texture2D(uTex, uv).rgb;\n"
+        "  float u = dot(c, vec3(-38.0, -74.0, 112.0)) / 256.0 + 128.0 / 255.0;\n"
+        "  float v = dot(c, vec3(112.0, -94.0, -18.0)) / 256.0 + 128.0 / 255.0;\n"
+        "  return uSwap > 0.5 ? vec2(v, u) : vec2(u, v);\n"
+        "}\n"
+        "void main() {\n"
+        "  float x0 = (gl_FragCoord.x - 0.5) * 4.0;\n"
+        "  float y = (gl_FragCoord.y - 0.5) * 2.0 + 1.0;\n"   // centre of the 2-row block
+        "  vec2 c0 = chroma(vec2((x0 + 1.0) / uSize.x, y / uSize.y));\n"
+        "  vec2 c1 = chroma(vec2((x0 + 3.0) / uSize.x, y / uSize.y));\n"
+        "  gl_FragColor = vec4(c0, c1);\n"
+        "}\n";
+
 GLuint compile(GLenum type, const char* src) {
     GLuint s = glCreateShader(type);
     glShaderSource(s, 1, &src, nullptr);
@@ -225,6 +268,217 @@ EGLImageKHR GpuCompositor::imageFromHandle(buffer_handle_t h, int w, int hgt,
         AHardwareBuffer_release(ahb);
     }
     return img;
+}
+
+GLuint GpuCompositor::buildProgram(const char* vert, const char* frag) {
+    GLuint vs = compile(GL_VERTEX_SHADER, vert);
+    GLuint fs = compile(GL_FRAGMENT_SHADER, frag);
+    if (!vs || !fs) return 0;
+    GLuint prog = glCreateProgram();
+    glAttachShader(prog, vs);
+    glAttachShader(prog, fs);
+    glLinkProgram(prog);
+    GLint linked = 0;
+    glGetProgramiv(prog, GL_LINK_STATUS, &linked);
+    glDeleteShader(vs);
+    glDeleteShader(fs);
+    if (!linked) {
+        char log[512];
+        glGetProgramInfoLog(prog, sizeof(log), nullptr, log);
+        ALOGE("program link failed: %s", log);
+        glDeleteProgram(prog);
+        return 0;
+    }
+    return prog;
+}
+
+void GpuCompositor::releaseYuvTargets() {
+    if (mYRb) { glDeleteRenderbuffers(1, &mYRb); mYRb = 0; }
+    if (mUvRb) { glDeleteRenderbuffers(1, &mUvRb); mUvRb = 0; }
+    if (mYImg != EGL_NO_IMAGE_KHR) { eglDestroyImageKHR_(mDpy, mYImg); mYImg = EGL_NO_IMAGE_KHR; }
+    if (mUvImg != EGL_NO_IMAGE_KHR) { eglDestroyImageKHR_(mDpy, mUvImg); mUvImg = EGL_NO_IMAGE_KHR; }
+    if (mYPack) { AHardwareBuffer_release(mYPack); mYPack = nullptr; }
+    if (mUvPack) { AHardwareBuffer_release(mUvPack); mUvPack = nullptr; }
+    mYuvW = mYuvH = 0;
+}
+
+bool GpuCompositor::ensureYuvTargets(int width, int height) {
+    if (mYPack && mYuvW == width && mYuvH == height) return true;
+    releaseYuvTargets();
+    if (!mProgY) {
+        mProgY = buildProgram(kVertYuv, kFragY);
+        mProgUv = buildProgram(kVertYuv, kFragUv);
+        if (!mProgY || !mProgUv) return false;
+        mYAttrPos = glGetAttribLocation(mProgY, "aPos");
+        mYUniTex = glGetUniformLocation(mProgY, "uTex");
+        mYUniSize = glGetUniformLocation(mProgY, "uSize");
+        mUvAttrPos = glGetAttribLocation(mProgUv, "aPos");
+        mUvUniTex = glGetUniformLocation(mProgUv, "uTex");
+        mUvUniSize = glGetUniformLocation(mProgUv, "uSize");
+        mUvUniSwap = glGetUniformLocation(mProgUv, "uSwap");
+    }
+    auto alloc = [](int w, int h) -> AHardwareBuffer* {
+        AHardwareBuffer_Desc d = {};
+        d.width = static_cast<uint32_t>(w);
+        d.height = static_cast<uint32_t>(h);
+        d.layers = 1;
+        d.format = AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM;
+        d.usage = AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT | AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN;
+        AHardwareBuffer* b = nullptr;
+        return AHardwareBuffer_allocate(&d, &b) == 0 ? b : nullptr;
+    };
+    mYPack = alloc(width / 4, height);
+    mUvPack = alloc(width / 4, height / 2);
+    if (!mYPack || !mUvPack) {
+        ALOGE("yuv targets: allocation failed");
+        releaseYuvTargets();
+        return false;
+    }
+    mYImg = imageFromAhb(mYPack);
+    mUvImg = imageFromAhb(mUvPack);
+    if (mYImg == EGL_NO_IMAGE_KHR || mUvImg == EGL_NO_IMAGE_KHR) {
+        ALOGE("yuv targets: EGLImage failed");
+        releaseYuvTargets();
+        return false;
+    }
+    glGenRenderbuffers(1, &mYRb);
+    glBindRenderbuffer(GL_RENDERBUFFER, mYRb);
+    glEGLImageTargetRenderbufferStorageOES_(GL_RENDERBUFFER, mYImg);
+    glGenRenderbuffers(1, &mUvRb);
+    glBindRenderbuffer(GL_RENDERBUFFER, mUvRb);
+    glEGLImageTargetRenderbufferStorageOES_(GL_RENDERBUFFER, mUvImg);
+    mYuvW = width;
+    mYuvH = height;
+    ALOGI("yuv targets ready: packed Y %dx%d, UV %dx%d (RGBA texels)",
+          width / 4, height, width / 4, height / 2);
+    return true;
+}
+
+bool GpuCompositor::compositeToYcbcr(AHardwareBuffer* src, int srcAcquireFence,
+                                     const YCbCrBuffer& dst, int width, int height) {
+    if (!dst.y || !dst.cb || !dst.cr || (width % 4) != 0 || (height % 2) != 0) return false;
+    std::lock_guard<std::mutex> lock(mLock);
+    if (!ensureInit()) return false;
+    if (!eglMakeCurrent(mDpy, mPbuf, mPbuf, mCtx)) {
+        ALOGE("compositeToYcbcr: eglMakeCurrent failed (0x%x)", eglGetError());
+        return false;
+    }
+    struct Release {   // always drop the context on the way out
+        EGLDisplay d; ~Release() { eglMakeCurrent(d, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT); }
+    } release{mDpy};
+
+    if (!ensureYuvTargets(width, height)) return false;
+
+    // Producer's acquire fence: GPU-side wait (same as composite()).
+    if (srcAcquireFence >= 0) {
+        bool waited = false;
+        if (mNativeFence) {
+            int fd = ::dup(srcAcquireFence);
+            const EGLint attrs[] = { EGL_SYNC_NATIVE_FENCE_FD_ANDROID, fd, EGL_NONE };
+            EGLSyncKHR s = eglCreateSyncKHR_(mDpy, EGL_SYNC_NATIVE_FENCE_ANDROID, attrs);
+            if (s != EGL_NO_SYNC_KHR) {
+                waited = (eglWaitSyncKHR_(mDpy, s, 0) == EGL_TRUE);
+                eglDestroySyncKHR_(mDpy, s);
+            } else {
+                ::close(fd);
+            }
+        }
+        if (!waited) sync_wait(srcAcquireFence, 100);
+    }
+
+    EGLImageKHR srcImg = imageFromAhb(src);
+    if (srcImg == EGL_NO_IMAGE_KHR) {
+        ALOGE("compositeToYcbcr: src EGLImage failed");
+        return false;
+    }
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, mSrcTex);
+    glEGLImageTargetTexture2DOES_(GL_TEXTURE_2D, srcImg);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    static const GLfloat quad[] = { -1, -1, 1, -1, -1, 1, 1, 1 };
+    const bool nv21 = (dst.chroma_step == 2 &&
+                       static_cast<uint8_t*>(dst.cb) == static_cast<uint8_t*>(dst.cr) + 1);
+    bool ok = true;
+    // Pass 1: packed Y.
+    glBindFramebuffer(GL_FRAMEBUFFER, mFbo);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, mYRb);
+    ok = ok && (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+    if (ok) {
+        glViewport(0, 0, width / 4, height);
+        glUseProgram(mProgY);
+        glUniform1i(mYUniTex, 0);
+        glUniform2f(mYUniSize, static_cast<float>(width), static_cast<float>(height));
+        glEnableVertexAttribArray(mYAttrPos);
+        glVertexAttribPointer(mYAttrPos, 2, GL_FLOAT, GL_FALSE, 0, quad);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    }
+    // Pass 2: packed interleaved UV.
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, mUvRb);
+    ok = ok && (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+    if (ok) {
+        glViewport(0, 0, width / 4, height / 2);
+        glUseProgram(mProgUv);
+        glUniform1i(mUvUniTex, 0);
+        glUniform2f(mUvUniSize, static_cast<float>(width), static_cast<float>(height));
+        glUniform1f(mUvUniSwap, nv21 ? 1.0f : 0.0f);
+        glEnableVertexAttribArray(mUvAttrPos);
+        glVertexAttribPointer(mUvAttrPos, 2, GL_FLOAT, GL_FALSE, 0, quad);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    }
+    glFinish();   // the CPU copy below needs the GPU result
+    ok = ok && (glGetError() == GL_NO_ERROR);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    eglDestroyImageKHR_(mDpy, srcImg);
+    if (!ok) {
+        ALOGE("compositeToYcbcr: GL pass failed");
+        return false;
+    }
+
+    // Copy packed planes into the framework's YUV buffer.
+    AHardwareBuffer_Desc yd, uvd;
+    AHardwareBuffer_describe(mYPack, &yd);
+    AHardwareBuffer_describe(mUvPack, &uvd);
+    void* yp = nullptr; void* uvp = nullptr;
+    if (AHardwareBuffer_lock(mYPack, AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN, -1, nullptr, &yp) != 0 ||
+        AHardwareBuffer_lock(mUvPack, AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN, -1, nullptr, &uvp) != 0) {
+        ALOGE("compositeToYcbcr: packed plane lock failed");
+        if (yp) AHardwareBuffer_unlock(mYPack, nullptr);
+        return false;
+    }
+    const size_t yRow = static_cast<size_t>(yd.stride) * 4;
+    const size_t uvRow = static_cast<size_t>(uvd.stride) * 4;
+    const uint8_t* ys = static_cast<const uint8_t*>(yp);
+    const uint8_t* uvs = static_cast<const uint8_t*>(uvp);
+    uint8_t* dy = static_cast<uint8_t*>(dst.y);
+    for (int r = 0; r < height; r++) {
+        memcpy(dy + static_cast<size_t>(r) * dst.ystride, ys + static_cast<size_t>(r) * yRow, width);
+    }
+    const int chromaH = height / 2;
+    if (dst.chroma_step == 2) {
+        // NV12 (cb first) or NV21 (cr first, handled by uSwap): one interleaved plane.
+        uint8_t* base = static_cast<uint8_t*>(nv21 ? dst.cr : dst.cb);
+        for (int r = 0; r < chromaH; r++) {
+            memcpy(base + static_cast<size_t>(r) * dst.cstride, uvs + static_cast<size_t>(r) * uvRow, width);
+        }
+    } else {
+        // Planar: de-interleave U/V bytes.
+        uint8_t* dcb = static_cast<uint8_t*>(dst.cb);
+        uint8_t* dcr = static_cast<uint8_t*>(dst.cr);
+        const int chromaW = width / 2;
+        for (int r = 0; r < chromaH; r++) {
+            const uint8_t* s = uvs + static_cast<size_t>(r) * uvRow;
+            uint8_t* cb = dcb + static_cast<size_t>(r) * dst.cstride;
+            uint8_t* cr = dcr + static_cast<size_t>(r) * dst.cstride;
+            for (int c = 0; c < chromaW; c++) { cb[c] = s[2 * c]; cr[c] = s[2 * c + 1]; }
+        }
+    }
+    AHardwareBuffer_unlock(mYPack, nullptr);
+    AHardwareBuffer_unlock(mUvPack, nullptr);
+    return true;
 }
 
 bool GpuCompositor::composite(AHardwareBuffer* src, int srcAcquireFence,

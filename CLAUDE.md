@@ -60,6 +60,13 @@ Producer apps register via platform AIDL instead of the Unix socket:
   empty `~/cuttlefish/instances` (no overlay). The integrate script owns PRODUCT_PACKAGES
   (APEX + vintf prebuilt + JNI pump, never the loose binary) and the device FCM fragment.
   A13 libvintf ignores /apex vintf fragments — the prebuilt on /vendor is required.
+- **Conformance:** `VtsAidlHalCameraProvider_TargetTest` passes 37/37 against
+  `virtual_renderer/0` (build it, push to /data/local/tmp, run with
+  `--gtest_filter='*virtual_renderer*'` with a producer registered). Keep it green.
+- **Consumers:** RGBA preview = GPU zero-conversion; YUV_420_888 = GPU packed-plane
+  shaders + row copy (no YUV render targets on gfxstream); BLOB = libjpeg CPU encode.
+  Viewer modes: `--ez yuv true`, `--ez jpeg true`. `vendor.vcam.yuv.cpu=1` forces the
+  CPU converter for A/B measurement.
 - **Prototype caveats:** the `system_ext` mode runs `setenforce 0` (prototype-grade
   policy); the default `apex` mode runs enforcing with zero denials;
   single static camera id 100 fed by first registered producer; fallback to test

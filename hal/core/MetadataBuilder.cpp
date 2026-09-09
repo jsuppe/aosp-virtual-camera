@@ -13,12 +13,13 @@
 
 #include <algorithm>
 #include <cstring>
+#include <vector>
 
 namespace virtualcamera {
 
 std::vector<uint8_t> MetadataBuilder::buildCameraCharacteristics() {
     // Create camera characteristics with enough space for all entries
-    camera_metadata_t* meta = allocate_camera_metadata(100, 4000);
+    camera_metadata_t* meta = allocate_camera_metadata(120, 6000);
 
     // Required characteristics for a basic camera
     uint8_t facing = ANDROID_LENS_FACING_EXTERNAL;
@@ -37,6 +38,7 @@ std::vector<uint8_t> MetadataBuilder::buildCameraCharacteristics() {
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED,
         HAL_PIXEL_FORMAT_RGBA_8888,
         HAL_PIXEL_FORMAT_YCbCr_420_888,
+        HAL_PIXEL_FORMAT_BLOB,          // JPEG stills (JpegEncoder)
     };
     static constexpr int kNumRes = sizeof(kResolutions) / sizeof(kResolutions[0]);
     static constexpr int kNumFmt = sizeof(kFormats) / sizeof(kFormats[0]);
@@ -66,7 +68,8 @@ std::vector<uint8_t> MetadataBuilder::buildCameraCharacteristics() {
             stallDurations[base + 0] = kFormats[f];
             stallDurations[base + 1] = kResolutions[r].w;
             stallDurations[base + 2] = kResolutions[r].h;
-            stallDurations[base + 3] = 0LL;
+            // BLOB is a stalling format: CPU JPEG encode of a 4K frame.
+            stallDurations[base + 3] = (kFormats[f] == HAL_PIXEL_FORMAT_BLOB) ? 100000000LL : 0LL;
             idx++;
         }
     }
@@ -92,6 +95,26 @@ std::vector<uint8_t> MetadataBuilder::buildCameraCharacteristics() {
     int32_t partialResultCount = 1;
     add_camera_metadata_entry(meta, ANDROID_REQUEST_PARTIAL_RESULT_COUNT,
                               &partialResultCount, 1);
+
+    // 3A control: we have no 3A, so OFF and AUTO behave identically, but the
+    // key set must be complete for BACKWARD_COMPATIBLE (VTS checks it).
+    const uint8_t controlModes[] = { ANDROID_CONTROL_MODE_OFF, ANDROID_CONTROL_MODE_AUTO };
+    add_camera_metadata_entry(meta, ANDROID_CONTROL_AVAILABLE_MODES, controlModes, 2);
+    const uint8_t aeModes[] = { ANDROID_CONTROL_AE_MODE_ON };
+    add_camera_metadata_entry(meta, ANDROID_CONTROL_AE_AVAILABLE_MODES, aeModes, 1);
+    const uint8_t awbModes[] = { ANDROID_CONTROL_AWB_MODE_AUTO };
+    add_camera_metadata_entry(meta, ANDROID_CONTROL_AWB_AVAILABLE_MODES, awbModes, 1);
+    const uint8_t afModes[] = { ANDROID_CONTROL_AF_MODE_OFF };
+    add_camera_metadata_entry(meta, ANDROID_CONTROL_AF_AVAILABLE_MODES, afModes, 1);
+
+    uint8_t croppingType = ANDROID_SCALER_CROPPING_TYPE_CENTER_ONLY;
+    add_camera_metadata_entry(meta, ANDROID_SCALER_CROPPING_TYPE, &croppingType, 1);
+
+    // JPEG (BLOB) output
+    int32_t jpegMaxSize = kJpegMaxSize;
+    add_camera_metadata_entry(meta, ANDROID_JPEG_MAX_SIZE, &jpegMaxSize, 1);
+    const int32_t thumbSizes[] = { 0, 0 };   // no thumbnails
+    add_camera_metadata_entry(meta, ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES, thumbSizes, 2);
 
     // Zoom ratio range (1.0x only - no zoom)
     const float zoomRange[] = {1.0f, 1.0f};
@@ -124,6 +147,10 @@ std::vector<uint8_t> MetadataBuilder::buildCameraCharacteristics() {
         ANDROID_CONTROL_MODE,
         ANDROID_CONTROL_AE_MODE,
         ANDROID_CONTROL_AWB_MODE,
+        ANDROID_CONTROL_AE_TARGET_FPS_RANGE,   // drives the request-loop pacing
+        ANDROID_CONTROL_ZOOM_RATIO,            // zoom keys: all four or none (VTS)
+        ANDROID_JPEG_QUALITY,
+        ANDROID_JPEG_ORIENTATION,
     };
     add_camera_metadata_entry(meta, ANDROID_REQUEST_AVAILABLE_REQUEST_KEYS,
                               requestKeys, sizeof(requestKeys)/sizeof(int32_t));
@@ -131,7 +158,10 @@ std::vector<uint8_t> MetadataBuilder::buildCameraCharacteristics() {
     // Available result keys
     const int32_t resultKeys[] = {
         ANDROID_SENSOR_TIMESTAMP,
+        ANDROID_SENSOR_FRAME_DURATION,
         ANDROID_CONTROL_ZOOM_RATIO,
+        ANDROID_SCALER_CROP_REGION,
+        static_cast<int32_t>(VendorTags::kProducerTimestampNs),
     };
     add_camera_metadata_entry(meta, ANDROID_REQUEST_AVAILABLE_RESULT_KEYS,
                               resultKeys, sizeof(resultKeys)/sizeof(int32_t));
@@ -141,8 +171,22 @@ std::vector<uint8_t> MetadataBuilder::buildCameraCharacteristics() {
         ANDROID_LENS_FACING,
         ANDROID_SENSOR_ORIENTATION,
         ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS,
+        ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS,
+        ANDROID_SCALER_AVAILABLE_STALL_DURATIONS,
         ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL,
+        ANDROID_REQUEST_AVAILABLE_CAPABILITIES,
+        ANDROID_REQUEST_PARTIAL_RESULT_COUNT,
+        ANDROID_CONTROL_AVAILABLE_MODES,
+        ANDROID_CONTROL_AE_AVAILABLE_MODES,
+        ANDROID_CONTROL_AWB_AVAILABLE_MODES,
+        ANDROID_CONTROL_AF_AVAILABLE_MODES,
+        ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES,
         ANDROID_CONTROL_ZOOM_RATIO_RANGE,
+        ANDROID_SCALER_AVAILABLE_MAX_DIGITAL_ZOOM,
+        ANDROID_SCALER_CROPPING_TYPE,
+        ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE,
+        ANDROID_JPEG_MAX_SIZE,
+        ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES,
     };
     add_camera_metadata_entry(meta, ANDROID_REQUEST_AVAILABLE_CHARACTERISTICS_KEYS,
                               charKeys, sizeof(charKeys)/sizeof(int32_t));
@@ -157,6 +201,27 @@ std::vector<uint8_t> MetadataBuilder::buildCameraCharacteristics() {
     return result;
 }
 
+bool MetadataBuilder::isStreamCombinationSupported(const std::vector<StreamDesc>& streams) {
+    if (streams.empty()) return false;
+    static const int kFormats[] = { HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED,
+                                    HAL_PIXEL_FORMAT_RGBA_8888,
+                                    HAL_PIXEL_FORMAT_YCbCr_420_888,
+                                    HAL_PIXEL_FORMAT_BLOB };
+    static const int kSizes[][2] = { {3840, 2160}, {1920, 1080}, {1280, 720}, {640, 480} };
+    for (const auto& s : streams) {
+        if (s.input) return false;                         // no reprocessing
+        if (s.useCase != 0 /* ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_DEFAULT */) {
+            return false;                                  // no use cases advertised
+        }
+        if (s.rotation < 0 || s.rotation > 3) return false;   // StreamRotation enum range
+        bool fmt = false, size = false;
+        for (int f : kFormats) fmt |= (f == s.format);
+        for (const auto& sz : kSizes) size |= (sz[0] == s.width && sz[1] == s.height);
+        if (!fmt || !size) return false;
+    }
+    return true;
+}
+
 std::vector<uint8_t> MetadataBuilder::buildDefaultRequestSettings() {
     camera_metadata_t* meta = allocate_camera_metadata(10, 200);
 
@@ -168,6 +233,12 @@ std::vector<uint8_t> MetadataBuilder::buildDefaultRequestSettings() {
 
     uint8_t awbMode = ANDROID_CONTROL_AWB_MODE_AUTO;
     add_camera_metadata_entry(meta, ANDROID_CONTROL_AWB_MODE, &awbMode, 1);
+    const int32_t fpsRange[] = { 30, 30 };
+    add_camera_metadata_entry(meta, ANDROID_CONTROL_AE_TARGET_FPS_RANGE, fpsRange, 2);
+    uint8_t jpegQuality = 90;
+    add_camera_metadata_entry(meta, ANDROID_JPEG_QUALITY, &jpegQuality, 1);
+    int32_t jpegOrientation = 0;
+    add_camera_metadata_entry(meta, ANDROID_JPEG_ORIENTATION, &jpegOrientation, 1);
 
     float zoomRatio = 1.0f;
     add_camera_metadata_entry(meta, ANDROID_CONTROL_ZOOM_RATIO, &zoomRatio, 1);

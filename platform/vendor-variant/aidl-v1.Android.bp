@@ -46,6 +46,7 @@ cc_library_shared {
         "libhardware",
         "libhidlbase",
         "liblog",
+        "libjpeg",   // JpegEncoder (VNDK; not bundled in the APEX)
         "libui",
         "libutils",
         "libbase",
@@ -110,6 +111,7 @@ cc_binary {
         "libbinder_ndk",
         "libhidlbase",
         "liblog",
+        "libjpeg",   // JpegEncoder (VNDK; not bundled in the APEX)
         "libnativewindow",
         "libutils",
         "libbase",

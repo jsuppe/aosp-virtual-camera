@@ -84,6 +84,11 @@ VirtualCameraProvider::~VirtualCameraProvider() {
 
 ndk::ScopedAStatus VirtualCameraProvider::setCallback(
         const std::shared_ptr<ICameraProviderCallback>& callback) {
+    if (callback == nullptr) {
+        // Contract (and VTS): a null callback is an argument error, not a clear.
+        return ndk::ScopedAStatus::fromServiceSpecificError(
+                static_cast<int32_t>(Status::ILLEGAL_ARGUMENT));
+    }
     std::lock_guard<std::mutex> lock(mLock);
     mCallback = callback;
     ALOGI("Provider callback set");

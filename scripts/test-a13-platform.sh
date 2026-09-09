@@ -69,6 +69,24 @@ $ADB logcat -d -s VCamRelayJni:* VCamStableHal:* | grep -E "Connected to|Pushed 
 $ADB logcat -d -s VCamGpuCompositor:* | grep -E "native fences" | tail -1
 
 echo ""
+echo "=== Step 3: YUV consumer (ImageReader YUV_420_888 + preview; HAL GPU-YUV path) ==="
+$ADB shell am force-stop com.example.vcamviewer
+sleep 1
+$ADB shell am start -n com.example.vcamviewer/.MainActivity --ez yuv true >/dev/null
+sleep 12
+$ADB logcat -d -s VCamViewer:* | grep -E "YUV mode|YUV frame" | tail -3
+echo "--- HAL fill-path mix (expect gpu-yuv > 0, cpu-yuv 0) ---"
+$ADB logcat -d -s VirtualCameraSession:* | grep -E "Processed .* frames: " | tail -1 | sed -E 's/.*Processed/Processed/'
+
+echo ""
+echo "=== Step 4: JPEG still (BLOB stream, TEMPLATE_STILL_CAPTURE; HAL JpegEncoder) ==="
+$ADB shell am force-stop com.example.vcamviewer
+sleep 1
+$ADB shell am start -n com.example.vcamviewer/.MainActivity --ez jpeg true >/dev/null
+sleep 10
+$ADB logcat -d -s VCamViewer:* VirtualCameraSession:* | grep -E "JPEG" | tail -4 | sed -E 's/^[0-9:. -]+[0-9]+ +[0-9]+ [IEW] //'
+
+echo ""
 echo "--- SELinux denials during the run (virtual-camera related) ---"
 AVC=$($ADB shell "dmesg | grep -E 'avc: *denied'" | grep -E 'hal_camera_default|virtual_?camera|virtualcamera|vcamproducer|vcamviewer' || true)
 if [ -n "$AVC" ]; then echo "$AVC" | sed -E 's/^.*avc: /avc: /' | sort | uniq -c | sort -rn | head -20; else echo "none"; fi

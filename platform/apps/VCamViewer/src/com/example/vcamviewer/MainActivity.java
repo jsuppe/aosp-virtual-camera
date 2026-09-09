@@ -45,6 +45,14 @@ public class MainActivity extends Activity {
             new CaptureResult.Key<>("com.virtualcamera.producerTimestampNs", Long.class);
     private long mLatencySumNs = 0;
     private int mLatencyCount = 0;
+    /** --ez yuv true: add a YUV_420_888 ImageReader target (exercises the HAL's YUV path). */
+    private boolean mYuvMode = false;
+    private android.media.ImageReader mYuvReader;
+    private int mYuvFrames = 0;
+    /** --ez jpeg true: add a JPEG ImageReader and take one still after the preview settles. */
+    private boolean mJpegMode = false;
+    private android.media.ImageReader mJpegReader;
+    private boolean mStillTaken = false;
     private static final String VIRTUAL_CAMERA_ID = "100";
     private static final int REQ_CAMERA = 1;
 
@@ -152,6 +160,52 @@ public class MainActivity extends Activity {
             st.setDefaultBufferSize(size.getWidth(), size.getHeight());
             Surface previewSurface = new Surface(st);
 
+            mYuvMode = getIntent().getBooleanExtra("yuv", false);
+            if (mYuvMode) {
+                mYuvReader = android.media.ImageReader.newInstance(size.getWidth(), size.getHeight(),
+                        android.graphics.ImageFormat.YUV_420_888, 3);
+                mYuvReader.setOnImageAvailableListener(reader -> {
+                    android.media.Image img = reader.acquireLatestImage();
+                    if (img == null) return;
+                    mYuvFrames++;
+                    if (mYuvFrames == 1 || mYuvFrames % 90 == 0) {
+                        android.media.Image.Plane[] p = img.getPlanes();
+                        java.nio.ByteBuffer y = p[0].getBuffer();
+                        java.nio.ByteBuffer u = p[1].getBuffer();
+                        // Sample a few bytes so "non-black, plausible" is verifiable from logcat.
+                        int mid = y.limit() / 2;
+                        Log.i(TAG, "YUV frame " + mYuvFrames + " " + img.getWidth() + "x" + img.getHeight()
+                                + " yStride=" + p[0].getRowStride() + " uvStride=" + p[1].getRowStride()
+                                + " uvPixelStride=" + p[1].getPixelStride()
+                                + " Y[mid]=" + (y.get(mid) & 0xff) + " U[0]=" + (u.get(0) & 0xff));
+                    }
+                    img.close();
+                }, mCameraHandler);
+                Log.i(TAG, "YUV mode: ImageReader " + size + " added as second target");
+            }
+            mJpegMode = getIntent().getBooleanExtra("jpeg", false);
+            if (mJpegMode) {
+                Size jsize = map.getOutputSizes(android.graphics.ImageFormat.JPEG)[0];
+                mJpegReader = android.media.ImageReader.newInstance(jsize.getWidth(), jsize.getHeight(),
+                        android.graphics.ImageFormat.JPEG, 2);
+                mJpegReader.setOnImageAvailableListener(reader -> {
+                    android.media.Image img = reader.acquireLatestImage();
+                    if (img == null) return;
+                    java.nio.ByteBuffer b = img.getPlanes()[0].getBuffer();
+                    int n = b.remaining();
+                    // ImageReader trims the BLOB to the size in the camera3_jpeg_blob
+                    // trailer, so n is the JPEG length; check SOI/EOI markers.
+                    boolean soi = n > 4 && (b.get(0) & 0xff) == 0xFF && (b.get(1) & 0xff) == 0xD8;
+                    boolean eoi = n > 4 && (b.get(n - 2) & 0xff) == 0xFF && (b.get(n - 1) & 0xff) == 0xD9;
+                    Log.i(TAG, "JPEG still " + img.getWidth() + "x" + img.getHeight() + ": " + n
+                            + " bytes, SOI=" + soi + " EOI=" + eoi
+                            + (soi && eoi ? " -> VALID JPEG" : " -> INVALID"));
+                    status("JPEG still: " + n + " bytes " + (soi && eoi ? "valid" : "INVALID"));
+                    img.close();
+                }, mCameraHandler);
+                Log.i(TAG, "JPEG mode: ImageReader " + jsize + " added; will capture one still");
+            }
+
             mCameraManager.openCamera(VIRTUAL_CAMERA_ID,
                     new CameraDevice.StateCallback() {
                 @Override
@@ -159,7 +213,7 @@ public class MainActivity extends Activity {
                     Log.i(TAG, "Camera opened: " + camera.getId());
                     mCamera = camera;
                     mOpening = false;
-                    createSession(camera, previewSurface);
+                    createSession(camera, previewSurface);   // adds the YUV target if enabled
                 }
                 @Override
                 public void onDisconnected(CameraDevice camera) {
@@ -195,7 +249,11 @@ public class MainActivity extends Activity {
 
     private void createSession(CameraDevice camera, Surface previewSurface) {
         try {
-            camera.createCaptureSession(Arrays.asList(previewSurface),
+            java.util.List<Surface> targets = new java.util.ArrayList<>();
+            targets.add(previewSurface);
+            if (mYuvReader != null) targets.add(mYuvReader.getSurface());
+            if (mJpegReader != null) targets.add(mJpegReader.getSurface());
+            camera.createCaptureSession(targets,
                     new CameraCaptureSession.StateCallback() {
                         @Override
                         public void onConfigured(CameraCaptureSession session) {
@@ -204,6 +262,7 @@ public class MainActivity extends Activity {
                                 CaptureRequest.Builder b = camera.createCaptureRequest(
                                         CameraDevice.TEMPLATE_PREVIEW);
                                 b.addTarget(previewSurface);
+                                if (mYuvReader != null) b.addTarget(mYuvReader.getSurface());
                                 session.setRepeatingRequest(b.build(),
                                         new CameraCaptureSession.CaptureCallback() {
                                             @Override
@@ -226,6 +285,19 @@ public class MainActivity extends Activity {
                                                 if (producerTs != null) {
                                                     mLatencySumNs += (now - producerTs);
                                                     mLatencyCount++;
+                                                }
+                                                if (mJpegReader != null && !mStillTaken && mFrameCount == 60) {
+                                                    mStillTaken = true;
+                                                    try {
+                                                        CaptureRequest.Builder sb = camera.createCaptureRequest(
+                                                                CameraDevice.TEMPLATE_STILL_CAPTURE);
+                                                        sb.addTarget(mJpegReader.getSurface());
+                                                        sb.set(CaptureRequest.JPEG_QUALITY, (byte) 90);
+                                                        s.capture(sb.build(), null, mCameraHandler);
+                                                        Log.i(TAG, "JPEG still requested (TEMPLATE_STILL_CAPTURE, q90)");
+                                                    } catch (Exception e) {
+                                                        Log.e(TAG, "still capture failed", e);
+                                                    }
                                                 }
                                                 if (mFrameCount % 30 == 0) {
                                                     String lat = "";

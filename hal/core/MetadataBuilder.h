@@ -16,6 +16,19 @@
 namespace virtualcamera {
 
 struct MetadataBuilder {
+    /** Largest JPEG the HAL will produce (BLOB stream buffer size). */
+    static constexpr int32_t kJpegMaxSize = 3840 * 2160;   // 8 MB: 4K at any quality fits
+
+    struct StreamDesc {
+        int format;        // HAL_PIXEL_FORMAT_*
+        int width, height;
+        int64_t useCase;   // ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_*
+        bool input;
+        int rotation;      // StreamRotation: 0..3 valid
+    };
+    /** Advertised-config check shared by isStreamCombinationSupported and configureStreams. */
+    static bool isStreamCombinationSupported(const std::vector<StreamDesc>& streams);
+
     /** Build camera characteristics (supported resolutions, FPS, etc.) */
     static std::vector<uint8_t> buildCameraCharacteristics();
 

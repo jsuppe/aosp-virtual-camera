@@ -7,6 +7,9 @@
 #define LOG_TAG "VirtualCameraDevice"
 
 #include "VirtualCameraDevice.h"
+#include "MetadataBuilder.h"
+
+#include <vector>
 #include "VirtualCameraSession.h"
 
 #include <log/log.h>
@@ -52,11 +55,20 @@ ndk::ScopedAStatus VirtualCameraDevice::getResourceCost(
 }
 
 ndk::ScopedAStatus VirtualCameraDevice::isStreamCombinationSupported(
-        const StreamConfiguration& /*streams*/,
+        const StreamConfiguration& streams,
         bool* _aidl_return) {
-    // Accept any reasonable stream config for now
     if (_aidl_return) {
-        *_aidl_return = true;
+        *_aidl_return = ::virtualcamera::MetadataBuilder::isStreamCombinationSupported(
+                [&] {
+                    std::vector<::virtualcamera::MetadataBuilder::StreamDesc> v;
+                    for (const auto& s : streams.streams) {
+                        v.push_back({static_cast<int>(s.format), s.width, s.height,
+                                     static_cast<int64_t>(s.useCase),
+                                     s.streamType == ::aidl::android::hardware::camera::device::StreamType::INPUT,
+                                     static_cast<int>(s.rotation)});
+                    }
+                    return v;
+                }());
     }
     return ndk::ScopedAStatus::ok();
 }
