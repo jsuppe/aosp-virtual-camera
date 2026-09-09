@@ -51,8 +51,9 @@ Producer apps register via platform AIDL instead of the Unix socket:
   `platform/sepolicy/vendor/`; `system_ext` = iteration-1 relay prototype)
 - **Validate:** boot cuttlefish → `scripts/test-a13-platform.sh` (starts VCamProducer
   service, launches VCamViewer, checks frame counters at all 3 stages)
-- **Boundary version:** `android.hardware.virtualcamera.hal` is frozen at V2 (fenced
-  `queueFrameFenced`); HAL links `-V2-ndk`, the JNI pump links it statically (nothing
+- **Boundary version:** `android.hardware.virtualcamera.hal` is frozen at V3 (V2 fenced
+  `queueFrameFenced`; V3 camera *slots*: `setCameraPresent(slot)`, `queueFrameForCamera`,
+  per-slot callbacks; slot s = Camera2 id 100+s, up to 4). HAL links `-V3-ndk`, the JNI pump links it statically (nothing
   may land under /system for a device product), VINTF fragment says version 2. Freeze
   flow: edit `.aidl` → `m <iface>-update-api` → `m <iface>-freeze-api` in the tree →
   copy `stable-aidl/aidl_api/` + `Android.bp` back.
@@ -65,8 +66,9 @@ Producer apps register via platform AIDL instead of the Unix socket:
   `--gtest_filter='*virtual_renderer*'` with a producer registered). Keep it green.
 - **Consumers:** RGBA preview = GPU zero-conversion; YUV_420_888 = GPU packed-plane
   shaders + row copy (no YUV render targets on gfxstream); BLOB = libjpeg CPU encode.
-  Viewer modes: `--ez yuv true`, `--ez jpeg true`. `vendor.vcam.yuv.cpu=1` forces the
-  CPU converter for A/B measurement.
+  Viewer modes: `--ez yuv true`, `--ez jpeg true`, `--es camera 101`. `vendor.vcam.yuv.cpu=1`
+  forces the CPU converter for A/B measurement. Second producer: package
+  `com.example.vcamproducer2` (same sources, `--ei tint 1` for a red tint).
 - **Prototype caveats:** the `system_ext` mode runs `setenforce 0` (prototype-grade
   policy); the default `apex` mode runs enforcing with zero denials;
   single static camera id 100 fed by first registered producer; fallback to test

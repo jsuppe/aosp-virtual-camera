@@ -88,6 +88,7 @@ rm -rf "$HAL_DEST/apps"
 mkdir -p "$HAL_DEST/apps"
 cp -r "$SCRIPT_DIR/platform/apps/VCamProducer" "$HAL_DEST/apps/"
 cp -r "$SCRIPT_DIR/platform/apps/VCamViewer" "$HAL_DEST/apps/"
+# VCamProducer2 (second package, same sources) is defined in VCamProducer/Android.bp
 
 echo "=== [5/7] frameworks/base hooks ==="
 python3 - "$AOSP_ROOT" << "PYEOF"
@@ -199,6 +200,7 @@ grep -q "VCamProducer" "$DEVICE_MK" || cat >> "$DEVICE_MK" << "EOF"
 # Virtual camera platform-AIDL test apps
 PRODUCT_PACKAGES += VCamProducer VCamViewer
 EOF
+grep -q "VCamProducer2" "$DEVICE_MK" || echo "PRODUCT_PACKAGES += VCamProducer2" >> "$DEVICE_MK"
 # The HAL itself: EXACTLY ONE of the loose vendor binary (system_ext / loose
 # vendor builds) or the APEX. Listing both starts two HAL processes; listing
 # neither means `m` never rebuilds the HAL and the image ships whatever stale

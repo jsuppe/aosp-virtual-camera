@@ -87,6 +87,27 @@ sleep 10
 $ADB logcat -d -s VCamViewer:* VirtualCameraSession:* | grep -E "JPEG" | tail -4 | sed -E 's/^[0-9:. -]+[0-9]+ +[0-9]+ [IEW] //'
 
 echo ""
+echo "=== Step 5: multi-producer (V3 slots): second producer package -> camera 101 ==="
+$ADB shell am force-stop com.example.vcamviewer
+$ADB shell pm grant com.example.vcamproducer2 android.permission.CAMERA 2>/dev/null || true
+$ADB shell am start-foreground-service -n com.example.vcamproducer2/com.example.vcamproducer.VCamProducerService --ei tint 1 >/dev/null
+sleep 3
+echo "--- registry / slots ---"
+$ADB logcat -d -s VirtualCameraService:* | grep -E "HAL slot" | tail -2 | sed -E 's/.*VirtualCameraService: //'
+echo "--- cameras enumerated (expect 100 and 101) ---"
+$ADB shell "dumpsys media.camera | grep -E 'Device [0-9]+ maps to \"1[0-9][0-9]\"'"
+echo "--- viewer on camera 101 (YUV samples should differ from camera 100: red tint) ---"
+$ADB shell am start -n com.example.vcamviewer/.MainActivity --es camera 101 --ez yuv true >/dev/null
+sleep 10
+$ADB logcat -d -s VCamViewer:* | grep -E "Viewer for|Camera opened|YUV frame" | tail -3 | sed -E 's/.*VCamViewer: //'
+$ADB logcat -d -s VCamRelayJni:* VCamStableHal:* | grep -E "slot 1" | tail -2 | sed -E 's/.*(VCamRelayJni|VCamStableHal): //'
+$ADB exec-out screencap -p > /home/melchior/vcam_validation_cam101.png && echo "saved ~/vcam_validation_cam101.png"
+$ADB shell am stopservice -n com.example.vcamproducer2/com.example.vcamproducer.VCamProducerService >/dev/null
+sleep 2
+echo "--- after stopping producer 2 (expect only 100) ---"
+$ADB shell "dumpsys media.camera | grep -E 'Device [0-9]+ maps to \"1[0-9][0-9]\"'"
+
+echo ""
 echo "--- SELinux denials during the run (virtual-camera related) ---"
 AVC=$($ADB shell "dmesg | grep -E 'avc: *denied'" | grep -E 'hal_camera_default|virtual_?camera|virtualcamera|vcamproducer|vcamviewer' || true)
 if [ -n "$AVC" ]; then echo "$AVC" | sed -E 's/^.*avc: /avc: /' | sort | uniq -c | sort -rn | head -20; else echo "none"; fi

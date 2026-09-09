@@ -44,6 +44,12 @@ public class VirtualCameraService extends IVirtualCameraService.Stub
     private final AtomicInteger mNextCameraId = new AtomicInteger(1000);
     private final Object mLock = new Object();
     private final SparseArray<VirtualCamera> mCameras = new SparseArray<>();
+    // Vendor-APEX HAL path: each registered producer occupies a HAL slot
+    // (Camera2 device 100 + slot). Guarded by mLock. Sized to the HAL's
+    // getMaxCameras() at first use (1 for a V1/V2 HAL).
+    private static final int MAX_SLOTS = 4;
+    private final VirtualCamera[] mSlots = new VirtualCamera[MAX_SLOTS];
+    private final SparseArray<Integer> mSlotByCameraId = new SparseArray<>();
 
     private final ManagerImpl mManager = new ManagerImpl();
     // HAL availability listener (guarded by mLock). Pushed on every 0<->N
@@ -61,13 +67,13 @@ public class VirtualCameraService extends IVirtualCameraService.Stub
     // ============ VirtualCameraNative.Listener (vendor-APEX HAL path) ============
 
     @Override
-    public void onHalStreamsConfigured(int width, int height, int fps) {
-        VirtualCamera camera = firstCamera();
+    public void onHalStreamsConfigured(int slot, int width, int height, int fps) {
+        VirtualCamera camera = cameraInSlot(slot);
         if (camera == null) {
-            Log.w(TAG, "HAL streams configured but no producer registered");
+            Log.w(TAG, "HAL streams configured for slot " + slot + " but no producer there");
             return;
         }
-        Surface surface = VirtualCameraNative.createSurface(width, height);
+        Surface surface = VirtualCameraNative.createSurface(slot, width, height);
         if (surface == null) {
             Log.e(TAG, "Failed to create relay Surface");
             return;
@@ -79,7 +85,8 @@ public class VirtualCameraService extends IVirtualCameraService.Stub
         sc.format = 1; // RGBA_8888
         sc.fps = fps;
         Log.i(TAG, "Relaying platform BufferQueue Surface (" + width + "x"
-                + height + "@" + fps + ") to producer app");
+                + height + "@" + fps + ") to producer app (slot " + slot
+                + ", camera " + camera.getCameraId() + ")");
         camera.onOpened();
         camera.onStreamsConfigured(new StreamConfig[] { sc },
                 new Surface[] { surface });
@@ -87,42 +94,54 @@ public class VirtualCameraService extends IVirtualCameraService.Stub
     }
 
     @Override
-    public void onHalCameraClosed() {
-        VirtualCamera camera = firstCamera();
+    public void onHalCameraClosed(int slot) {
+        VirtualCamera camera = cameraInSlot(slot);
         if (camera != null) {
             camera.onCaptureStopped();
             camera.onClosed();
         }
-        VirtualCameraNative.releaseSurface();
+        VirtualCameraNative.releaseSurface(slot);
     }
 
     @Override
     public void onHalDied() {
-        // APEX update or HAL crash: tear down; availability re-pushed when
-        // the HAL returns (next isHalUp()/setProducerAvailable call).
-        VirtualCameraNative.releaseSurface();
+        // APEX update or HAL crash: tear down; presence re-pushed per slot
+        // when the HAL returns.
+        for (int s = 0; s < MAX_SLOTS; s++) VirtualCameraNative.releaseSurface(s);
         Log.w(TAG, "vendor HAL died; relay torn down");
-        // Re-sync availability once it comes back (best-effort poll).
-        final boolean available;
-        synchronized (mLock) {
-            available = mCameras.size() > 0;
-        }
         new Thread(() -> {
             for (int i = 0; i < 30; i++) {
                 try { Thread.sleep(1000); } catch (InterruptedException ignored) { }
                 if (VirtualCameraNative.isHalUp()) {
-                    VirtualCameraNative.setProducerAvailable(available);
-                    Log.i(TAG, "vendor HAL back; availability re-synced=" + available);
+                    int n = 0;
+                    synchronized (mLock) {
+                        for (int s = 0; s < MAX_SLOTS; s++) {
+                            if (mSlots[s] != null) {
+                                VirtualCameraNative.setCameraPresent(s, true);
+                                n++;
+                            }
+                        }
+                    }
+                    Log.i(TAG, "vendor HAL back; " + n + " slot(s) re-synced");
                     return;
                 }
             }
         }, "vcam-hal-resync").start();
     }
 
-    private VirtualCamera firstCamera() {
+    private VirtualCamera cameraInSlot(int slot) {
         synchronized (mLock) {
-            return mCameras.size() > 0 ? mCameras.valueAt(0) : null;
+            return (slot >= 0 && slot < MAX_SLOTS) ? mSlots[slot] : null;
         }
+    }
+
+    /** Lowest free slot within what the HAL supports, or -1. Caller holds mLock. */
+    private int allocateSlotLocked() {
+        int max = Math.max(1, Math.min(MAX_SLOTS, VirtualCameraNative.getMaxCameras()));
+        for (int s = 0; s < max; s++) {
+            if (mSlots[s] == null) return s;
+        }
+        return -1;
     }
 
     IBinder getManagerBinder() {
@@ -150,12 +169,23 @@ public class VirtualCameraService extends IVirtualCameraService.Stub
         }
 
         boolean becameAvailable;
+        int slot;
         synchronized (mLock) {
             becameAvailable = (mCameras.size() == 0);
             mCameras.put(id, camera);
+            slot = allocateSlotLocked();
+            if (slot >= 0) {
+                mSlots[slot] = camera;
+                mSlotByCameraId.put(id, slot);
+            }
         }
         Log.i(TAG, "Registered virtual camera " + id + " (\"" + config.name
-                + "\") for uid " + Binder.getCallingUid());
+                + "\") for uid " + Binder.getCallingUid()
+                + (slot >= 0 ? " -> HAL slot " + slot + " (Camera2 id " + (100 + slot) + ")"
+                             : " -> no free HAL slot (registered, not exposed)"));
+        if (slot >= 0) {
+            VirtualCameraNative.setCameraPresent(slot, true);
+        }
         if (becameAvailable) {
             notifyHalAvailability(true);
         }
@@ -193,16 +223,28 @@ public class VirtualCameraService extends IVirtualCameraService.Stub
     private void removeCamera(int cameraId) {
         VirtualCamera camera;
         boolean becameUnavailable = false;
+        int slot = -1;
         synchronized (mLock) {
             camera = mCameras.get(cameraId);
             if (camera != null) {
                 mCameras.remove(cameraId);
                 becameUnavailable = (mCameras.size() == 0);
+                Integer s = mSlotByCameraId.get(cameraId);
+                if (s != null) {
+                    slot = s;
+                    mSlots[slot] = null;
+                    mSlotByCameraId.remove(cameraId);
+                }
             }
+        }
+        if (slot >= 0) {
+            VirtualCameraNative.setCameraPresent(slot, false);
+            VirtualCameraNative.releaseSurface(slot);
         }
         if (camera != null) {
             camera.close();
-            Log.i(TAG, "Unregistered virtual camera " + cameraId);
+            Log.i(TAG, "Unregistered virtual camera " + cameraId
+                    + (slot >= 0 ? " (HAL slot " + slot + " freed)" : ""));
         }
         if (becameUnavailable) {
             notifyHalAvailability(false);
@@ -215,8 +257,7 @@ public class VirtualCameraService extends IVirtualCameraService.Stub
         synchronized (mLock) {
             listener = mHalListener;
         }
-        // Vendor-APEX HAL path (no-op when the stable HAL isn't present).
-        VirtualCameraNative.setProducerAvailable(available);
+        // (The vendor-APEX HAL path is driven per slot in register/remove.)
         if (listener == null) {
             return;
         }

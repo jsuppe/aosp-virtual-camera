@@ -67,31 +67,47 @@ VirtualCameraStableHal* VirtualCameraStableHal::get() {
 
 ndk::ScopedAStatus VirtualCameraStableHal::setCallback(
         const std::shared_ptr<HalCallback>& callback) {
+    int32_t ver = 0;
+    if (callback && !callback->getInterfaceVersion(&ver).isOk()) ver = 1;
     std::lock_guard<std::mutex> lock(mLock);
     mCallback = callback;
-    ALOGI("Platform callback %s", callback ? "registered" : "cleared");
+    mCallbackVersion = ver;
+    ALOGI("Platform callback %s (V%d: %s)", callback ? "registered" : "cleared", ver,
+          ver >= 3 ? "per-slot callbacks" : "slot 0 only");
     return ndk::ScopedAStatus::ok();
 }
 
-int VirtualCameraStableHal::dropLatestLocked() {
-    Frame f = mLatest;
-    mLatest = Frame{};
+int VirtualCameraStableHal::dropLatestLocked(int slot) {
+    Frame f = mLatest[slot];
+    mLatest[slot] = Frame{};
     if (f.ahb) AHardwareBuffer_release(f.ahb);  // in-flight readers hold their own ref
     closeFd(f.acquireFence);
     return f.readFence;
 }
 
 ndk::ScopedAStatus VirtualCameraStableHal::setProducerAvailable(bool available) {
-    ALOGI("setProducerAvailable(%s)", available ? "true" : "false");
-    if (mProvider) {
-        mProvider->setProducerPresent(available);
+    return setCameraPresent(0, available);   // V1/V2 == slot 0
+}
+
+ndk::ScopedAStatus VirtualCameraStableHal::getMaxCameras(int32_t* count) {
+    *count = ::virtualcamera::kMaxVirtualCameras;
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus VirtualCameraStableHal::setCameraPresent(int32_t slot, bool present) {
+    if (!::virtualcamera::validSlot(slot)) {
+        return ndk::ScopedAStatus::fromServiceSpecificError(3);
     }
-    if (!available) {
+    ALOGI("setCameraPresent(slot %d, %s)", slot, present ? "true" : "false");
+    if (mProvider) {
+        mProvider->setSlotPresent(slot, present);
+    }
+    if (!present) {
         // Drop the stale frame so a future session starts clean.
         int fd;
         {
             std::lock_guard<std::mutex> lock(mLock);
-            fd = dropLatestLocked();
+            fd = dropLatestLocked(slot);
         }
         closeFd(fd);
     }
@@ -106,7 +122,7 @@ ndk::ScopedAStatus VirtualCameraStableHal::queueFrame(
     // dropped — the V1 platform releases buffers unfenced (its original
     // contract); V2 callers get it back.
     int retired = -1;
-    auto st = enqueue(buffer, width, height, stride, format, usage,
+    auto st = enqueue(0, buffer, width, height, stride, format, usage,
                       timestampNs, /*acquireFenceFd*/ -1, &retired);
     closeFd(retired);
     return st;
@@ -123,14 +139,33 @@ ndk::ScopedAStatus VirtualCameraStableHal::queueFrameFenced(
         acq = ::dup(acquireFence.get());   // the binder-owned fd dies with the call
     }
     int retired = -1;
-    auto st = enqueue(buffer, width, height, stride, format, usage,
+    auto st = enqueue(0, buffer, width, height, stride, format, usage,
                       timestampNs, acq, &retired);
     releaseFence->set(retired);   // ownership -> parcel; -1 parcels as null
     return st;
 }
 
+ndk::ScopedAStatus VirtualCameraStableHal::queueFrameForCamera(
+        int32_t slot, const NativeHandle& buffer,
+        int32_t width, int32_t height, int32_t stride, int32_t format,
+        int64_t usage, int64_t timestampNs,
+        const ndk::ScopedFileDescriptor& acquireFence,
+        ndk::ScopedFileDescriptor* releaseFence) {
+    releaseFence->set(-1);
+    if (!::virtualcamera::validSlot(slot)) {
+        return ndk::ScopedAStatus::fromServiceSpecificError(3);
+    }
+    int acq = -1;
+    if (acquireFence.get() >= 0) acq = ::dup(acquireFence.get());
+    int retired = -1;
+    auto st = enqueue(slot, buffer, width, height, stride, format, usage,
+                      timestampNs, acq, &retired);
+    releaseFence->set(retired);
+    return st;
+}
+
 ndk::ScopedAStatus VirtualCameraStableHal::enqueue(
-        const NativeHandle& buffer, int32_t width, int32_t height,
+        int slot, const NativeHandle& buffer, int32_t width, int32_t height,
         int32_t stride, int32_t format, int64_t usage, int64_t timestampNs,
         int acquireFenceFd, int* retiredReadFence) {
     *retiredReadFence = -1;
@@ -167,24 +202,25 @@ ndk::ScopedAStatus VirtualCameraStableHal::enqueue(
     Frame old;
     {
         std::unique_lock<std::mutex> lock(mLock);
-        if (mLatest.ahb && mLatest.inflight > 0) {
+        Frame& cur = mLatest[slot];
+        if (cur.ahb && cur.inflight > 0) {
             // A capture request is still reading the frame we are about to
             // retire; wait for it to submit and record its read fence.
             if (!mCv.wait_for(lock, kRetireWait,
-                              [this] { return mLatest.inflight == 0; })) {
+                              [&cur] { return cur.inflight == 0; })) {
                 ALOGW("queueFrame: retiring a frame with %d read(s) still in flight",
-                      mLatest.inflight);
+                      cur.inflight);
             }
         }
-        old = mLatest;
-        mLatest = Frame{};
-        mLatest.ahb = ahb;
-        mLatest.timestampNs = timestampNs;
-        mLatest.acquireFence = acquireFenceFd;
+        old = cur;
+        cur = Frame{};
+        cur.ahb = ahb;
+        cur.timestampNs = timestampNs;
+        cur.acquireFence = acquireFenceFd;
         mFramesReceived++;
         if (mFramesReceived % 150 == 0) {
-            ALOGI("queueFrame: %llu frames received (%dx%d)%s",
-                  (unsigned long long)mFramesReceived, width, height,
+            ALOGI("queueFrame: %llu frames received (%dx%d, slot %d)%s",
+                  (unsigned long long)mFramesReceived, width, height, slot,
                   acquireFenceFd >= 0 ? " [fenced]" : "");
         }
     }
@@ -194,27 +230,30 @@ ndk::ScopedAStatus VirtualCameraStableHal::enqueue(
     return ndk::ScopedAStatus::ok();
 }
 
-AHardwareBuffer* VirtualCameraStableHal::acquireLatest(int64_t* timestampNs,
+AHardwareBuffer* VirtualCameraStableHal::acquireLatest(int slot, int64_t* timestampNs,
                                                        int* acquireFenceFd) {
     std::lock_guard<std::mutex> lock(mLock);
     if (acquireFenceFd) *acquireFenceFd = -1;
-    if (mLatest.ahb == nullptr) return nullptr;
-    AHardwareBuffer_acquire(mLatest.ahb);
-    mLatest.inflight++;
-    if (timestampNs) *timestampNs = mLatest.timestampNs;
-    if (acquireFenceFd && mLatest.acquireFence >= 0) {
-        *acquireFenceFd = ::dup(mLatest.acquireFence);
+    if (!::virtualcamera::validSlot(slot)) return nullptr;
+    Frame& cur = mLatest[slot];
+    if (cur.ahb == nullptr) return nullptr;
+    AHardwareBuffer_acquire(cur.ahb);
+    cur.inflight++;
+    if (timestampNs) *timestampNs = cur.timestampNs;
+    if (acquireFenceFd && cur.acquireFence >= 0) {
+        *acquireFenceFd = ::dup(cur.acquireFence);
     }
-    return mLatest.ahb;
+    return cur.ahb;
 }
 
-void VirtualCameraStableHal::releaseFrame(AHardwareBuffer* ahb, int readFenceFd) {
+void VirtualCameraStableHal::releaseFrame(int slot, AHardwareBuffer* ahb, int readFenceFd) {
     {
         std::lock_guard<std::mutex> lock(mLock);
-        if (mLatest.ahb == ahb) {
-            mergeFence(mLatest.readFence, readFenceFd);
+        if (::virtualcamera::validSlot(slot) && mLatest[slot].ahb == ahb) {
+            Frame& cur = mLatest[slot];
+            mergeFence(cur.readFence, readFenceFd);
             readFenceFd = -1;
-            if (mLatest.inflight > 0) mLatest.inflight--;
+            if (cur.inflight > 0) cur.inflight--;
             mCv.notify_all();
         }
         // else: the frame was already retired (timeout path) — nothing to
@@ -224,35 +263,47 @@ void VirtualCameraStableHal::releaseFrame(AHardwareBuffer* ahb, int readFenceFd)
     if (ahb) AHardwareBuffer_release(ahb);
 }
 
-bool VirtualCameraStableHal::hasFrame() {
+bool VirtualCameraStableHal::hasFrame(int slot) {
     std::lock_guard<std::mutex> lock(mLock);
-    return mLatest.ahb != nullptr;
+    return ::virtualcamera::validSlot(slot) && mLatest[slot].ahb != nullptr;
 }
 
-void VirtualCameraStableHal::notifyStreamsConfigured(int width, int height, int fps) {
+void VirtualCameraStableHal::notifyStreamsConfigured(int slot, int width, int height, int fps) {
     std::shared_ptr<HalCallback> cb;
+    int32_t ver;
     {
         std::lock_guard<std::mutex> lock(mLock);
         cb = mCallback;
+        ver = mCallbackVersion;
     }
-    if (cb) {
-        ALOGI("notifyStreamsConfigured %dx%d@%d -> platform", width, height, fps);
+    if (!cb) {
+        ALOGW("Streams configured (slot %d) but no platform callback registered yet", slot);
+        return;
+    }
+    ALOGI("notifyStreamsConfigured slot %d %dx%d@%d -> platform (V%d)", slot, width, height, fps, ver);
+    if (ver >= 3) {
+        cb->onStreamsConfiguredForCamera(slot, width, height, fps);
+    } else if (slot == 0) {
         cb->onStreamsConfigured(width, height, fps);
     } else {
-        ALOGW("Streams configured but no platform callback registered yet");
+        ALOGW("slot %d configured but the platform callback is V%d (slot 0 only)", slot, ver);
     }
 }
 
-void VirtualCameraStableHal::notifyCameraClosed() {
+void VirtualCameraStableHal::notifyCameraClosed(int slot) {
     std::shared_ptr<HalCallback> cb;
-    int fd;
+    int32_t ver;
+    int fd = -1;
     {
         std::lock_guard<std::mutex> lock(mLock);
         cb = mCallback;
-        fd = dropLatestLocked();
+        ver = mCallbackVersion;
+        if (::virtualcamera::validSlot(slot)) fd = dropLatestLocked(slot);
     }
     closeFd(fd);
-    if (cb) cb->onCameraClosed();
+    if (!cb) return;
+    if (ver >= 3) cb->onCameraClosedForCamera(slot);
+    else if (slot == 0) cb->onCameraClosed();
 }
 
 }  // namespace aidl::android::hardware::camera::provider::implementation

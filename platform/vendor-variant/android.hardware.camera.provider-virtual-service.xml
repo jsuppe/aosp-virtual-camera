@@ -6,7 +6,7 @@
     </hal>
     <hal format="aidl">
         <name>android.hardware.virtualcamera.hal</name>
-        <version>2</version>
+        <version>3</version>
         <fqname>IVirtualCameraHal/default</fqname>
     </hal>
 </manifest>

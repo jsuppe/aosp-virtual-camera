@@ -43,6 +43,8 @@ public class VCamProducerService extends Service {
 
     private final Object mRenderLock = new Object();
     private RenderThread mRenderThread;
+    /** --ei tint N: colour multiplier preset so two producers are told apart on screen. */
+    private static volatile int sTint = 0;
 
     @Override
     public void onCreate() {
@@ -178,8 +180,9 @@ public class VCamProducerService extends Service {
                 "uniform vec2 uBall;\n" +
                 "uniform float uBallR;\n" +
                 "uniform float uAspect;\n" +
+                "uniform vec3 uTint;\n" +
                 "void main() {\n" +
-                "  vec3 bg = vec3(vUv.x, vUv.y, 0.5 + 0.5 * sin(uTime));\n" +
+                "  vec3 bg = vec3(vUv.x, vUv.y, 0.5 + 0.5 * sin(uTime)) * uTint;\n" +
                 "  vec2 d = (vUv - uBall) * vec2(uAspect, 1.0);\n" +
                 "  float disc = smoothstep(uBallR, uBallR * 0.85, length(d));\n" +
                 "  vec3 col = mix(bg, vec3(0.95), disc);\n" +
@@ -253,7 +256,11 @@ public class VCamProducerService extends Service {
                 int uBall = GLES20.glGetUniformLocation(prog, "uBall");
                 int uBallR = GLES20.glGetUniformLocation(prog, "uBallR");
                 int uAspect = GLES20.glGetUniformLocation(prog, "uAspect");
+                int uTint = GLES20.glGetUniformLocation(prog, "uTint");
                 float aspect = (float) mWidth / Math.max(1, mHeight);
+                float[] tint = tintFor(sTint);
+                GLES20.glUniform3f(uTint, tint[0], tint[1], tint[2]);
+                Log.i(TAG, "Render thread tint preset " + sTint);
 
                 GLES20.glViewport(0, 0, mWidth, mHeight);
                 long frameIntervalMs = 1000L / mFps;
@@ -294,8 +301,22 @@ public class VCamProducerService extends Service {
         }
     }
 
+    /** 0 = untinted (default), 1 = red-heavy, 2 = green-heavy, 3 = blue-heavy. */
+    private static float[] tintFor(int preset) {
+        switch (preset) {
+            case 1: return new float[] { 1.0f, 0.25f, 0.25f };
+            case 2: return new float[] { 0.25f, 1.0f, 0.25f };
+            case 3: return new float[] { 0.25f, 0.25f, 1.0f };
+            default: return new float[] { 1.0f, 1.0f, 1.0f };
+        }
+    }
+
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && intent.hasExtra("tint")) {
+            sTint = intent.getIntExtra("tint", 0);
+            Log.i(TAG, "tint preset " + sTint + " (" + getPackageName() + ")");
+        }
         return START_STICKY;
     }
 

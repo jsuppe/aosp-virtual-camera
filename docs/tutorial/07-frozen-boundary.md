@@ -89,6 +89,11 @@ and the platform asks `getInterfaceVersion()` before choosing between
 `queueFrameFenced` and the old `queueFrame`. That is the whole point — the two
 halves can be at different versions and still work.
 
+V3 followed the same path when the camera grew into *cameras*: a slot
+argument on presence, frame delivery and the callbacks, with the older
+unslotted methods defined as "slot 0". Same commands, `aidl_api/.../3/`, and
+a HAL that checks the callback's version so a V2 platform still drives slot 0.
+
 ## The two endpoints
 
 Each side implements its end of the frozen interface:

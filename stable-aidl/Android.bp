@@ -1,6 +1,7 @@
 // Stable (VINTF) AIDL boundary between the platform VirtualCameraService and
-// the vendor virtual-camera HAL. Frozen at V1 (unfenced) and V2 (adds
-// queueFrameFenced); the vendor APEX and the platform can rev independently
+// the vendor virtual-camera HAL. Frozen at V1 (unfenced), V2 (adds
+// queueFrameFenced) and V3 (camera slots: multi-producer); the vendor APEX
+// and the platform can rev independently
 // against it. To freeze the next version: `m <name>-update-api` then
 // `m <name>-freeze-api` in the AOSP tree, and copy aidl_api/ back here.
 package {
@@ -36,6 +37,10 @@ aidl_interface {
         },
         {
             version: "2",
+            imports: ["android.hardware.common-V2"],
+        },
+        {
+            version: "3",
             imports: ["android.hardware.common-V2"],
         },
 

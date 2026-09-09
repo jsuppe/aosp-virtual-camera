@@ -53,7 +53,8 @@ public class MainActivity extends Activity {
     private boolean mJpegMode = false;
     private android.media.ImageReader mJpegReader;
     private boolean mStillTaken = false;
-    private static final String VIRTUAL_CAMERA_ID = "100";
+    /** --es camera 101 selects another virtual camera (default 100 = HAL slot 0). */
+    private String VIRTUAL_CAMERA_ID = "100";
     private static final int REQ_CAMERA = 1;
 
     private TextureView mTextureView;
@@ -89,6 +90,9 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        String cam = getIntent().getStringExtra("camera");
+        if (cam != null && !cam.isEmpty()) VIRTUAL_CAMERA_ID = cam;
+        Log.i(TAG, "Viewer for virtual camera " + VIRTUAL_CAMERA_ID);
 
         FrameLayout root = new FrameLayout(this);
         mTextureView = new TextureView(this);

@@ -20,8 +20,10 @@ using aidl::android::hardware::camera::common::CameraDeviceStatus;
 namespace aidl::android::hardware::camera::provider::implementation {
 
 VirtualCameraProvider::VirtualCameraProvider() {
-    ALOGI("VirtualCameraProvider created (AIDL V1 adapter)");
+    ALOGI("VirtualCameraProvider created (AIDL V1 adapter, up to %d virtual cameras)",
+          ::virtualcamera::kMaxVirtualCameras);
     ::virtualcamera::VendorTags::installMetadataOps();
+    for (auto& p : mSlotPresent) p.store(false);
 
 #ifndef VCAM_STABLE_AIDL
     // Create and start the shared FrameSource (v1 - ashmem)
@@ -118,18 +120,29 @@ ndk::ScopedAStatus VirtualCameraProvider::getCameraIdList(
         std::vector<std::string>* cameraIds) {
     if (cameraIds) {
         cameraIds->clear();
-        if (mProducerPresent.load(std::memory_order_acquire)) {
-            cameraIds->push_back(kVirtualCameraId);
-            ALOGI("Returning camera list with: %s", kVirtualCameraId);
-        } else {
+        for (int s = 0; s < ::virtualcamera::kMaxVirtualCameras; s++) {
+            if (mSlotPresent[s].load(std::memory_order_acquire)) {
+                cameraIds->push_back(::virtualcamera::deviceIdForSlot(s));
+            }
+        }
+        if (cameraIds->empty()) {
             ALOGI("No producer registered - returning empty camera list");
+        } else {
+            ALOGI("Returning %zu virtual camera(s); first: %s", cameraIds->size(),
+                  cameraIds->front().c_str());
         }
     }
     return ndk::ScopedAStatus::ok();
 }
 
 void VirtualCameraProvider::setProducerPresent(bool present) {
-    bool prev = mProducerPresent.exchange(present, std::memory_order_acq_rel);
+    setSlotPresent(0, present);
+}
+
+void VirtualCameraProvider::setSlotPresent(int slot, bool present) {
+    if (!::virtualcamera::validSlot(slot)) return;
+    bool prev = mSlotPresent[slot].exchange(present, std::memory_order_acq_rel);
+    if (slot == 0) mProducerPresent.store(present, std::memory_order_release);
     if (prev == present) {
         return;
     }
@@ -138,13 +151,11 @@ void VirtualCameraProvider::setProducerPresent(bool present) {
         std::lock_guard<std::mutex> lock(mLock);
         cb = mCallback;
     }
-    ALOGI("Virtual camera %s -> %s", kVirtualCameraId,
-          present ? "PRESENT" : "NOT_PRESENT");
+    const std::string id = ::virtualcamera::deviceIdForSlot(slot);
+    ALOGI("Virtual camera %s -> %s", id.c_str(), present ? "PRESENT" : "NOT_PRESENT");
     if (cb) {
         auto status = cb->cameraDeviceStatusChange(
-                std::string(kVirtualCameraId),
-                present ? CameraDeviceStatus::PRESENT
-                        : CameraDeviceStatus::NOT_PRESENT);
+                id, present ? CameraDeviceStatus::PRESENT : CameraDeviceStatus::NOT_PRESENT);
         if (!status.isOk()) {
             ALOGW("cameraDeviceStatusChange failed");
         }
@@ -155,15 +166,16 @@ ndk::ScopedAStatus VirtualCameraProvider::getCameraDeviceInterface(
         const std::string& cameraDeviceId,
         std::shared_ptr<device::ICameraDevice>* device) {
 
-    if (cameraDeviceId != kVirtualCameraId) {
+    const int slot = ::virtualcamera::slotForDeviceId(cameraDeviceId);
+    if (slot < 0) {
         ALOGE("Unknown camera ID: %s", cameraDeviceId.c_str());
         return ndk::ScopedAStatus::fromServiceSpecificError(
                 static_cast<int32_t>(Status::ILLEGAL_ARGUMENT));
     }
 
-    ALOGI("Creating device interface for: %s", cameraDeviceId.c_str());
+    ALOGI("Creating device interface for: %s (slot %d)", cameraDeviceId.c_str(), slot);
     *device = ndk::SharedRefBase::make<VirtualCameraDevice>(
-        cameraDeviceId, mFrameSource, mFrameSourceV2, mAidlSource);
+        cameraDeviceId, slot, mFrameSource, mFrameSourceV2, mAidlSource);
     return ndk::ScopedAStatus::ok();
 }
 

@@ -53,4 +53,20 @@ interface IVirtualCameraHal {
     @nullable ParcelFileDescriptor queueFrameFenced(in NativeHandle buffer,
             int width, int height, int stride, int format, long usage,
             long timestampNs, in @nullable ParcelFileDescriptor acquireFence);
+
+    /**
+     * V3: multiple virtual cameras. Each registered producer occupies a
+     * *slot* 0..getMaxCameras()-1; slot s is Camera2 device id (100 + s).
+     * Slot 0 is the camera the V1/V2 methods address, so V2 platforms keep
+     * working unchanged against a V3 HAL and vice versa.
+     */
+    int getMaxCameras();
+
+    /** Per-slot presence (V3 form of setProducerAvailable). */
+    void setCameraPresent(int slot, boolean present);
+
+    /** Per-slot form of queueFrameFenced; identical semantics otherwise. */
+    @nullable ParcelFileDescriptor queueFrameForCamera(int slot, in NativeHandle buffer,
+            int width, int height, int stride, int format, long usage,
+            long timestampNs, in @nullable ParcelFileDescriptor acquireFence);
 }

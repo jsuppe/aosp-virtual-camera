@@ -35,8 +35,12 @@
 #include <ui/GraphicBuffer.h>
 #include <utils/Log.h>
 
+#include <array>
 #include <mutex>
 #include <optional>
+
+// Must match hal/core/VirtualCameraSlots.h (kMaxVirtualCameras).
+constexpr int kMaxSlots = 4;
 
 namespace {
 
@@ -52,32 +56,37 @@ using ::android::sp;
 
 JavaVM* gVm = nullptr;
 jclass gNativeClass = nullptr;          // global ref: VirtualCameraNative
-jmethodID gOnStreamsConfigured = nullptr;  // static (III)V
-jmethodID gOnCameraClosed = nullptr;       // static ()V
+jmethodID gOnStreamsConfigured = nullptr;  // static (IIII)V  (slot, w, h, fps)
+jmethodID gOnCameraClosed = nullptr;       // static (I)V     (slot)
 jmethodID gOnHalDied = nullptr;            // static ()V
 
 std::mutex gLock;
 std::shared_ptr<vhal::IVirtualCameraHal> gHal;
 int32_t gHalVersion = 0;                 // interface version the HAL implements
 std::shared_ptr<vhal::IVirtualCameraHalCallback> gCallback;
-::android::sp<BufferItemConsumer> gConsumer;
-uint64_t gFramesPushed = 0;
 
-// V2 protocol: the HAL keeps the newest buffer, so we keep it acquired here
-// until the HAL retires it (on the next queueFrameFenced) and hands back the
-// fence that says its GPU read is done. That fence goes to the BufferQueue
-// as the release fence, so the producer's next render into the buffer waits.
-std::optional<BufferItem> gHeld;
+// One relay queue per virtual camera slot (V3). Slot 0 is also what a V1/V2
+// HAL sees through the unslotted methods.
+struct Slot {
+    ::android::sp<BufferItemConsumer> consumer;
+    uint64_t framesPushed = 0;
+    // V2+ protocol: the HAL keeps the newest buffer, so we keep it acquired
+    // here until the HAL retires it (on the next queueFrame*) and hands back
+    // the fence that says its GPU read is done. That fence goes to the
+    // BufferQueue as the release fence, so the producer's next render into
+    // the buffer waits.
+    std::optional<BufferItem> held;
+};
+std::array<Slot, kMaxSlots> gSlots;
 
-void releaseHeldLocked(const sp<BufferItemConsumer>& consumer,
-                       ::ndk::ScopedFileDescriptor releaseFence) {   // fd -1 = none
-    if (!gHeld || consumer == nullptr) { gHeld.reset(); return; }
+void releaseHeldLocked(Slot& s, ::ndk::ScopedFileDescriptor releaseFence) {   // fd -1 = none
+    if (!s.held || s.consumer == nullptr) { s.held.reset(); return; }
     sp<Fence> fence = Fence::NO_FENCE;
     if (releaseFence.get() >= 0) {
         fence = new Fence(releaseFence.release());   // Fence owns the fd
     }
-    consumer->releaseBuffer(*gHeld, fence);
-    gHeld.reset();
+    s.consumer->releaseBuffer(*s.held, fence);
+    s.held.reset();
 }
 
 constexpr const char* kHalName =
@@ -98,7 +107,7 @@ void onHalDiedCb(void* /*cookie*/) {
         std::lock_guard<std::mutex> lock(gLock);
         gHal = nullptr;
         gHalVersion = 0;
-        releaseHeldLocked(gConsumer, ::ndk::ScopedFileDescriptor());   // nobody is reading it any more
+        for (auto& s : gSlots) releaseHeldLocked(s, ::ndk::ScopedFileDescriptor());   // nobody is reading them any more
     }
     JNIEnv* env = attach();
     if (env && gNativeClass && gOnHalDied) {
@@ -114,20 +123,26 @@ AIBinder_DeathRecipient* deathRecipient() {
 
 class CallbackImpl : public vhal::BnVirtualCameraHalCallback {
 public:
-    ndk::ScopedAStatus onStreamsConfigured(int32_t w, int32_t h,
-                                           int32_t fps) override {
-        ALOGI("HAL -> onStreamsConfigured %dx%d@%d", w, h, fps);
+    // V1/V2 forms == slot 0.
+    ndk::ScopedAStatus onStreamsConfigured(int32_t w, int32_t h, int32_t fps) override {
+        return onStreamsConfiguredForCamera(0, w, h, fps);
+    }
+    ndk::ScopedAStatus onCameraClosed() override { return onCameraClosedForCamera(0); }
+    // V3 forms.
+    ndk::ScopedAStatus onStreamsConfiguredForCamera(int32_t slot, int32_t w, int32_t h,
+                                                    int32_t fps) override {
+        ALOGI("HAL -> onStreamsConfigured slot %d %dx%d@%d", slot, w, h, fps);
         JNIEnv* env = attach();
         if (env && gNativeClass && gOnStreamsConfigured) {
-            env->CallStaticVoidMethod(gNativeClass, gOnStreamsConfigured, w, h, fps);
+            env->CallStaticVoidMethod(gNativeClass, gOnStreamsConfigured, slot, w, h, fps);
         }
         return ndk::ScopedAStatus::ok();
     }
-    ndk::ScopedAStatus onCameraClosed() override {
-        ALOGI("HAL -> onCameraClosed");
+    ndk::ScopedAStatus onCameraClosedForCamera(int32_t slot) override {
+        ALOGI("HAL -> onCameraClosed slot %d", slot);
         JNIEnv* env = attach();
         if (env && gNativeClass && gOnCameraClosed) {
-            env->CallStaticVoidMethod(gNativeClass, gOnCameraClosed);
+            env->CallStaticVoidMethod(gNativeClass, gOnCameraClosed, slot);
         }
         return ndk::ScopedAStatus::ok();
     }
@@ -150,18 +165,20 @@ std::shared_ptr<vhal::IVirtualCameraHal> hal() {
     if (!h->getInterfaceVersion(&ver).isOk()) ver = 1;
     gHal = h;
     gHalVersion = ver;
-    ALOGI("Connected to %s (HAL implements V%d; %s frame delivery)", kHalName, ver,
-          ver >= 2 ? "fenced" : "unfenced V1");
+    ALOGI("Connected to %s (HAL implements V%d; %s frame delivery; %s)", kHalName, ver,
+          ver >= 2 ? "fenced" : "unfenced V1",
+          ver >= 3 ? "multi-camera slots" : "single camera (slot 0)");
     return gHal;
 }
 
 class FrameListener : public BufferItemConsumer::FrameAvailableListener {
 public:
+    explicit FrameListener(int slot) : mSlot(slot) {}
     void onFrameAvailable(const BufferItem&) override {
         sp<BufferItemConsumer> consumer;
         {
             std::lock_guard<std::mutex> lock(gLock);
-            consumer = gConsumer;
+            consumer = gSlots[mSlot].consumer;
         }
         if (consumer == nullptr) return;
 
@@ -193,14 +210,29 @@ public:
                 if (item.mFence != nullptr && item.mFence->isValid()) {
                     acquireFence.set(item.mFence->dup());
                 }
-                status = h->queueFrameFenced(
-                        aidlHandle,
-                        static_cast<int32_t>(gb->getWidth()),
-                        static_cast<int32_t>(gb->getHeight()),
-                        static_cast<int32_t>(gb->getStride()),
-                        static_cast<int32_t>(gb->getPixelFormat()),
-                        static_cast<int64_t>(gb->getUsage()),
-                        item.mTimestamp, acquireFence, &retiredFence);
+                if (ver >= 3) {
+                    status = h->queueFrameForCamera(
+                            mSlot, aidlHandle,
+                            static_cast<int32_t>(gb->getWidth()),
+                            static_cast<int32_t>(gb->getHeight()),
+                            static_cast<int32_t>(gb->getStride()),
+                            static_cast<int32_t>(gb->getPixelFormat()),
+                            static_cast<int64_t>(gb->getUsage()),
+                            item.mTimestamp, acquireFence, &retiredFence);
+                } else if (mSlot == 0) {
+                    status = h->queueFrameFenced(
+                            aidlHandle,
+                            static_cast<int32_t>(gb->getWidth()),
+                            static_cast<int32_t>(gb->getHeight()),
+                            static_cast<int32_t>(gb->getStride()),
+                            static_cast<int32_t>(gb->getPixelFormat()),
+                            static_cast<int64_t>(gb->getUsage()),
+                            item.mTimestamp, acquireFence, &retiredFence);
+                } else {
+                    status = ndk::ScopedAStatus::fromServiceSpecificError(3);   // V2 HAL: slot 0 only
+                }
+            } else if (mSlot != 0) {
+                status = ndk::ScopedAStatus::fromServiceSpecificError(3);
             } else {
                 status = h->queueFrame(
                         aidlHandle,
@@ -212,27 +244,30 @@ public:
                         item.mTimestamp);
             }
             queued = status.isOk();
-            if (queued && (++gFramesPushed % 150 == 0)) {
-                ALOGI("Pushed %llu frames across the boundary%s",
-                      (unsigned long long)gFramesPushed, fenced ? " (fenced)" : "");
-            }
         }
 
         std::lock_guard<std::mutex> lock(gLock);
+        Slot& s = gSlots[mSlot];
+        if (queued && (++s.framesPushed % 150 == 0)) {
+            ALOGI("Pushed %llu frames across the boundary (slot %d)%s",
+                  (unsigned long long)s.framesPushed, mSlot, fenced ? " (fenced)" : "");
+        }
         if (fenced && queued) {
             // The HAL now holds `item` and has retired the previously held
             // buffer; return that one with the HAL's read-done fence.
-            releaseHeldLocked(consumer, std::move(retiredFence));
-            gHeld = item;
+            releaseHeldLocked(s, std::move(retiredFence));
+            s.held = item;
         } else {
             // V1 HAL (or the push failed): nothing downstream tracks this
             // buffer, so return it immediately, as before.
             consumer->releaseBuffer(item);
         }
     }
+private:
+    const int mSlot;
 };
 
-sp<FrameListener> gListener;
+std::array<sp<FrameListener>, kMaxSlots> gListeners;
 
 // ---- JNI methods ----
 
@@ -240,13 +275,36 @@ jboolean nativeIsHalUp(JNIEnv*, jclass) {
     return hal() != nullptr ? JNI_TRUE : JNI_FALSE;
 }
 
-void nativeSetProducerAvailable(JNIEnv*, jclass, jboolean available) {
+jint nativeGetMaxCameras(JNIEnv*, jclass) {
     auto h = hal();
-    if (h) h->setProducerAvailable(available == JNI_TRUE);
-    else ALOGW("setProducerAvailable(%d): HAL not connected", available);
+    if (!h) return 0;
+    int32_t ver;
+    {
+        std::lock_guard<std::mutex> lock(gLock);
+        ver = gHalVersion;
+    }
+    if (ver < 3) return 1;
+    int32_t n = 1;
+    if (!h->getMaxCameras(&n).isOk()) n = 1;
+    return n > kMaxSlots ? kMaxSlots : n;
 }
 
-jobject nativeCreateSurface(JNIEnv* env, jclass, jint width, jint height) {
+void nativeSetCameraPresent(JNIEnv*, jclass, jint slot, jboolean present) {
+    auto h = hal();
+    if (!h) { ALOGW("setCameraPresent(%d,%d): HAL not connected", slot, present); return; }
+    if (slot < 0 || slot >= kMaxSlots) return;
+    int32_t ver;
+    {
+        std::lock_guard<std::mutex> lock(gLock);
+        ver = gHalVersion;
+    }
+    if (ver >= 3) h->setCameraPresent(slot, present == JNI_TRUE);
+    else if (slot == 0) h->setProducerAvailable(present == JNI_TRUE);
+    else ALOGW("slot %d ignored: HAL is V%d (single camera)", slot, ver);
+}
+
+jobject nativeCreateSurface(JNIEnv* env, jclass, jint slot, jint width, jint height) {
+    if (slot < 0 || slot >= kMaxSlots) return nullptr;
     sp<IGraphicBufferProducer> producer;
     sp<IGraphicBufferConsumer> consumer;
     BufferQueue::createBufferQueue(&producer, &consumer);
@@ -257,41 +315,50 @@ jobject nativeCreateSurface(JNIEnv* env, jclass, jint width, jint height) {
             // texture. HW_TEXTURE keeps them GPU-optimal (no CPU/linear layout).
             GRALLOC_USAGE_HW_TEXTURE,
             /*maxAcquiredBuffers*/ 2, /*controlledByApp*/ false);
-    bic->setName(::android::String8("VCamPlatformRelay"));
+    bic->setName(::android::String8(("VCamPlatformRelay" + std::to_string(slot)).c_str()));
     bic->setDefaultBufferSize(width, height);
     bic->setDefaultBufferFormat(::android::PIXEL_FORMAT_RGBA_8888);
 
-    if (gListener == nullptr) gListener = new FrameListener();
-    bic->setFrameAvailableListener(gListener);
+    if (gListeners[slot] == nullptr) gListeners[slot] = new FrameListener(slot);
+    bic->setFrameAvailableListener(gListeners[slot]);
 
-    {
-        std::lock_guard<std::mutex> lock(gLock);
-        gConsumer = bic;
-        gFramesPushed = 0;
-    }
-    ALOGI("Platform BufferQueue created (%dx%d), Surface for producer app", width, height);
-    return android_view_Surface_createFromIGraphicBufferProducer(env, producer);
-}
-
-void nativeReleaseSurface(JNIEnv*, jclass) {
     sp<BufferItemConsumer> old;
     {
         std::lock_guard<std::mutex> lock(gLock);
-        old = gConsumer;
-        gConsumer = nullptr;
-        releaseHeldLocked(old, ::ndk::ScopedFileDescriptor());   // queue is going away; HAL drops its frame on close
+        Slot& s = gSlots[slot];
+        old = s.consumer;
+        releaseHeldLocked(s, ::ndk::ScopedFileDescriptor());
+        s.consumer = bic;
+        s.framesPushed = 0;
+    }
+    if (old != nullptr) old->abandon();
+    ALOGI("Platform BufferQueue created for slot %d (%dx%d), Surface for producer app",
+          slot, width, height);
+    return android_view_Surface_createFromIGraphicBufferProducer(env, producer);
+}
+
+void nativeReleaseSurface(JNIEnv*, jclass, jint slot) {
+    if (slot < 0 || slot >= kMaxSlots) return;
+    sp<BufferItemConsumer> old;
+    {
+        std::lock_guard<std::mutex> lock(gLock);
+        Slot& s = gSlots[slot];
+        old = s.consumer;
+        s.consumer = nullptr;
+        releaseHeldLocked(s, ::ndk::ScopedFileDescriptor());   // queue is going away; HAL drops its frame on close
     }
     if (old != nullptr) {
         old->abandon();
-        ALOGI("Platform BufferQueue released");
+        ALOGI("Platform BufferQueue released (slot %d)", slot);
     }
 }
 
 const JNINativeMethod gMethods[] = {
     {"nativeIsHalUp", "()Z", (void*)nativeIsHalUp},
-    {"nativeSetProducerAvailable", "(Z)V", (void*)nativeSetProducerAvailable},
-    {"nativeCreateSurface", "(II)Landroid/view/Surface;", (void*)nativeCreateSurface},
-    {"nativeReleaseSurface", "()V", (void*)nativeReleaseSurface},
+    {"nativeGetMaxCameras", "()I", (void*)nativeGetMaxCameras},
+    {"nativeSetCameraPresent", "(IZ)V", (void*)nativeSetCameraPresent},
+    {"nativeCreateSurface", "(III)Landroid/view/Surface;", (void*)nativeCreateSurface},
+    {"nativeReleaseSurface", "(I)V", (void*)nativeReleaseSurface},
 };
 
 }  // namespace
@@ -310,10 +377,10 @@ jint JNI_OnLoad(JavaVM* vm, void*) {
     }
     gNativeClass = static_cast<jclass>(env->NewGlobalRef(clazz));
     gOnStreamsConfigured = env->GetStaticMethodID(
-            gNativeClass, "onStreamsConfiguredFromHal", "(III)V");
+            gNativeClass, "onStreamsConfiguredFromHal", "(IIII)V");
     if (env->ExceptionCheck()) env->ExceptionClear();
     gOnCameraClosed = env->GetStaticMethodID(
-            gNativeClass, "onCameraClosedFromHal", "()V");
+            gNativeClass, "onCameraClosedFromHal", "(I)V");
     if (env->ExceptionCheck()) env->ExceptionClear();
     gOnHalDied = env->GetStaticMethodID(
             gNativeClass, "onHalDiedFromNative", "()V");

@@ -16,4 +16,10 @@ interface IVirtualCameraHalCallback {
 
     /** The Camera2 session closed; the platform side should tear down. */
     void onCameraClosed();
+
+    /** V3: per-slot forms. A V3 HAL calls these for every slot (including 0)
+     *  when the platform callback is V3; it falls back to the unslotted
+     *  methods for slot 0 against a V2 platform. */
+    void onStreamsConfiguredForCamera(int slot, int width, int height, int fps);
+    void onCameraClosedForCamera(int slot);
 }

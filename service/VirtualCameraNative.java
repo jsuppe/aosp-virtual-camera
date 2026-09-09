@@ -2,9 +2,9 @@
  * VirtualCameraNative - java facade over libvirtualcamera_relay_jni.
  *
  * Bridges VirtualCameraService to the vendor HAL across the frozen
- * android.hardware.camera.virtual AIDL:
- *   down:  setProducerAvailable(), and per-frame pushes (inside the JNI lib)
- *   up:    onStreamsConfigured / onCameraClosed / HAL-death notifications
+ * android.hardware.virtualcamera.hal AIDL (V3: per-camera slots):
+ *   down:  setCameraPresent(slot), and per-frame pushes (inside the JNI lib)
+ *   up:    onStreamsConfigured(slot) / onCameraClosed(slot) / HAL-death
  */
 package com.android.server.camera.virtual;
 
@@ -16,8 +16,8 @@ public final class VirtualCameraNative {
 
     /** Callbacks from the vendor HAL, delivered on a binder thread. */
     public interface Listener {
-        void onHalStreamsConfigured(int width, int height, int fps);
-        void onHalCameraClosed();
+        void onHalStreamsConfigured(int slot, int width, int height, int fps);
+        void onHalCameraClosed(int slot);
         void onHalDied();
     }
 
@@ -31,8 +31,8 @@ public final class VirtualCameraNative {
         // Reference the native-called methods so R8 cannot strip them from
         // services.jar (they are only invoked from JNI).
         if (Boolean.getBoolean("vcam.debug.invoke_callbacks")) {
-            onStreamsConfiguredFromHal(0, 0, 0);
-            onCameraClosedFromHal();
+            onStreamsConfiguredFromHal(0, 0, 0, 0);
+            onCameraClosedFromHal(0);
             onHalDiedFromNative();
         }
         ensureLoaded();
@@ -53,34 +53,44 @@ public final class VirtualCameraNative {
         return sLoaded && nativeIsHalUp();
     }
 
-    public static void setProducerAvailable(boolean available) {
-        if (!sLoaded) return;
+    /** Number of virtual cameras the HAL can expose (1 for a V1/V2 HAL). */
+    public static int getMaxCameras() {
+        if (!sLoaded) return 0;
         try {
-            nativeSetProducerAvailable(available);
+            return nativeGetMaxCameras();
         } catch (Throwable t) {
-            Log.w(TAG, "setProducerAvailable failed", t);
+            return 0;
         }
     }
 
-    public static Surface createSurface(int width, int height) {
-        if (!sLoaded) return null;
-        return nativeCreateSurface(width, height);
+    public static void setCameraPresent(int slot, boolean present) {
+        if (!sLoaded) return;
+        try {
+            nativeSetCameraPresent(slot, present);
+        } catch (Throwable t) {
+            Log.w(TAG, "setCameraPresent failed", t);
+        }
     }
 
-    public static void releaseSurface() {
+    public static Surface createSurface(int slot, int width, int height) {
+        if (!sLoaded) return null;
+        return nativeCreateSurface(slot, width, height);
+    }
+
+    public static void releaseSurface(int slot) {
         if (!sLoaded) return;
-        nativeReleaseSurface();
+        nativeReleaseSurface(slot);
     }
 
     // ---- called from JNI (binder threads) ----
-    static void onStreamsConfiguredFromHal(int width, int height, int fps) {
+    static void onStreamsConfiguredFromHal(int slot, int width, int height, int fps) {
         Listener l = sListener;
-        if (l != null) l.onHalStreamsConfigured(width, height, fps);
+        if (l != null) l.onHalStreamsConfigured(slot, width, height, fps);
     }
 
-    static void onCameraClosedFromHal() {
+    static void onCameraClosedFromHal(int slot) {
         Listener l = sListener;
-        if (l != null) l.onHalCameraClosed();
+        if (l != null) l.onHalCameraClosed(slot);
     }
 
     static void onHalDiedFromNative() {
@@ -89,7 +99,8 @@ public final class VirtualCameraNative {
     }
 
     private static native boolean nativeIsHalUp();
-    private static native void nativeSetProducerAvailable(boolean available);
-    private static native Surface nativeCreateSurface(int width, int height);
-    private static native void nativeReleaseSurface();
+    private static native int nativeGetMaxCameras();
+    private static native void nativeSetCameraPresent(int slot, boolean present);
+    private static native Surface nativeCreateSurface(int slot, int width, int height);
+    private static native void nativeReleaseSurface(int slot);
 }

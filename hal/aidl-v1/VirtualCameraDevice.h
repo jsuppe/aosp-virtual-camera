@@ -29,7 +29,7 @@ using aidl::android::hardware::camera::common::CameraResourceCost;
 
 class VirtualCameraDevice : public BnCameraDevice {
 public:
-    VirtualCameraDevice(const std::string& cameraId,
+    VirtualCameraDevice(const std::string& cameraId, int slot,
                         std::shared_ptr<::virtualcamera::VirtualCameraFrameSource> frameSource,
                         std::shared_ptr<::virtualcamera::VirtualCameraFrameSourceV2> frameSourceV2,
                         std::shared_ptr<::virtualcamera::AidlFrameSource> aidlSource = nullptr);
@@ -66,6 +66,7 @@ public:
 
 private:
     std::string mCameraId;
+    int mSlot = 0;
     std::mutex mLock;
     std::shared_ptr<::virtualcamera::VirtualCameraFrameSource> mFrameSource;
     std::shared_ptr<::virtualcamera::VirtualCameraFrameSourceV2> mFrameSourceV2;

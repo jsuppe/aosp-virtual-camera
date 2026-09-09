@@ -168,7 +168,7 @@ because each teaches something:
 
 | Piece | Runs as | Role |
 |---|---|---|
-| **stable-aidl/** `android.hardware.virtualcamera.hal` | build-time (frozen V1 **and V2**) | The Treble contract: `setProducerAvailable`, `queueFrame(NativeHandle+desc)` (V1), `queueFrameFenced(… + acquire fence) → release fence` (V2), `IVirtualCameraHalCallback.onStreamsConfigured/onCameraClosed` |
+| **stable-aidl/** `android.hardware.virtualcamera.hal` | build-time (frozen V1, V2 **and V3**) | The Treble contract: `setProducerAvailable`, `queueFrame(NativeHandle+desc)` (V1), `queueFrameFenced(… + acquire fence) → release fence` (V2), per-slot `setCameraPresent(slot)` / `queueFrameForCamera(slot, …)` / `getMaxCameras` (V3), `IVirtualCameraHalCallback.onStreamsConfigured[ForCamera]/onCameraClosed[ForCamera]` |
 | **HAL** (`hal/core` + `hal/aidl-v1` + `VirtualCameraStableHal`) | vendor APEX, domain `hal_camera_default` | Implements `ICameraProvider` (camera 100) *and* `IVirtualCameraHal`; keeps the newest pushed frame as an `AHardwareBuffer`; fills capture buffers on the GPU (`GpuCompositor`, zero conversion) with a CPU converter fallback |
 | **VirtualCameraService** (`service/`) | inside `system_server` | Producer registry (`registerCamera`), availability push, stream relay orchestration |
 | **platform-jni/** (`libvirtualcamera_relay_jni`, via `VirtualCameraNative`) | inside `system_server` | Owns the BufferQueue; wraps the producer end as the app-facing Surface; forwards consumed gralloc handles down over the frozen AIDL; reconnects on HAL death (APEX update!) |
@@ -715,6 +715,16 @@ Iterating without reflashing — what to push per change:
     gralloc buffer cannot be an FBO attachment. Byte-packed RGBA planes
     (§5b') are the portable answer; check the extension strings before
     designing around a direct YUV write.
+27. **Version the *shape* of the interface, not just its methods.** V3 adds a
+    slot argument rather than replacing anything: the V1/V2 methods are
+    defined as "slot 0", the HAL asks the platform callback's
+    `getInterfaceVersion()` and uses the per-slot callbacks only against a
+    V3 platform, the pump does the same against the HAL. Both mixes keep
+    working with no platform or APEX change — the third freeze
+    (`aidl_api/…/3/`) cost one build command, like the second. A second
+    producer *package* (`aaptflags: --rename-manifest-package`, same
+    sources) is the cheapest way to get a genuinely separate producer
+    process for the demo.
 
 ## 10. Repository map
 
@@ -754,13 +764,13 @@ why:
 | A2 | **Live V2-platform / V1-APEX mix.** | Pump logs "HAL implements V1; unfenced V1 frame delivery" against the 642c141 APEX and streams; V2 APEX back → "fenced". Version negotiation proven both ways (§9.18). |
 | A3 | **Producer timestamp end-to-end.** | Vendor tag `com.virtualcamera.producerTimestampNs`; viewer reports 9–35 ms producer→result at 4K30 (§5c). |
 
-### Phase B — cover the consumers that exist — **B1, B2 done; B3 open**
+### Phase B — cover the consumers that exist — **done**
 
 | # | Item | Outcome |
 |---|---|---|
 | B1 | **GPU RGB→YUV.** | Done, with the driver constraint documented (§5b'): no YUV render targets on gfxstream/A13, so packed-plane shaders + row copy. 4K YUV `ImageReader` consumer: 0 CPU-converter calls, 15–16 ms/frame vs 34 ms on the CPU. |
 | B2 | **Camera provider VTS.** | **37/37 pass** on `VtsAidlHalCameraProvider_TargetTest` (from 25/37 on first run). The 12 failures were all real: null-callback handling, requests with no/invalid buffers or missing first-request settings accepted instead of rejected, stream use cases and invalid rotations accepted, missing static metadata (`CONTROL_AVAILABLE_MODES`, `SCALER_CROPPING_TYPE`, `JPEG_MAX_SIZE`, zoom-key consistency), and **no JPEG output at all** — every camera app's still path (§9.23–25). |
-| B3 | **Multi-producer.** One virtual camera per registered producer (100, 101, …). Needs a camera id in the boundary → **V3** (`onStreamsConfigured(cameraId, …)`, `queueFrameFenced(cameraId, …)`), and the provider enumerating N devices. The service already has a registry keyed by id; the HAL and the boundary do not. Done when two producers give two Camera2 devices and each viewer sees its own. |
+| B3 | **Multi-producer.** | Done as **V3** of the boundary: a *slot* (0..3) in `setCameraPresent`, `queueFrameForCamera` and the callbacks; slot s is Camera2 device 100+s; slot 0 is what V1/V2 address, so older platforms and HALs still interoperate. The provider enumerates one device per present slot; the platform keeps one BufferQueue per slot and assigns the lowest free slot to each registered producer. Validated with a second producer package (`VCamProducer2`, red tint): cameras 100 and 101 enumerated, each viewer sees its own producer (luma 94 vs 36 at the same point), stopping producer 2 removes 101 only. VTS 37/37 unchanged (§9.27). |
 
 ### Phase C — the pattern beyond the camera
 

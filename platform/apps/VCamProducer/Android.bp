@@ -10,3 +10,15 @@ android_app {
     system_ext_specific: true,
     static_libs: ["virtual-camera-aidl-java"],
 }
+
+// Same app under a second package name: a second, independent producer
+// process for the multi-camera demo (slot 1 -> Camera2 id 101).
+android_app {
+    name: "VCamProducer2",
+    srcs: ["src/**/*.java"],
+    platform_apis: true,
+    certificate: "platform",
+    system_ext_specific: true,
+    static_libs: ["virtual-camera-aidl-java"],
+    aaptflags: ["--rename-manifest-package", "com.example.vcamproducer2"],
+}

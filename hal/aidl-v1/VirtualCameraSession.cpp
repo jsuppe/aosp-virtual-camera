@@ -51,17 +51,18 @@ using ::android::hardware::camera::common::V1_0::helper::HandleImporter;
 HandleImporter VirtualCameraSession::sHandleImporter;
 
 VirtualCameraSession::VirtualCameraSession(
-        const std::shared_ptr<ICameraDeviceCallback>& callback,
+        const std::shared_ptr<ICameraDeviceCallback>& callback, int slot,
         std::shared_ptr<::virtualcamera::VirtualCameraFrameSource> frameSource,
         std::shared_ptr<::virtualcamera::VirtualCameraFrameSourceV2> frameSourceV2,
         std::shared_ptr<::virtualcamera::AidlFrameSource> aidlSource)
     : mCallback(callback),
+      mSlot(slot),
       mFrameSource(frameSource),
       mFrameSourceV2(frameSourceV2),
       mAidlSource(aidlSource) {
     mForceCpuYuv = ::android::base::GetBoolProperty("vendor.vcam.yuv.cpu", false);
-    ALOGI("VirtualCameraSession created (AIDL V1 adapter, v1 + v2 frame sources)%s",
-          mForceCpuYuv ? " [vendor.vcam.yuv.cpu=1: CPU YUV converter forced]" : "");
+    ALOGI("VirtualCameraSession created (slot %d; AIDL V1 adapter, v1 + v2 frame sources)%s",
+          mSlot, mForceCpuYuv ? " [vendor.vcam.yuv.cpu=1: CPU YUV converter forced]" : "");
 }
 
 VirtualCameraSession::~VirtualCameraSession() {
@@ -87,7 +88,7 @@ ndk::ScopedAStatus VirtualCameraSession::close() {
 #endif
 #ifdef VCAM_STABLE_AIDL
     if (!mClosed) {
-        if (auto* hal = VirtualCameraStableHal::get()) hal->notifyCameraClosed();
+        if (auto* hal = VirtualCameraStableHal::get()) hal->notifyCameraClosed(mSlot);
     }
 #endif
     mClosed = true;
@@ -229,7 +230,7 @@ ndk::ScopedAStatus VirtualCameraSession::configureStreams(
     if (!requestedConfiguration.streams.empty()) {
         const auto& primary = requestedConfiguration.streams[0];
         if (auto* hal = VirtualCameraStableHal::get()) {
-            hal->notifyStreamsConfigured(primary.width, primary.height, 30);
+            hal->notifyStreamsConfigured(mSlot, primary.width, primary.height, 30);
         }
     }
 #endif
@@ -488,7 +489,7 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
                 if (auto* hal = VirtualCameraStableHal::get()) {
                     int64_t srcTs = 0;
                     int acquireFence = -1;   // producer's GPU-done fence (ours to close)
-                    if (AHardwareBuffer* src = hal->acquireLatest(&srcTs, &acquireFence)) {
+                    if (AHardwareBuffer* src = hal->acquireLatest(mSlot, &srcTs, &acquireFence)) {
                         producerTs = srcTs;
                         int dstFormat = static_cast<int>(streamIt->second.format);
                         int doneFence = -1;      // our GPU read+write completion
@@ -577,7 +578,7 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
                             // the HAL as the buffer's release fence).
                             outputReleaseFence = ::dup(doneFence);
                         }
-                        hal->releaseFrame(src, doneFence);   // takes doneFence
+                        hal->releaseFrame(mSlot, src, doneFence);   // takes doneFence
                     }
                 }
             }

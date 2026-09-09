@@ -8,9 +8,12 @@
 
 #include <aidl/android/hardware/camera/provider/BnCameraProvider.h>
 #include <aidl/android/hardware/camera/provider/ICameraProviderCallback.h>
+#include <array>
 #include <atomic>
 #include <mutex>
 #include <memory>
+
+#include "VirtualCameraSlots.h"
 
 // Forward declarations (avoid pulling heavy core headers into service.cpp)
 namespace virtualcamera {
@@ -45,7 +48,9 @@ public:
      * via ICameraProviderCallback.cameraDeviceStatusChange, so Camera2
      * availability events track "a producer app is registered".
      */
-    void setProducerPresent(bool present);
+    void setProducerPresent(bool present);   // == setSlotPresent(0, present)
+    /** V3: per-slot presence; slot s is device 100+s (VirtualCameraSlots.h). */
+    void setSlotPresent(int slot, bool present);
 
     // ICameraProvider interface
     ndk::ScopedAStatus setCallback(
@@ -75,7 +80,8 @@ private:
     std::shared_ptr<ICameraProviderCallback> mCallback;
     // Producer presence gates enumeration (relay builds start hidden;
     // non-relay builds are always present).
-    std::atomic<bool> mProducerPresent{false};
+    std::atomic<bool> mProducerPresent{false};   // slot 0 (kept for the non-slot code paths)
+    std::array<std::atomic<bool>, ::virtualcamera::kMaxVirtualCameras> mSlotPresent;
     std::shared_ptr<::virtualcamera::AvailabilityBridge> mAvailBridge;
     std::shared_ptr<::virtualcamera::VirtualCameraFrameSource> mFrameSource;
     std::shared_ptr<::virtualcamera::VirtualCameraFrameSourceV2> mFrameSourceV2;

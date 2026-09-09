@@ -58,7 +58,7 @@ using ::aidl::android::hardware::common::fmq::SynchronizedReadWrite;
 class VirtualCameraSession : public BnCameraDeviceSession {
 public:
     VirtualCameraSession(
-            const std::shared_ptr<ICameraDeviceCallback>& callback,
+            const std::shared_ptr<ICameraDeviceCallback>& callback, int slot,
             std::shared_ptr<::virtualcamera::VirtualCameraFrameSource> frameSource,
             std::shared_ptr<::virtualcamera::VirtualCameraFrameSourceV2> frameSourceV2,
             std::shared_ptr<::virtualcamera::AidlFrameSource> aidlSource = nullptr);
@@ -138,6 +138,7 @@ private:
     int64_t paceFrame();
 
     std::shared_ptr<ICameraDeviceCallback> mCallback;
+    int mSlot = 0;   // which virtual camera (producer) this session serves
     std::mutex mLock;
     std::atomic<bool> mClosed{false};
 
