@@ -161,9 +161,18 @@ remove_contexts() {
 cp "$SEP/virtual_camera_service.te" "$SEPOLICY_DEST/"
 append_contexts "$SEP/system_ext_service_contexts" "$SEPOLICY_DEST/service_contexts"
 
+BOARD_CFG="$AOSP_ROOT/device/google/cuttlefish/shared/BoardConfig.mk"
+SEPOLICY_PUBLIC_DEST="$AOSP_ROOT/device/google/cuttlefish/shared/sepolicy/system_ext/public"
 if [ "$MODE" = apex ]; then
-    # Vendor side: IVirtualCameraHal label + system_server<->HAL binder rules,
-    # provider name labeled hal_camera_service (registerable by hal_camera_default).
+    # The boundary as a HAL attribute: declared in system_ext PUBLIC policy
+    # (visible to vendor policy), client bound in system_ext private, server
+    # bound in vendor. Cuttlefish ships the public dir line commented out.
+    sed -i 's|^# SYSTEM_EXT_PUBLIC_SEPOLICY_DIRS += device/google/cuttlefish/shared/sepolicy/system_ext/public|SYSTEM_EXT_PUBLIC_SEPOLICY_DIRS += device/google/cuttlefish/shared/sepolicy/system_ext/public|' "$BOARD_CFG"
+    mkdir -p "$SEPOLICY_PUBLIC_DEST"
+    cp "$SEP/system_ext_public/hal_virtualcamera.te" "$SEPOLICY_PUBLIC_DEST/"
+    cp "$SEP/system_ext_private/virtual_camera_client.te" "$SEPOLICY_DEST/"
+    # Vendor side: service label + hal_server_domain binding, provider name
+    # labeled hal_camera_service (registerable by hal_camera_default).
     cp "$SEP/vendor/hal_camera_virtual.te" "$VENDOR_SEPOLICY_DEST/"
     append_contexts "$SEP/vendor/service_contexts" "$VENDOR_SC"
     # Loose vendor binary (non-APEX vendor build) gets the same domain as the APEX one.
@@ -179,8 +188,10 @@ else
     append_contexts "$SEP/service_contexts" "$SEPOLICY_DEST/service_contexts"
     grep -q "virtual_camera_hal_exec" "$SEPOLICY_DEST/file_contexts" 2>/dev/null || \
         cat "$SEP/file_contexts_fragment" >> "$SEPOLICY_DEST/file_contexts"
-    # Remove the vendor-side entries (provider is system_ext in this mode).
+    # Remove the vendor-side entries (provider is system_ext in this mode)
+    # and the HAL-attribute files (no frozen boundary in the relay prototype).
     rm -f "$VENDOR_SEPOLICY_DEST/hal_camera_virtual.te"
+    rm -f "$SEPOLICY_PUBLIC_DEST/hal_virtualcamera.te" "$SEPOLICY_DEST/virtual_camera_client.te"
     remove_contexts "$SEP/vendor/service_contexts" "$VENDOR_SC"
 fi
 

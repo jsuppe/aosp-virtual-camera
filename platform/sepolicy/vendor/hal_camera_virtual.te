@@ -6,25 +6,21 @@
 # hal_camera_service names (ICameraProvider/virtual_renderer/0 is one, see
 # service_contexts next to this file).
 #
-# What that domain does NOT have out of the box is the second interface the
-# HAL exposes — the frozen android.hardware.virtualcamera.hal boundary that
-# system_server's VirtualCameraService drives (setProducerAvailable,
-# queueFrame). These rules add exactly that.
+# The second interface the HAL exposes — the frozen
+# android.hardware.virtualcamera.hal boundary — is modelled as the HAL
+# attribute hal_virtualcamera (declared in system_ext public policy,
+# platform/sepolicy/system_ext_public/). This file binds the server side.
 
 # Service name label for IVirtualCameraHal/default. vendor_service: only a
 # vendor domain may add it (Treble neverallow). protected_service: untrusted
-# apps may not even find it — the platform relay is the sole client.
+# apps may not even find it.
 type hal_virtualcamera_service, vendor_service, protected_service, hal_service_type, service_manager_type;
 
-# HAL registers it (add + find, plus the neverallow that nobody else may add).
-add_service(hal_camera_default, hal_virtualcamera_service)
+# add for servers, find for clients, plus the neverallows that keep it that way.
+hal_attribute_service(hal_virtualcamera, hal_virtualcamera_service)
 
-# system_server (VirtualCameraService + the JNI relay pump) looks it up and
-# calls it; the HAL calls back (IVirtualCameraHalCallback.onStreamsConfigured /
-# onCameraClosed).
-allow system_server hal_virtualcamera_service:service_manager find;
-binder_call(system_server, hal_camera_default)
-binder_call(hal_camera_default, system_server)
+# This process serves the boundary (in addition to being the camera HAL).
+hal_server_domain(hal_camera_default, hal_virtualcamera)
 
 # GpuCompositor: EGL/GLES initialization inside the HAL queries
 # ISurfaceFlingerConfigs through the configstore HAL.

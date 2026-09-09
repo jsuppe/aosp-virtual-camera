@@ -497,12 +497,20 @@ does it all; what it installs and why:
    package; loose copies exist for the non-APEX variants. Plus a **device
    framework compatibility matrix** fragment naming the frozen AIDL package
    (`platform/vintf/`), which the full-image VINTF check requires (§9.19).
-5. **sepolicy** → into the device policy dirs. Vendor side
-   (`platform/sepolicy/vendor/`): the `hal_virtualcamera_service` label for
-   `IVirtualCameraHal/default`, the provider name labeled `hal_camera_service`,
-   and `system_server ↔ hal_camera_default` binder rules. system_ext side: the
-   two `VirtualCameraService` names. Pass `system_ext` as the second argument
-   for the iteration-1 relay prototype instead (prototype-grade policy).
+5. **sepolicy** → into the device policy dirs, in the idiomatic Treble shape:
+   the boundary is a **HAL attribute**, `hal_virtualcamera`, declared once in
+   system_ext *public* policy (`platform/sepolicy/system_ext_public/`, with
+   the client↔server `binder_call` pair); the platform binds the client
+   (`hal_client_domain(system_server, hal_virtualcamera)`, system_ext private);
+   the vendor image binds the server (`hal_server_domain(hal_camera_default,
+   hal_virtualcamera)`), declares the `hal_virtualcamera_service` type and
+   ties it to the attribute with `hal_attribute_service` — so no policy file
+   names a concrete peer domain. The provider name stays labeled
+   `hal_camera_service`; the two `VirtualCameraService` names live in
+   system_ext private. The integrate script enables Cuttlefish's (shipped
+   commented-out) `SYSTEM_EXT_PUBLIC_SEPOLICY_DIRS`. Pass `system_ext` as the
+   second argument for the iteration-1 relay prototype instead
+   (prototype-grade policy).
 6. First build is a full `m`; afterwards, per-module `m` + `adb push`
    (see §8's iterate table).
 
@@ -725,6 +733,18 @@ Iterating without reflashing — what to push per change:
     producer *package* (`aaptflags: --rename-manifest-package`, same
     sources) is the cheapest way to get a genuinely separate producer
     process for the demo.
+28. **A HAL attribute needs a *public* policy dir the vendor side can see.**
+    `hal_attribute(virtualcamera)` must be visible to both the platform
+    (to bind system_server as client) and the vendor image (to bind the HAL
+    as server), so it goes in `SYSTEM_EXT_PUBLIC_SEPOLICY_DIRS` — a line
+    Cuttlefish ships commented out; the integrate script uncomments it. The
+    build then emits the attribute into both `system_ext_sepolicy.cil`
+    (`typeattributeset hal_virtualcamera_client (system_server)`) and
+    `vendor_sepolicy.cil` (`… hal_virtualcamera_server (hal_camera_default)`),
+    and the earlier explicit rules (`allow system_server
+    hal_virtualcamera_service … find`, the two `binder_call`s) disappear from
+    the vendor policy. Precedent in-tree: `device/google/atv/audio_proxy/
+    sepolicy/` (same shape via a product public dir).
 
 ## 10. Repository map
 
@@ -776,7 +796,7 @@ why:
 
 | # | Item | Why | Done when |
 |---|---|---|---|
-| C1 | **Idiomatic SELinux.** Replace the explicit `system_server ↔ hal_camera_default` rules with a `hal_virtualcamera` attribute (`hal_attribute`, `hal_client_domain(system_server, …)`) in a system_ext *public* policy dir. | Functionally equivalent to what ships; this is what an AOSP reviewer asks for. Cosmetic until then. | Same zero-denial run; the vendor `.te` shrinks to `hal_server_domain` + the service type. |
+| C1 | **Idiomatic SELinux.** | **Done.** `hal_attribute(virtualcamera)` in system_ext public policy; `hal_client_domain(system_server, …)` platform-side; vendor `.te` is now the service type + `hal_attribute_service` + `hal_server_domain` (+ configstore client) — no concrete peer domain named anywhere (§7 step 5, §9.28). Same clean-boot run: enforcing, zero denials, 5 test steps, VTS 37/37. |
 | C2 | **Virtual mic and display on the same pattern.** Vendor APEX + frozen AIDL + platform-owned queue, reusing the fence protocol (audio: FMQ instead of gralloc). | They are scaffolds today (`virtual-mic/`, `virtual-display/`). The camera has proven the shape; the others should not reinvent it. | Each has its own `stable-aidl/`, APEX, policy, and a demo that survives an APEX update. |
 | C3 | **Forward-port to Android 15 (`main` branch).** The A15 NDK AIDL can carry `HardwareBuffer` directly, so the boundary loses `NativeHandle`+descriptor and the platform-side JNI pump shrinks. | The A13 branch is the shipping design because A13 was the constraint; the design should be shown on a current platform too, where it gets simpler. | Same demo, same counters, on `aosp_cf_x86_64_only_phone-trunk_staging`. |
 

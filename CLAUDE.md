@@ -47,8 +47,10 @@ Producer apps register via platform AIDL instead of the Unix socket:
   system_ext (coredomain) so it can use libgui — mirrors AOSP V virtual camera
 - **A13 tree:** /mnt/micron/aosp-a13, target `aosp_cf_x86_64_phone-userdebug`
 - **Integrate:** `scripts/integrate-a13-platform.sh /mnt/micron/aosp-a13 [apex|system_ext]`
-  (default `apex` = shipping vendor-APEX HAL + real SELinux policy in
-  `platform/sepolicy/vendor/`; `system_ext` = iteration-1 relay prototype)
+  (default `apex` = shipping vendor-APEX HAL + real SELinux policy: HAL attribute
+  `hal_virtualcamera` in `platform/sepolicy/system_ext_public/`, client binding in
+  `system_ext_private/`, server + service type in `vendor/`; `system_ext` = iteration-1
+  relay prototype)
 - **Validate:** boot cuttlefish → `scripts/test-a13-platform.sh` (starts VCamProducer
   service, launches VCamViewer, checks frame counters at all 3 stages)
 - **Boundary version:** `android.hardware.virtualcamera.hal` is frozen at V3 (V2 fenced

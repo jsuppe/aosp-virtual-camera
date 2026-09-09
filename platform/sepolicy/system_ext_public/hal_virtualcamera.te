@@ -1,0 +1,13 @@
+# The virtual camera's frozen boundary (android.hardware.virtualcamera.hal)
+# as a proper HAL attribute — the idiomatic Treble form: the interface is
+# named once here, servers and clients attach themselves with
+# hal_server_domain / hal_client_domain, and every allow rule between them
+# is derived from the attribute pair instead of naming concrete domains.
+#
+# Lives in SYSTEM_EXT *public* policy so that both the platform (system_server
+# is the client, bound in system_ext private) and the vendor image (the APEX
+# HAL is the server, bound in vendor policy) can reference it.
+hal_attribute(virtualcamera);
+
+binder_call(hal_virtualcamera_client, hal_virtualcamera_server)
+binder_call(hal_virtualcamera_server, hal_virtualcamera_client)
