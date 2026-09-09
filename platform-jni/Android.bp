@@ -11,7 +11,7 @@ cc_library_shared {
     srcs: ["VirtualCameraRelayJni.cpp"],
 
     shared_libs: [
-        "android.hardware.virtualcamera.hal-V1-ndk",
+        "android.hardware.virtualcamera.hal-V2-ndk",
         "libandroid_runtime",
         "libbinder_ndk",
         "libcutils",

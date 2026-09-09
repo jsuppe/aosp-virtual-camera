@@ -168,7 +168,7 @@ because each teaches something:
 
 | Piece | Runs as | Role |
 |---|---|---|
-| **stable-aidl/** `android.hardware.virtualcamera.hal` | build-time (frozen V1) | The Treble contract: `setProducerAvailable`, `queueFrame(NativeHandle+desc)`, `IVirtualCameraHalCallback.onStreamsConfigured/onCameraClosed` |
+| **stable-aidl/** `android.hardware.virtualcamera.hal` | build-time (frozen V1 **and V2**) | The Treble contract: `setProducerAvailable`, `queueFrame(NativeHandle+desc)` (V1), `queueFrameFenced(… + acquire fence) → release fence` (V2), `IVirtualCameraHalCallback.onStreamsConfigured/onCameraClosed` |
 | **HAL** (`hal/core` + `hal/aidl-v1` + `VirtualCameraStableHal`) | vendor APEX, domain `hal_camera_default` | Implements `ICameraProvider` (camera 100) *and* `IVirtualCameraHal`; keeps the newest pushed frame as an `AHardwareBuffer`; fills capture buffers on the GPU (`GpuCompositor`, zero conversion) with a CPU converter fallback |
 | **VirtualCameraService** (`service/`) | inside `system_server` | Producer registry (`registerCamera`), availability push, stream relay orchestration |
 | **platform-jni/** (`libvirtualcamera_relay_jni`, via `VirtualCameraNative`) | inside `system_server` | Owns the BufferQueue; wraps the producer end as the app-facing Surface; forwards consumed gralloc handles down over the frozen AIDL; reconnects on HAL death (APEX update!) |
@@ -188,16 +188,26 @@ because each teaches something:
    with **OpenGL ES** (`EGL` over the Surface) into RGBA buffers — no CPU
    touches the producer's pixels.
 4. Each queued buffer is consumed *by handle only* in system_server and
-   forwarded: `queueFrame(NativeHandle, w, h, stride, format, usage, ts)`.
-   The vendor HAL clones it into an `AHardwareBuffer`
-   (`AHardwareBuffer_createFromHandle`) and keeps just the newest frame.
-5. Independently, cameraserver streams capture requests. Per request the HAL's
+   forwarded: `queueFrameFenced(NativeHandle, w, h, stride, format, usage,
+   ts, acquireFence)`. The producer's GPU-done fence travels with the handle
+   (nobody CPU-waits on it). The vendor HAL clones the handle into an
+   `AHardwareBuffer` (`AHardwareBuffer_createFromHandle`) and keeps just the
+   newest frame; the call returns the HAL's read-done fence for the frame it
+   just *retired*, which the pump attaches as that buffer's BufferQueue
+   release fence — so the producer's next render into it waits for the HAL's
+   GPU read (§5c).
+5. Independently, cameraserver streams capture requests, and the HAL **paces
+   them** to the request's `AE_TARGET_FPS_RANGE` (default 30 fps; the paced
+   slot is the frame's sensor timestamp). Per request the HAL's
    **GpuCompositor** imports the producer frame and the framework's output
-   buffer as `EGLImage`s and does one GPU blit into the output (§5b). When both
-   are RGBA — which the HAL arranges by resolving `IMPLEMENTATION_DEFINED`
-   streams to `RGBA_8888` — the blit is a straight passthrough: **zero color
-   conversion, and no pixel touches the CPU.** (A consumer that hard-requires
-   YUV falls back to a CPU converter; see §5b.)
+   buffer as `EGLImage`s, tells the GPU to wait on the acquire fence, and does
+   one GPU blit into the output (§5b). When both are RGBA — which the HAL
+   arranges by resolving `IMPLEMENTATION_DEFINED` streams to `RGBA_8888` — the
+   blit is a straight passthrough: **zero color conversion, and no pixel
+   touches the CPU.** The blit's completion fence goes out as the output
+   buffer's release fence (the framework waits on it, not the HAL) and back to
+   the platform as described in step 4. (A consumer that hard-requires YUV
+   falls back to a CPU converter; see §5b.)
 6. cameraserver hands the filled buffer to VCamViewer's preview. Pixels drawn
    by one app appear in another, through the real camera stack, across the
    Treble boundary, out of an updatable APEX.
@@ -301,16 +311,49 @@ the shader pass is a straight passthrough — **zero color conversion.** A
 `SurfaceTexture` consumer (like our viewer) samples RGBA happily, so the common
 preview case lands entirely on this path.
 
-**A bonus: the fence hazard is retired.** Earlier the producer drew with a
-*synchronous* software canvas, which is the only reason the old "keep the
-newest frame" design didn't tear. A GPU producer finishes asynchronously, so
-naively reading its buffer could catch a half-drawn frame. Because the producer
-now renders with GL and the compositor consumes with GL, the two share the
-driver's fence/pipeline ordering — the read waits for the write. What was a
-lurking correctness bug for GPU producers is now handled by construction.
-
 Validated at steady state: **0 GPU-composite errors, 0 CPU-fallback calls — no
 pixel touches the CPU.**
+
+## 5c. Fences and pacing: making the ordering explicit
+
+A GPU producer finishes asynchronously, and the HAL's GPU read of the frame is
+asynchronous too. Two hazards follow from "keep the newest frame":
+
+* **read-before-write** — the HAL samples a buffer the producer's GPU hasn't
+  finished drawing;
+* **write-before-read** — the platform returns a buffer to the BufferQueue,
+  the producer re-dequeues it and starts drawing while the HAL's GPU is still
+  reading it.
+
+The first version leaned on the driver's pipeline ordering for the first
+hazard (true within one GL context, and only accidentally so across two
+processes and a Treble boundary) and simply had the second one, masked by
+`glFinish()` in the compositor. V2 of the boundary makes both explicit with
+ordinary Android sync fences, and in doing so removes every CPU wait on the
+GPU:
+
+| Where | Before | Now |
+|---|---|---|
+| JNI pump acquires a buffer | `acquireBuffer(waitForFence=true)` — CPU waits for the producer's GPU | acquires *without* waiting; the fence rides down in `queueFrameFenced` |
+| HAL samples the frame | trusts pipeline order | `eglWaitSyncKHR` on the acquire fence — the GPU waits, the CPU doesn't |
+| Compositor finishes the blit | `glFinish()` on a binder thread | creates an `EGL_SYNC_NATIVE_FENCE_ANDROID`, `glFlush`, `eglDupNativeFenceFDANDROID` → one fd |
+| Framework consumes the output | already complete | that fd is the output `StreamBuffer.releaseFence`; the framework waits |
+| Producer reuses the source buffer | released unfenced right after `queueFrame` | the pump **holds** the buffer the HAL has; when the next frame retires it, the HAL returns the merged read fence and the pump releases the buffer *with* it — the producer's `dequeueBuffer` fence does the waiting |
+
+The HAL merges fences with `sync_merge` when several capture requests read the
+same frame, and `queueFrameFenced` waits (bounded) for an in-flight composite of
+the frame it is retiring to submit, so the returned fence is always complete.
+The compositor detects `EGL_ANDROID_native_fence_sync`; without it, it falls
+back to the old `glFinish()` and returns no fence, which every consumer treats
+as "already complete".
+
+**Pacing.** The request loop used to free-run: cameraserver cycles buffers as
+fast as the HAL completes them, and with a GPU blit that meant thousands of
+frames per second of the *same* producer frame. The session now reads
+`ANDROID_CONTROL_AE_TARGET_FPS_RANGE` from the request settings (default 30),
+sleeps to the next slot before filling, and reports the slot as the sensor
+timestamp plus `SENSOR_FRAME_DURATION`. Measured: viewer receives 150 frames
+per 5 s at 4K — 30 fps, in lockstep with the producer.
 
 **Fallback (honest).** If a consumer hard-requires a YUV stream, `composite()`
 returns false and the CPU `FrameFiller` does a per-pixel RGB→YUV fill of that
@@ -336,7 +379,7 @@ a HAL. A **vendor APEX** lives on `/vendor/apex` and carries vendor HALs
 com.android.hardware.camera.provider.virtual.apex
 ├── apex_manifest.json        name + version (the update counter)
 ├── bin/hw/…provider-virtual-service          the HAL binary
-├── lib64/…-virtual-impl.so, …hal-V1-ndk.so   its libraries
+├── lib64/…-virtual-impl.so, …hal-V2-ndk.so   its libraries
 ├── etc/…virtual.rc           init script (service path is /apex/…/bin/hw/…)
 └── etc/vintf/manifest/….xml  declares ICameraProvider/virtual_renderer
                               AND IVirtualCameraHal/default (type="device")
@@ -430,7 +473,8 @@ Iterating without reflashing — what to push per change:
 | HAL (anything in the APEX) | `m com.android.…provider.virtual` | the `.apex` → `/vendor/apex/` | reboot |
 | SELinux policy | `m selinux_policy` | `vendor_sepolicy.cil` + `vendor_service_contexts` → `/vendor/etc/selinux/`, `system_ext_sepolicy.cil` + `system_ext_service_contexts` + `system_ext_sepolicy_and_mapping.sha256` → `/system_ext/etc/selinux/`, **and** `odm/etc/selinux/precompiled_sepolicy` + its `.sha256` files → `/odm/etc/selinux/` (§9.16) | reboot |
 | `VirtualCameraService` / AIDL java | `m services` | `services.jar` → `/system/framework/` **and delete stale AOT**: `/system/framework/oat/*/services.*` + ART apexdata dalvik-cache (§9.10) | reboot |
-| JNI pump | `m libvirtualcamera_relay_jni` | the `.so` → `/system_ext/lib64/` (plus `…hal-V1-ndk.so` once) | reboot |
+| JNI pump | `m libvirtualcamera_relay_jni` | the `.so` → `/system_ext/lib64/` (plus `…hal-V2-ndk.so` from `system/lib64/` once) | reboot |
+| the frozen interface itself | edit the `.aidl`, then in the tree `m …hal-update-api && m …hal-freeze-api` | copy `stable-aidl/aidl_api/` + `Android.bp` back to the repo; bump `-V<n>-ndk` in the HAL/JNI `Android.bp` and `<version>` in the VINTF fragment | rebuild both halves |
 | demo apps | `m VCamProducer VCamViewer` | the APKs → `system_ext/app/...` | reboot |
 
 ## 9. Field notes — the bugs you would otherwise hit
@@ -529,12 +573,26 @@ Iterating without reflashing — what to push per change:
     the rebuilt blob and hashes too — or delete the blob to force a compile.
     `/sys/fs/selinux/access` answers "what does the *loaded* policy say"
     directly, which is faster than guessing.
+17. **`@nullable ParcelFileDescriptor` in the A13 NDK backend is a plain
+    `ndk::ScopedFileDescriptor`**, with fd `-1` meaning null — not
+    `std::optional`. Overriding with the optional form compiles to an
+    unrelated overload and the class stays abstract ("non-virtual member
+    function marked override hides virtual member function").
+18. **Cutting V2 is one build command and one copy.** `m <iface>-update-api`
+    refreshes `aidl_api/…/current/`; `m <iface>-freeze-api` creates
+    `aidl_api/…/2/` with its `.hash` and appends `version: "2"` to
+    `versions_with_info` in the interface's `Android.bp` — copy both back to
+    the repo. Clients pick the version with `getInterfaceVersion()`: the pump
+    uses `queueFrameFenced` against a V2 HAL and falls back to unfenced
+    `queueFrame` (and CPU-waits the acquire fence on the HAL's behalf) against
+    a V1 one. The V1 fallback path is compiled and reviewed but has not been
+    exercised against a live V1 APEX.
 
 ## 10. Repository map
 
 ```
-stable-aidl/       android.hardware.virtualcamera.hal — the FROZEN V1 boundary
-                   (aidl_api/…/1/ is the frozen contract + hash)
+stable-aidl/       android.hardware.virtualcamera.hal — the FROZEN boundary
+                   (aidl_api/…/1/ unfenced, aidl_api/…/2/ fenced; each with hash)
 platform-jni/      BufferQueue owner + frame pump inside system_server
 apex/              vendor APEX packaging: manifest, keys, rc, file_contexts, bp
 hal/core/          engine: frame sources (stable push, v1 shm socket, v2 AHB
@@ -562,11 +620,9 @@ unified-test/, sample-renderer/, camera-test/, test-app/   A15-era test apps
   idiomatic Treble form, but it needs a system/system_ext public policy dir.
 * GPU RGB→YUV (NV12 via per-plane `dma_buf` render targets) so YUV-only
   consumers also avoid the CPU converter (the RGBA preview path is already
-  fully GPU / zero-conversion, §5b). Plus 30 fps pacing in the request loop.
-* Pass the producer's GPU fence explicitly through `queueFrame` rather than
-  relying on GL pipeline ordering.
-* Freeze V2 of the boundary when the interface next changes (that's the
-  point of it).
+  fully GPU / zero-conversion, §5b).
+* Exercise the V2-platform / V1-APEX mix live (install the pre-V2 APEX under
+  the current platform) to prove the version negotiation end-to-end.
 * Multi-producer arbitration; virtual mic/display brought up to the same
   APEX + frozen-AIDL pattern.
 

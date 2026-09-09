@@ -73,6 +73,22 @@ interface and you must cut a V2 — a deliberate, visible act, which is precisel
 the discipline you want at a boundary that separates two independently-updated
 halves.
 
+And that is exactly what happened next. Making frame delivery *fenced* (Lesson
+9's postscript) needed one more method, `queueFrameFenced`, so the interface
+was frozen again:
+
+```
+$ m android.hardware.virtualcamera.hal-update-api     # refresh aidl_api/.../current/
+$ m android.hardware.virtualcamera.hal-freeze-api     # "Freezing ...-V2."
+stable-aidl/aidl_api/android.hardware.virtualcamera.hal/2/   ← new, with its own .hash
+```
+
+The build appended `version: "2"` to the interface's `versions_with_info`
+itself. V1 is untouched and still served: the HAL implements V2 (a superset),
+and the platform asks `getInterfaceVersion()` before choosing between
+`queueFrameFenced` and the old `queueFrame`. That is the whole point — the two
+halves can be at different versions and still work.
+
 ## The two endpoints
 
 Each side implements its end of the frozen interface:
@@ -127,8 +143,10 @@ capture loop (Lesson 1) fills the camera buffer from it. No pixels crossed Binde
   **frozen** so the two independently-shipped halves always agree.
 - Frames cross the wall **by handle** (`queueFrame(NativeHandle …)`), never as
   pixels; control (availability, stream lifecycle) rides the same interface.
-- Freezing (`aidl_api/.../1/`) is the enabling move for the next lesson: it's
-  what lets the vendor half ship — and update — on its own.
+- Freezing (`aidl_api/.../1/`, later `.../2/`) is the enabling move for the
+  next lesson: it's what lets the vendor half ship — and update — on its own.
+- Versions are negotiated, not assumed: `getInterfaceVersion()` on the client,
+  a superset implementation on the server.
 
 The interface is frozen and the two halves talk cleanly across it. Now we can do
 the thing that stability was for: package the entire vendor HAL as **one signed,

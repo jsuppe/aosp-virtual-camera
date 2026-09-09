@@ -122,9 +122,27 @@ future work).
 Recall Lesson 6's "keep the newest frame" store. With the old *software*-canvas
 producer that was safe only because CPU drawing is synchronous. A **GPU** producer
 finishes asynchronously — naively reading its buffer could catch a half-drawn
-frame. Because the producer now renders with GL and the compositor consumes with
-GL, they share the driver's **fence/pipeline ordering**: the read waits for the
-write. A lurking correctness bug for GPU producers is handled by construction.
+frame. And the reverse hazard exists too: once the platform hands a buffer back
+to the BufferQueue, the producer may start drawing into it while the HAL's GPU is
+still reading it.
+
+The first GPU version leaned on the driver's pipeline ordering for the first
+hazard and hid the second behind a `glFinish()`. The finished design makes both
+explicit with **sync fences**, the same mechanism SurfaceFlinger and every
+camera HAL use:
+
+- The producer's *acquire fence* travels down with the handle in
+  `queueFrameFenced` (a V2 method — see Lesson 7's postscript). The HAL's GPU
+  waits on it with `eglWaitSyncKHR`; no CPU ever blocks.
+- The compositor's blit produces a *native fence* (`EGL_ANDROID_native_fence_sync`
+  → one fd). It becomes the camera framework's release fence for the output
+  buffer, **and** it goes back up to the platform when the frame is retired, so
+  the platform releases the source buffer *with* it and the producer's next
+  `dequeueBuffer` waits for the HAL's read.
+- The request loop is paced to `AE_TARGET_FPS_RANGE` (30 fps by default)
+  instead of free-running, and reports the paced slot as the sensor timestamp.
+
+Correctness by construction, and one fewer `glFinish()` on a binder thread.
 
 ## Watch it
 

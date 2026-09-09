@@ -1,15 +1,6 @@
 /*
- * Stable control + frame-transport interface between the platform
- * VirtualCameraService (system_server) and the vendor virtual-camera HAL.
- *
- * Direction of calls is system -> vendor (normal Treble direction); the HAL
- * reaches back only through the registered IVirtualCameraHalCallback.
- *
- * Frames cross the boundary zero-copy: the platform side owns the
- * BufferQueue (libgui is platform-only) and forwards each consumed graphics
- * buffer as a NativeHandle + description; the HAL imports it via
- * AHardwareBuffer_createFromHandle and keeps a reference until the next
- * frame replaces it.
+ * Callback from the vendor virtual-camera HAL up to the platform
+ * VirtualCameraService. Registered via IVirtualCameraHal.setCallback().
  */
 ///////////////////////////////////////////////////////////////////////////////
 // THIS FILE IS IMMUTABLE. DO NOT EDIT IN ANY CASE.                          //
@@ -31,9 +22,7 @@
 
 package android.hardware.virtualcamera.hal;
 @VintfStability
-interface IVirtualCameraHal {
-  void setCallback(in android.hardware.virtualcamera.hal.IVirtualCameraHalCallback callback);
-  void setProducerAvailable(boolean available);
-  void queueFrame(in android.hardware.common.NativeHandle buffer, int width, int height, int stride, int format, long usage, long timestampNs);
-  @nullable ParcelFileDescriptor queueFrameFenced(in android.hardware.common.NativeHandle buffer, int width, int height, int stride, int format, long usage, long timestampNs, in @nullable ParcelFileDescriptor acquireFence);
+interface IVirtualCameraHalCallback {
+  void onStreamsConfigured(int width, int height, int fps);
+  void onCameraClosed();
 }

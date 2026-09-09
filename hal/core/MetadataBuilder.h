@@ -22,8 +22,9 @@ struct MetadataBuilder {
     /** Build default request settings (AE auto, AWB auto, zoom 1.0x) */
     static std::vector<uint8_t> buildDefaultRequestSettings();
 
-    /** Build per-frame result metadata (timestamp, zoom, crop) */
-    static std::vector<uint8_t> buildResultMetadata(int64_t timestamp);
+    /** Build per-frame result metadata (timestamp, frame duration, zoom, crop) */
+    static std::vector<uint8_t> buildResultMetadata(int64_t timestamp,
+                                                    int64_t frameDurationNs = 33333333);
 };
 
 }  // namespace virtualcamera

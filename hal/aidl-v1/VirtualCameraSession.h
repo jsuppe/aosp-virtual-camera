@@ -131,6 +131,12 @@ private:
     // Process a single capture request (adapter orchestration)
     CameraStatus processSingleRequest(const CaptureRequest& request);
 
+    // Frame pacing: pick up ANDROID_CONTROL_AE_TARGET_FPS_RANGE from request
+    // settings (only present when they change) and block until the next
+    // frame slot. Returns the slot's timestamp (ns, steady clock).
+    void updateTargetFps(const CameraMetadata& settings);
+    int64_t paceFrame();
+
     std::shared_ptr<ICameraDeviceCallback> mCallback;
     std::mutex mLock;
     std::atomic<bool> mClosed{false};
@@ -140,6 +146,10 @@ private:
 
     // Frame counter
     std::atomic<int> mFrameCounter{0};
+
+    // Pacing state (touched only on the request path)
+    int32_t mTargetFps = 30;
+    int64_t mNextFrameNs = 0;
 
     // Core frame sources (shared with provider)
     std::shared_ptr<::virtualcamera::VirtualCameraFrameSource> mFrameSource;

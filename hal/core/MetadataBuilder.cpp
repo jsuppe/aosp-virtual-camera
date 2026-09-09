@@ -179,11 +179,13 @@ std::vector<uint8_t> MetadataBuilder::buildDefaultRequestSettings() {
     return result;
 }
 
-std::vector<uint8_t> MetadataBuilder::buildResultMetadata(int64_t timestamp) {
+std::vector<uint8_t> MetadataBuilder::buildResultMetadata(int64_t timestamp,
+                                                          int64_t frameDurationNs) {
     camera_metadata_t* meta = allocate_camera_metadata(10, 200);
 
     int64_t ts = timestamp;
     add_camera_metadata_entry(meta, ANDROID_SENSOR_TIMESTAMP, &ts, 1);
+    add_camera_metadata_entry(meta, ANDROID_SENSOR_FRAME_DURATION, &frameDurationNs, 1);
 
     float zoomRatio = 1.0f;
     add_camera_metadata_entry(meta, ANDROID_CONTROL_ZOOM_RATIO, &zoomRatio, 1);

@@ -41,10 +41,21 @@ public:
      * Blit src (RGBA AHardwareBuffer) into the dst gralloc buffer on the GPU.
      * Returns false if dst is not an RGBA/RGBX format or the GPU path is
      * unavailable, so the caller falls back to the CPU converter.
+     *
+     * srcAcquireFence: producer's GPU-done fence for src (-1 = none). Not
+     *   consumed (the caller keeps ownership); the GPU is told to wait on it
+     *   before sampling, so no CPU stall.
+     * outFence: receives a native fence (owned by caller, -1 if unavailable)
+     *   that signals when the blit — i.e. both the read of src and the write
+     *   of dst — has completed on the GPU. When it is provided the call does
+     *   NOT wait for the GPU; the caller forwards the fence to whoever reads
+     *   dst next and to whoever will overwrite src. When the driver has no
+     *   native fence support the call falls back to glFinish() and returns
+     *   -1, which callers may treat as "already complete".
      */
-    bool composite(AHardwareBuffer* src, buffer_handle_t dst,
+    bool composite(AHardwareBuffer* src, int srcAcquireFence, buffer_handle_t dst,
                    int width, int height, int stride, int dstFormat,
-                   uint64_t dstUsage);
+                   uint64_t dstUsage, int* outFence);
 
 private:
     GpuCompositor() = default;
@@ -61,6 +72,7 @@ private:
     EGLContext mCtx = EGL_NO_CONTEXT;
     EGLSurface mPbuf = EGL_NO_SURFACE;
 
+    bool mNativeFence = false;               // EGL_ANDROID_native_fence_sync usable
     GLuint mProg = 0;
     GLuint mSrcTex = 0;
     GLuint mFbo = 0;

@@ -11,7 +11,11 @@
 #include <EGL/eglext.h>
 #include <GLES2/gl2ext.h>
 #include <vndk/hardware_buffer.h>
+#include <android/sync.h>
 #include <log/log.h>
+#include <unistd.h>
+
+#include <cstring>
 
 namespace virtualcamera {
 
@@ -27,6 +31,19 @@ PFNEGLDESTROYIMAGEKHRPROC eglDestroyImageKHR_ = nullptr;
 PFNGLEGLIMAGETARGETTEXTURE2DOESPROC glEGLImageTargetTexture2DOES_ = nullptr;
 PFNGLEGLIMAGETARGETRENDERBUFFERSTORAGEOESPROC glEGLImageTargetRenderbufferStorageOES_ = nullptr;
 PFNEGLGETNATIVECLIENTBUFFERANDROIDPROC eglGetNativeClientBufferANDROID_ = nullptr;
+PFNEGLCREATESYNCKHRPROC eglCreateSyncKHR_ = nullptr;
+PFNEGLDESTROYSYNCKHRPROC eglDestroySyncKHR_ = nullptr;
+PFNEGLWAITSYNCKHRPROC eglWaitSyncKHR_ = nullptr;
+PFNEGLDUPNATIVEFENCEFDANDROIDPROC eglDupNativeFenceFDANDROID_ = nullptr;
+
+bool hasExtension(const char* list, const char* name) {
+    if (!list) return false;
+    const size_t n = strlen(name);
+    for (const char* p = list; (p = strstr(p, name)) != nullptr; p += n) {
+        if ((p == list || p[-1] == ' ') && (p[n] == ' ' || p[n] == '\0')) return true;
+    }
+    return false;
+}
 
 const char* kVert =
         "attribute vec2 aPos;\n"
@@ -140,8 +157,25 @@ bool GpuCompositor::ensureInit() {
     glGenTextures(1, &mSrcTex);
     glGenFramebuffers(1, &mFbo);
 
+    // Native fence sync lets the GPU wait on the producer's fence and hand
+    // us a fence for our own work, so nothing on the CPU ever blocks on the
+    // GPU. Without it we fall back to glFinish() (correct, just slower).
+    eglCreateSyncKHR_ = reinterpret_cast<PFNEGLCREATESYNCKHRPROC>(
+            eglGetProcAddress("eglCreateSyncKHR"));
+    eglDestroySyncKHR_ = reinterpret_cast<PFNEGLDESTROYSYNCKHRPROC>(
+            eglGetProcAddress("eglDestroySyncKHR"));
+    eglWaitSyncKHR_ = reinterpret_cast<PFNEGLWAITSYNCKHRPROC>(
+            eglGetProcAddress("eglWaitSyncKHR"));
+    eglDupNativeFenceFDANDROID_ = reinterpret_cast<PFNEGLDUPNATIVEFENCEFDANDROIDPROC>(
+            eglGetProcAddress("eglDupNativeFenceFDANDROID"));
+    mNativeFence = hasExtension(eglQueryString(mDpy, EGL_EXTENSIONS),
+                                "EGL_ANDROID_native_fence_sync") &&
+                   eglCreateSyncKHR_ && eglDestroySyncKHR_ && eglWaitSyncKHR_ &&
+                   eglDupNativeFenceFDANDROID_;
+
     mOk = true;
-    ALOGI("GPU compositor initialized (%s)", glGetString(GL_RENDERER));
+    ALOGI("GPU compositor initialized (%s), native fences: %s",
+          glGetString(GL_RENDERER), mNativeFence ? "yes" : "no (glFinish fallback)");
     // Release the context from this thread; composite() re-acquires it on the
     // (binder-pool) thread that actually processes each capture request. An EGL
     // context can only be current on one thread at a time.
@@ -193,9 +227,11 @@ EGLImageKHR GpuCompositor::imageFromHandle(buffer_handle_t h, int w, int hgt,
     return img;
 }
 
-bool GpuCompositor::composite(AHardwareBuffer* src, buffer_handle_t dst,
+bool GpuCompositor::composite(AHardwareBuffer* src, int srcAcquireFence,
+                              buffer_handle_t dst,
                               int width, int height, int stride, int dstFormat,
-                              uint64_t dstUsage) {
+                              uint64_t dstUsage, int* outFence) {
+    if (outFence) *outFence = -1;
     if (dstFormat != kFmtRGBA8888 && dstFormat != kFmtRGBX8888) {
         return false;  // YUV etc. -> CPU fallback
     }
@@ -205,6 +241,25 @@ bool GpuCompositor::composite(AHardwareBuffer* src, buffer_handle_t dst,
     if (!eglMakeCurrent(mDpy, mPbuf, mPbuf, mCtx)) {
         ALOGE("composite: eglMakeCurrent failed (0x%x)", eglGetError());
         return false;
+    }
+
+    // Producer's acquire fence: make the GPU wait for the producer's render
+    // to land before we sample src. GPU-side wait when native fences work,
+    // CPU wait otherwise.
+    if (srcAcquireFence >= 0) {
+        bool waited = false;
+        if (mNativeFence) {
+            int fd = ::dup(srcAcquireFence);   // the sync object takes ownership
+            const EGLint attrs[] = { EGL_SYNC_NATIVE_FENCE_FD_ANDROID, fd, EGL_NONE };
+            EGLSyncKHR s = eglCreateSyncKHR_(mDpy, EGL_SYNC_NATIVE_FENCE_ANDROID, attrs);
+            if (s != EGL_NO_SYNC_KHR) {
+                waited = (eglWaitSyncKHR_(mDpy, s, 0) == EGL_TRUE);
+                eglDestroySyncKHR_(mDpy, s);
+            } else {
+                ::close(fd);
+            }
+        }
+        if (!waited) sync_wait(srcAcquireFence, /*timeout ms*/ 100);
     }
 
     EGLImageKHR srcImg = imageFromAhb(src);
@@ -260,8 +315,23 @@ bool GpuCompositor::composite(AHardwareBuffer* src, buffer_handle_t dst,
         glBindTexture(GL_TEXTURE_2D, mSrcTex);
         glUniform1i(mUniTex, 0);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-        glFinish();  // ensure the write completes before we hand the buffer back
         result = (glGetError() == GL_NO_ERROR);
+        // Completion: hand back a fence instead of stalling here. The same
+        // fence covers the read of src and the write of dst.
+        int fence = -1;
+        if (result && mNativeFence && outFence) {
+            EGLSyncKHR s = eglCreateSyncKHR_(mDpy, EGL_SYNC_NATIVE_FENCE_ANDROID, nullptr);
+            if (s != EGL_NO_SYNC_KHR) {
+                glFlush();   // the fence is only created once the command stream is submitted
+                fence = eglDupNativeFenceFDANDROID_(mDpy, s);
+                eglDestroySyncKHR_(mDpy, s);
+            }
+        }
+        if (fence >= 0) {
+            *outFence = fence;
+        } else {
+            glFinish();  // no fence available: complete synchronously (old behavior)
+        }
     } else {
         ALOGE("composite: FBO incomplete");
     }

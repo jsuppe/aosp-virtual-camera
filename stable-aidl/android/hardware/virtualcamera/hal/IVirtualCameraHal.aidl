@@ -35,4 +35,22 @@ interface IVirtualCameraHal {
      */
     void queueFrame(in NativeHandle buffer, int width, int height,
                     int stride, int format, long usage, long timestampNs);
+
+    /**
+     * V2: fenced delivery. Same buffer semantics as queueFrame(), plus:
+     *
+     *   acquireFence  - the producer's GPU-completion fence for this buffer
+     *                   (null when the buffer is already complete). The HAL
+     *                   waits on it (GPU-side where possible) before sampling.
+     *
+     *   return value  - the HAL's read-completion fence for the PREVIOUSLY
+     *                   queued buffer, which this call retires (the HAL keeps
+     *                   only the newest frame). The platform must attach it as
+     *                   the release fence when returning that buffer to its
+     *                   BufferQueue, so the producer's next render into it
+     *                   waits for the HAL's GPU read. null = safe to reuse now.
+     */
+    @nullable ParcelFileDescriptor queueFrameFenced(in NativeHandle buffer,
+            int width, int height, int stride, int format, long usage,
+            long timestampNs, in @nullable ParcelFileDescriptor acquireFence);
 }

@@ -57,6 +57,15 @@ echo "--- screenshot ---"
 $ADB exec-out screencap -p > /home/melchior/vcam_validation.png && echo "saved ~/vcam_validation.png"
 
 echo ""
+echo "--- frame pacing (viewer-side delivery rate over 5 s; HAL paces to AE_TARGET_FPS_RANGE, default 30) ---"
+recv_count() { $ADB logcat -d -s VCamViewer:* | grep "RECEIVED" | tail -1 | sed -E 's/.*RECEIVED ([0-9]+) frames.*/\1/'; }
+R0=$(recv_count); sleep 5; R1=$(recv_count)
+if [ -n "$R0" ] && [ -n "$R1" ]; then echo "viewer received $((R1-R0)) frames in 5 s = ~$(( (R1-R0) / 5 )) fps"; else echo "no viewer counters"; fi
+echo "--- boundary mode ---"
+$ADB logcat -d -s VCamRelayJni:* VCamStableHal:* | grep -E "Connected to|Pushed .*fenced|\[fenced\]|native fences" | tail -3
+$ADB logcat -d -s VCamGpuCompositor:* | grep -E "native fences" | tail -1
+
+echo ""
 echo "--- SELinux denials during the run (virtual-camera related) ---"
 AVC=$($ADB shell "dmesg | grep -E 'avc: *denied'" | grep -E 'hal_camera_default|virtual_?camera|virtualcamera|vcamproducer|vcamviewer' || true)
 if [ -n "$AVC" ]; then echo "$AVC" | sed -E 's/^.*avc: /avc: /' | sort | uniq -c | sort -rn | head -20; else echo "none"; fi

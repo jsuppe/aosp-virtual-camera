@@ -19,9 +19,12 @@
 #include <aidlcommonsupport/NativeHandle.h>
 
 #include <android/hardware_buffer.h>
+#include <android/sync.h>
+#include <unistd.h>
 #include <algorithm>
 #include <chrono>
 #include <cstring>
+#include <thread>
 #include <vector>
 
 // Core frame filling
@@ -347,11 +350,47 @@ ndk::ScopedAStatus VirtualCameraSession::processCaptureRequest(
     return ndk::ScopedAStatus::ok();
 }
 
+void VirtualCameraSession::updateTargetFps(const CameraMetadata& settings) {
+    if (settings.metadata.empty()) return;   // unchanged since the last request
+    const auto* meta = reinterpret_cast<const camera_metadata_t*>(settings.metadata.data());
+    const size_t size = settings.metadata.size();
+    if (validate_camera_metadata_structure(meta, &size) != 0) return;
+    camera_metadata_ro_entry_t e;
+    if (find_camera_metadata_ro_entry(meta, ANDROID_CONTROL_AE_TARGET_FPS_RANGE, &e) != 0 ||
+        e.count < 2) {
+        return;
+    }
+    int32_t fps = e.data.i32[1];   // upper bound of the requested range
+    if (fps > 0 && fps <= 120 && fps != mTargetFps) {
+        ALOGI("Target fps %d -> %d (AE_TARGET_FPS_RANGE [%d,%d])",
+              mTargetFps, fps, e.data.i32[0], e.data.i32[1]);
+        mTargetFps = fps;
+    }
+}
+
+int64_t VirtualCameraSession::paceFrame() {
+    using namespace std::chrono;
+    const int64_t interval = 1000000000LL / mTargetFps;
+    int64_t now = duration_cast<nanoseconds>(steady_clock::now().time_since_epoch()).count();
+    if (mNextFrameNs == 0 || now > mNextFrameNs + interval) {
+        mNextFrameNs = now;   // first frame, or we fell more than a slot behind: resync
+    }
+    if (now < mNextFrameNs) {
+        std::this_thread::sleep_for(nanoseconds(mNextFrameNs - now));
+    }
+    const int64_t slot = mNextFrameNs;
+    mNextFrameNs += interval;
+    return slot;
+}
+
 CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& request) {
-    // Get timestamp
-    auto now = std::chrono::steady_clock::now();
-    int64_t timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
-            now.time_since_epoch()).count();
+    // Pace to the requested frame rate: without this the loop free-runs at
+    // whatever rate the framework can cycle buffers (thousands of fps on a
+    // fast GPU), which is wrong for consumers and burns power. The paced
+    // slot is the frame's sensor timestamp.
+    updateTargetFps(request.settings);
+    int64_t timestamp = paceFrame();
+    const int64_t frameDurationNs = 1000000000LL / mTargetFps;
 
     // Send shutter notification
     {
@@ -370,6 +409,7 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
 
     for (size_t i = 0; i < request.outputBuffers.size(); i++) {
         const auto& inBuffer = request.outputBuffers[i];
+        int outputReleaseFence = -1;   // owned; attached to the result buffer
 
         // Import/cache the buffer (adapter owns this — touches AIDL StreamBuffer)
         buffer_handle_t handle = importBuffer(inBuffer);
@@ -393,23 +433,40 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
             if (!filled) {
                 if (auto* hal = VirtualCameraStableHal::get()) {
                     int64_t srcTs = 0;
-                    if (AHardwareBuffer* src = hal->acquireLatest(&srcTs)) {
+                    int acquireFence = -1;   // producer's GPU-done fence (ours to close)
+                    if (AHardwareBuffer* src = hal->acquireLatest(&srcTs, &acquireFence)) {
                         int dstFormat = static_cast<int>(streamIt->second.format);
+                        int doneFence = -1;      // our GPU read+write completion
 #ifdef VCAM_GPU_COMPOSITOR
                         // GPU fast path: RGBA dst -> passthrough blit, ZERO
-                        // color conversion, no CPU touch. Returns false for YUV
-                        // or if the GPU stack is unavailable -> CPU fallback.
+                        // color conversion, no CPU touch, no CPU wait: the GPU
+                        // waits on the producer's fence and hands back its own.
+                        // Returns false for YUV or if the GPU stack is
+                        // unavailable -> CPU fallback.
                         filled = ::virtualcamera::GpuCompositor::get().composite(
-                                src, handle, width, height, /*stride*/ width,
-                                dstFormat,
+                                src, acquireFence, handle, width, height,
+                                /*stride*/ width, dstFormat,
                                 AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
-                                AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT);
+                                AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT,
+                                &doneFence);
 #endif
                         if (!filled) {
+                            // CPU converter reads src directly: wait for the
+                            // producer's render to land first.
+                            if (acquireFence >= 0) sync_wait(acquireFence, 100);
                             filled = ::virtualcamera::FrameFiller::fillFromAHardwareBuffer(
                                     sHandleImporter, handle, width, height, src);
                         }
-                        AHardwareBuffer_release(src);
+                        if (acquireFence >= 0) ::close(acquireFence);
+                        if (doneFence >= 0) {
+                            // Same fence, two consumers: the framework must not
+                            // read dst before it fires (release fence on the
+                            // output buffer), and the producer must not
+                            // overwrite src before it fires (fed back through
+                            // the HAL as the buffer's release fence).
+                            outputReleaseFence = ::dup(doneFence);
+                        }
+                        hal->releaseFrame(src, doneFence);   // takes doneFence
                     }
                 }
             }
@@ -430,6 +487,11 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
         outBuffer.streamId = inBuffer.streamId;
         outBuffer.bufferId = inBuffer.bufferId;
         outBuffer.status = BufferStatus::OK;
+        if (outputReleaseFence >= 0) {
+            // Framework waits on this before consuming the buffer; ownership
+            // of the fd moves into the parcel.
+            outBuffer.releaseFence.fds.emplace_back(ndk::ScopedFileDescriptor(outputReleaseFence));
+        }
 
         outputBuffers.push_back(std::move(outBuffer));
         mFrameCounter++;
@@ -448,7 +510,8 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
     captureResult.inputBuffer.streamId = -1;
     captureResult.partialResult = 1;
     captureResult.physicalCameraMetadata = {};
-    captureResult.result.metadata = ::virtualcamera::MetadataBuilder::buildResultMetadata(timestamp);
+    captureResult.result.metadata = ::virtualcamera::MetadataBuilder::buildResultMetadata(
+            timestamp, frameDurationNs);
 
     std::vector<CaptureResult> results;
     results.push_back(std::move(captureResult));

@@ -51,6 +51,11 @@ Producer apps register via platform AIDL instead of the Unix socket:
   `platform/sepolicy/vendor/`; `system_ext` = iteration-1 relay prototype)
 - **Validate:** boot cuttlefish → `scripts/test-a13-platform.sh` (starts VCamProducer
   service, launches VCamViewer, checks frame counters at all 3 stages)
+- **Boundary version:** `android.hardware.virtualcamera.hal` is frozen at V2 (fenced
+  `queueFrameFenced`); HAL + JNI link `-V2-ndk`, VINTF fragment says version 2. The JNI
+  pump in system_server needs `…hal-V2-ndk.so` (built to `system/lib64/`) pushed to
+  `/system_ext/lib64/`. Freeze flow: edit `.aidl` → `m <iface>-update-api` →
+  `m <iface>-freeze-api` in the tree → copy `stable-aidl/aidl_api/` + `Android.bp` back.
 - **Prototype caveats:** the `system_ext` mode runs `setenforce 0` (prototype-grade
   policy); the default `apex` mode runs enforcing with zero denials;
   single static camera id 100 fed by first registered producer; fallback to test
