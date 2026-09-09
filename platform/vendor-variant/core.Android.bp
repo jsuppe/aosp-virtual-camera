@@ -27,6 +27,7 @@ cc_library_static {
         "FrameFiller.cpp",
         "MetadataBuilder.cpp",
         "GpuCompositor.cpp",
+        "VendorTags.cpp",
     ],
 
     shared_libs: [

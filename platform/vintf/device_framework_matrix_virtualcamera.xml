@@ -1,0 +1,19 @@
+<!--
+  Device framework compatibility matrix fragment for the virtual camera's
+  frozen boundary. The build's VINTF check (check_vintf_all, part of a full
+  `m`) refuses any frozen AIDL package that no framework compatibility matrix
+  mentions. optional="true": the platform works without the HAL (no virtual
+  camera), so its absence must not fail VINTF compatibility at boot.
+  Installed by integrate-a13-platform.sh via
+  DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE.
+-->
+<compatibility-matrix version="1.0" type="framework">
+    <hal format="aidl" optional="true">
+        <name>android.hardware.virtualcamera.hal</name>
+        <version>1-2</version>
+        <interface>
+            <name>IVirtualCameraHal</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+</compatibility-matrix>

@@ -8,6 +8,7 @@
 #include "VirtualCameraDevice.h"
 #include "AidlFrameSource.h"
 #include "AvailabilityBridge.h"
+#include "VendorTags.h"
 
 #include <log/log.h>
 #include <aidl/android/hardware/camera/common/Status.h>
@@ -20,6 +21,7 @@ namespace aidl::android::hardware::camera::provider::implementation {
 
 VirtualCameraProvider::VirtualCameraProvider() {
     ALOGI("VirtualCameraProvider created (AIDL V1 adapter)");
+    ::virtualcamera::VendorTags::installMetadataOps();
 
 #ifndef VCAM_STABLE_AIDL
     // Create and start the shared FrameSource (v1 - ashmem)
@@ -90,9 +92,20 @@ ndk::ScopedAStatus VirtualCameraProvider::setCallback(
 
 ndk::ScopedAStatus VirtualCameraProvider::getVendorTags(
         std::vector<common::VendorTagSection>* vendorTags) {
-    if (vendorTags) {
-        vendorTags->clear();
+    if (!vendorTags) return ndk::ScopedAStatus::ok();
+    vendorTags->clear();
+    common::VendorTagSection section;
+    section.sectionName = ::virtualcamera::VendorTags::sectionName();
+    size_t n = 0;
+    const auto* defs = ::virtualcamera::VendorTags::tags(&n);
+    for (size_t i = 0; i < n; i++) {
+        common::VendorTag tag;
+        tag.tagId = static_cast<int32_t>(defs[i].id);
+        tag.tagName = defs[i].name;
+        tag.tagType = static_cast<common::CameraMetadataType>(defs[i].type);
+        section.tags.push_back(tag);
     }
+    vendorTags->push_back(std::move(section));
     return ndk::ScopedAStatus::ok();
 }
 

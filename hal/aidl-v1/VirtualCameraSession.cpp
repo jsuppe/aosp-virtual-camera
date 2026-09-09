@@ -391,6 +391,7 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
     updateTargetFps(request.settings);
     int64_t timestamp = paceFrame();
     const int64_t frameDurationNs = 1000000000LL / mTargetFps;
+    int64_t producerTs = 0;   // stable-AIDL path: producer's queue timestamp of the frame used
 
     // Send shutter notification
     {
@@ -435,6 +436,7 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
                     int64_t srcTs = 0;
                     int acquireFence = -1;   // producer's GPU-done fence (ours to close)
                     if (AHardwareBuffer* src = hal->acquireLatest(&srcTs, &acquireFence)) {
+                        producerTs = srcTs;
                         int dstFormat = static_cast<int>(streamIt->second.format);
                         int doneFence = -1;      // our GPU read+write completion
 #ifdef VCAM_GPU_COMPOSITOR
@@ -511,7 +513,7 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
     captureResult.partialResult = 1;
     captureResult.physicalCameraMetadata = {};
     captureResult.result.metadata = ::virtualcamera::MetadataBuilder::buildResultMetadata(
-            timestamp, frameDurationNs);
+            timestamp, frameDurationNs, producerTs);
 
     std::vector<CaptureResult> results;
     results.push_back(std::move(captureResult));

@@ -52,10 +52,14 @@ Producer apps register via platform AIDL instead of the Unix socket:
 - **Validate:** boot cuttlefish → `scripts/test-a13-platform.sh` (starts VCamProducer
   service, launches VCamViewer, checks frame counters at all 3 stages)
 - **Boundary version:** `android.hardware.virtualcamera.hal` is frozen at V2 (fenced
-  `queueFrameFenced`); HAL + JNI link `-V2-ndk`, VINTF fragment says version 2. The JNI
-  pump in system_server needs `…hal-V2-ndk.so` (built to `system/lib64/`) pushed to
-  `/system_ext/lib64/`. Freeze flow: edit `.aidl` → `m <iface>-update-api` →
-  `m <iface>-freeze-api` in the tree → copy `stable-aidl/aidl_api/` + `Android.bp` back.
+  `queueFrameFenced`); HAL links `-V2-ndk`, the JNI pump links it statically (nothing
+  may land under /system for a device product), VINTF fragment says version 2. Freeze
+  flow: edit `.aidl` → `m <iface>-update-api` → `m <iface>-freeze-api` in the tree →
+  copy `stable-aidl/aidl_api/` + `Android.bp` back.
+- **Reproducible images:** integrate (apex mode) then `m installclean && m`; boot with an
+  empty `~/cuttlefish/instances` (no overlay). The integrate script owns PRODUCT_PACKAGES
+  (APEX + vintf prebuilt + JNI pump, never the loose binary) and the device FCM fragment.
+  A13 libvintf ignores /apex vintf fragments — the prebuilt on /vendor is required.
 - **Prototype caveats:** the `system_ext` mode runs `setenforce 0` (prototype-grade
   policy); the default `apex` mode runs enforcing with zero denials;
   single static camera id 100 fed by first registered producer; fallback to test

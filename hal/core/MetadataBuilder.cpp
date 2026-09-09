@@ -5,6 +5,7 @@
 #define LOG_TAG "VCamMetadataBuilder"
 
 #include "MetadataBuilder.h"
+#include "VendorTags.h"
 
 #include <log/log.h>
 #include <system/camera_metadata.h>
@@ -180,12 +181,18 @@ std::vector<uint8_t> MetadataBuilder::buildDefaultRequestSettings() {
 }
 
 std::vector<uint8_t> MetadataBuilder::buildResultMetadata(int64_t timestamp,
-                                                          int64_t frameDurationNs) {
+                                                          int64_t frameDurationNs,
+                                                          int64_t producerTimestampNs) {
     camera_metadata_t* meta = allocate_camera_metadata(10, 200);
 
     int64_t ts = timestamp;
     add_camera_metadata_entry(meta, ANDROID_SENSOR_TIMESTAMP, &ts, 1);
     add_camera_metadata_entry(meta, ANDROID_SENSOR_FRAME_DURATION, &frameDurationNs, 1);
+    if (producerTimestampNs > 0) {
+        // Vendor tag (VendorTags.h): needs installMetadataOps() once per process.
+        add_camera_metadata_entry(meta, VendorTags::kProducerTimestampNs,
+                                  &producerTimestampNs, 1);
+    }
 
     float zoomRatio = 1.0f;
     add_camera_metadata_entry(meta, ANDROID_CONTROL_ZOOM_RATIO, &zoomRatio, 1);

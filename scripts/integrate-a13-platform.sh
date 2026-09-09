@@ -183,15 +183,47 @@ else
     remove_contexts "$SEP/vendor/service_contexts" "$VENDOR_SC"
 fi
 
+echo "=== [6b] device framework compatibility matrix (frozen AIDL package must be in an FCM) ==="
+CONFIG_DIR="$AOSP_ROOT/device/google/cuttlefish/shared/config"
+cp "$SCRIPT_DIR/platform/vintf/device_framework_matrix_virtualcamera.xml" "$CONFIG_DIR/"
+grep -q "device_framework_matrix_virtualcamera.xml" "$DEVICE_MK" || cat >> "$DEVICE_MK" << "EOF"
+
+# Virtual camera: frozen AIDL boundary android.hardware.virtualcamera.hal (V1-V2)
+DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE += \
+    device/google/cuttlefish/shared/config/device_framework_matrix_virtualcamera.xml
+EOF
+
 echo "=== [7/7] PRODUCT_PACKAGES ==="
 grep -q "VCamProducer" "$DEVICE_MK" || cat >> "$DEVICE_MK" << "EOF"
 
 # Virtual camera platform-AIDL test apps
 PRODUCT_PACKAGES += VCamProducer VCamViewer
 EOF
-# HAL binary already in PRODUCT_PACKAGES from previous integration
+# The HAL itself: EXACTLY ONE of the loose vendor binary (system_ext / loose
+# vendor builds) or the APEX. Listing both starts two HAL processes; listing
+# neither means `m` never rebuilds the HAL and the image ships whatever stale
+# file happens to sit in the staging dir (found the hard way — README §9.20).
+LOOSE_LINE="PRODUCT_PACKAGES += android.hardware.camera.provider-virtual-service"
+APEX_LINE="PRODUCT_PACKAGES += com.android.hardware.camera.provider.virtual"
+# apex mode also needs: the VINTF fragment on /vendor (A13 libvintf ignores
+# /apex/*/etc/vintf) and the platform-side JNI pump + its stable-AIDL lib.
+APEX_EXTRA_LINE="PRODUCT_PACKAGES += android.hardware.camera.provider-virtual-service.vintf libvirtualcamera_relay_jni"
+sed -i "\#^$LOOSE_LINE\$#d; \#^$APEX_LINE\$#d; \#^$APEX_EXTRA_LINE\$#d" "$DEVICE_MK"
+if [ "$MODE" = apex ]; then
+    echo "$APEX_LINE" >> "$DEVICE_MK"
+    echo "$APEX_EXTRA_LINE" >> "$DEVICE_MK"
+    # Stale loose-install leftovers in the staging dir would still be packed
+    # into vendor.img: remove them (or run `m installclean` before the image build).
+    OUT_VENDOR="$AOSP_ROOT/out/target/product/vsoc_x86_64/vendor"
+    rm -f "$OUT_VENDOR/bin/hw/android.hardware.camera.provider-virtual-service" \
+          "$OUT_VENDOR/etc/init/android.hardware.camera.provider-virtual-service.rc" \
+          "$OUT_VENDOR/etc/vintf/manifest/android.hardware.camera.provider-virtual-service.xml" 2>/dev/null
+else
+    echo "$LOOSE_LINE" >> "$DEVICE_MK"
+fi
 
 echo ""
 echo "=== Integration complete ==="
 echo "Build: cd $AOSP_ROOT && source build/envsetup.sh && lunch aosp_cf_x86_64_phone-userdebug && m"
 [ "$MODE" = apex ] && echo "Incremental after policy/HAL edits: m com.android.hardware.camera.provider.virtual selinux_policy"
+echo "Full images (reproducible): m installclean && m   # installclean drops stale staged files"

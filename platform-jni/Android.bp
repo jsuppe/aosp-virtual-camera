@@ -11,7 +11,9 @@ cc_library_shared {
     srcs: ["VirtualCameraRelayJni.cpp"],
 
     shared_libs: [
-        "android.hardware.virtualcamera.hal-V2-ndk",
+        // NativeHandle parcelling for the statically linked -V2-ndk lib;
+        // this one is already part of the system image.
+        "android.hardware.common-V2-ndk",
         "libandroid_runtime",
         "libbinder_ndk",
         "libcutils",
@@ -23,6 +25,11 @@ cc_library_shared {
     ],
 
     static_libs: [
+        // Static: a shared copy would install to /system/lib64, which the
+        // GSI artifact-path check forbids for a device product (only
+        // system_ext/product/vendor may add files). Static also means no
+        // extra .so to ship or push alongside this one.
+        "android.hardware.virtualcamera.hal-V2-ndk",
         "libaidlcommonsupport",
     ],
 

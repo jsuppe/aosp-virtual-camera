@@ -355,6 +355,19 @@ sleeps to the next slot before filling, and reports the slot as the sensor
 timestamp plus `SENSOR_FRAME_DURATION`. Measured: viewer receives 150 frames
 per 5 s at 4K — 30 fps, in lockstep with the producer.
 
+**Latency, measured honestly.** `SENSOR_TIMESTAMP` is the HAL's paced slot,
+so it cannot tell a consumer how old the producer's pixels are. The HAL
+therefore also carries the producer's BufferQueue timestamp (CLOCK_MONOTONIC,
+the same clock as `System.nanoTime()`) in a vendor tag,
+`com.virtualcamera.producerTimestampNs` (`hal/core/VendorTags.*`, published
+through `ICameraProvider.getVendorTags`, readable with
+`new CaptureResult.Key<>("com.virtualcamera.producerTimestampNs", Long.class)`).
+VCamViewer logs it: producer-queue → capture-result is **9–35 ms at 4K30**,
+i.e. within one 33 ms slot, sliding with the phase between the producer's
+and the HAL's 30 Hz clocks; the HAL's own slot → result is 1–7 ms. That is
+the number §2 predicted: the pipeline is framework-bound at ~1 frame, and
+the fence/pacing work moved CPU out of the path without changing it.
+
 **Fallback (honest).** If a consumer hard-requires a YUV stream, `composite()`
 returns false and the CPU `FrameFiller` does a per-pixel RGB→YUV fill of that
 buffer. That path *does* cost a CPU pass. Moving it onto the GPU (RGB→NV12 by
@@ -394,9 +407,12 @@ Build-side pieces (`apex/Android.bp`):
   binary gets `hal_camera_default_exec`, so init transitions it into the
   standard vendor camera-HAL domain — gralloc, GPU and binder permissions
   included).
-* The `.rc` and VINTF fragment ship **inside** the APEX: init picks up
-  `/apex/*/etc/*.rc`, and libvintf reads APEX vintf fragments, so the HAL's
-  entire lifecycle travels with the package.
+* The `.rc` ships **inside** the APEX and init picks up `/apex/*/etc/*.rc`,
+  so the service definition travels with the package. The VINTF fragment is
+  inside too, but **Android 13's libvintf does not read `/apex/*/etc/vintf`**
+  (Android 14 does) — so on 13 a copy is also installed to
+  `/vendor/etc/vintf/manifest/` by a `prebuilt_etc` in `PRODUCT_PACKAGES`
+  (§9.21). The declaration is part of the image, not the package, on 13.
 
 ### What an APEX **cannot** carry
 
@@ -438,7 +454,9 @@ does it all; what it installs and why:
 3. **Service + AIDL + apps** → `platform-service/` (compiled into
    `services.jar`), `platform-aidl/`, and the demo apps.
 4. **init `.rc` / VINTF fragment** → for the APEX build these ship inside the
-   package; loose copies exist for the non-APEX variants.
+   package; loose copies exist for the non-APEX variants. Plus a **device
+   framework compatibility matrix** fragment naming the frozen AIDL package
+   (`platform/vintf/`), which the full-image VINTF check requires (§9.19).
 5. **sepolicy** → into the device policy dirs. Vendor side
    (`platform/sepolicy/vendor/`): the `hal_virtualcamera_service` label for
    `IVirtualCameraHal/default`, the provider name labeled `hal_camera_service`,
@@ -451,9 +469,10 @@ does it all; what it installs and why:
 ## 8. Build, run, demo
 
 ```bash
-./scripts/integrate-a13-platform.sh /path/to/aosp-a13
+./scripts/integrate-a13-platform.sh /path/to/aosp-a13     # apex mode (default)
 cd /path/to/aosp-a13 && source build/envsetup.sh \
-  && lunch aosp_cf_x86_64_phone-userdebug && m       # first time: full image
+  && lunch aosp_cf_x86_64_phone-userdebug \
+  && m installclean && m        # full images; installclean drops stale staged files (§9.20)
 
 launch_cvd --daemon --gpu_mode=gfxstream --cpus=4 --memory_mb=4096
 adb root                                              # only for pm grant / logs below
@@ -473,7 +492,7 @@ Iterating without reflashing — what to push per change:
 | HAL (anything in the APEX) | `m com.android.…provider.virtual` | the `.apex` → `/vendor/apex/` | reboot |
 | SELinux policy | `m selinux_policy` | `vendor_sepolicy.cil` + `vendor_service_contexts` → `/vendor/etc/selinux/`, `system_ext_sepolicy.cil` + `system_ext_service_contexts` + `system_ext_sepolicy_and_mapping.sha256` → `/system_ext/etc/selinux/`, **and** `odm/etc/selinux/precompiled_sepolicy` + its `.sha256` files → `/odm/etc/selinux/` (§9.16) | reboot |
 | `VirtualCameraService` / AIDL java | `m services` | `services.jar` → `/system/framework/` **and delete stale AOT**: `/system/framework/oat/*/services.*` + ART apexdata dalvik-cache (§9.10) | reboot |
-| JNI pump | `m libvirtualcamera_relay_jni` | the `.so` → `/system_ext/lib64/` (plus `…hal-V2-ndk.so` from `system/lib64/` once) | reboot |
+| JNI pump | `m libvirtualcamera_relay_jni` | the `.so` → `/system_ext/lib64/` (the stable-AIDL lib is linked in statically) | reboot |
 | the frozen interface itself | edit the `.aidl`, then in the tree `m …hal-update-api && m …hal-freeze-api` | copy `stable-aidl/aidl_api/` + `Android.bp` back to the repo; bump `-V<n>-ndk` in the HAL/JNI `Android.bp` and `<version>` in the VINTF fragment | rebuild both halves |
 | demo apps | `m VCamProducer VCamViewer` | the APKs → `system_ext/app/...` | reboot |
 
@@ -585,8 +604,50 @@ Iterating without reflashing — what to push per change:
     the repo. Clients pick the version with `getInterfaceVersion()`: the pump
     uses `queueFrameFenced` against a V2 HAL and falls back to unfenced
     `queueFrame` (and CPU-waits the acquire fence on the HAL's behalf) against
-    a V1 one. The V1 fallback path is compiled and reviewed but has not been
-    exercised against a live V1 APEX.
+    a V1 one. Exercised live: the pre-V2 APEX (commit 642c141) installed
+    under the V2 platform logs "HAL implements V1; unfenced V1 frame
+    delivery" and streams (free-running, since that HAL predates pacing);
+    swapping the V2 APEX back restores fenced, paced delivery — no platform
+    change either way.
+19. **A full `m` runs a VINTF check that the push-and-reboot workflow never
+    does.** `check_vintf_all` refuses any frozen `@VintfStability` AIDL
+    package that no framework compatibility matrix mentions ("The following
+    AIDL packages are not found in any compatibility matrix fragments").
+    Months of incremental module builds plus `adb push` never ran it. Fix:
+    a device framework matrix fragment (`platform/vintf/
+    device_framework_matrix_virtualcamera.xml`, `optional="true"`, versions
+    `1-2`) wired in with `DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE` — the
+    integrate script installs it. Lesson: do the full image build *early*;
+    it is the only build that checks the whole device contract.
+20. **Image packaging sweeps the staging directory, so a module that is not
+    in `PRODUCT_PACKAGES` can still "ship" — stale.** The APEX had only ever
+    been built by hand (`m com.android…provider.virtual`), which drops it in
+    `out/…/vendor/apex/`; `vendor.img` then packs whatever is there. The
+    first clean-boot test therefore ran an APEX *older* than the sources the
+    same `m` had just compiled (for the loose binary, which *was* listed), and
+    two HAL processes started because both were installed. Rules that follow:
+    list exactly one packaging of the HAL in `PRODUCT_PACKAGES` (the
+    integrate script now enforces it per mode); build images with
+    `m installclean && m` after removing a module; and treat "it's in the
+    image" as proof of nothing until the build graph says why.
+21. **On Android 13 the VINTF fragment inside the APEX does nothing.**
+    servicemanager rejected the provider registration with
+    `EX_ILLEGAL_ARGUMENT` (`-3`) and "Could not find … in the VINTF manifest"
+    the first time the loose binary — whose `vintf_fragments` had been
+    installing the same fragment to `/vendor/etc/vintf/manifest/` — was no
+    longer in the image. libvintf's APEX scanning is an Android 14 feature.
+    Fix: a `prebuilt_etc` (vendor, `sub_dir: "vintf/manifest"`) in
+    `PRODUCT_PACKAGES`. The copy inside the APEX stays for 14+. Same lesson
+    as 20: the loose install had been silently satisfying two requirements
+    (VINTF declaration, and the JNI pump library `libvirtualcamera_relay_jni`
+    that had only ever been pushed by hand) — the clean boot found both.
+22. **A device product may not add files under `/system`.** Listing the JNI
+    pump pulled its shared AIDL library into `system/lib64/`, and the GSI
+    artifact-path requirement (`artifact_path_requirements.mk`) failed the
+    build. Link the generated `-V2-ndk` library **statically** into the
+    system_ext pump instead: nothing lands in `/system`, and the "push the
+    ndk `.so` to `/system_ext/lib64` once" step from the old iterate table
+    disappears with it.
 
 ## 10. Repository map
 
@@ -618,13 +679,13 @@ Three of the original items have shipped (real SELinux policy; the fenced V2
 boundary; 30 fps pacing). What remains, in the order it should be done and
 why:
 
-### Phase A — make it reproducible (do first, small)
+### Phase A — make it reproducible — **done**
 
-| # | Item | Why now | Done when |
-|---|---|---|---|
-| A1 | **Full image build + clean boot.** Run a full `m`, launch Cuttlefish from the fresh images with no overlay. | Everything validated so far lives in the Cuttlefish overlay on top of July base images. Until it boots from images, nobody else can reproduce it and a stale overlay can mask a missing tree change. | `test-a13-platform.sh` passes on a first boot with an empty `~/cuttlefish/instances`. |
-| A2 | **Live V2-platform / V1-APEX mix.** Build the APEX from the pre-V2 commit (642c141), install it under the current platform, run the demo. | The version negotiation (`getInterfaceVersion` → unfenced `queueFrame`, CPU-waited acquire) is compiled and reviewed but never exercised. It is the one claim in §5c without a log line behind it. | Pump logs "HAL implements V1; unfenced" and frames flow; then swap the V2 APEX back in without reboot (§6) and see "fenced". |
-| A3 | **Producer timestamp end-to-end.** Carry `queueFrameFenced`'s `timestampNs` into the capture result (vendor tag or `SENSOR_TIMESTAMP` when the consumer opts in) instead of restamping with the paced slot. | Today no latency number is real: the HAL restamps, so producer→viewer latency cannot be measured from the consumer side (a recurring point of confusion). Tiny change, unlocks honest numbers. | The viewer prints producer-to-delivery latency from result metadata. |
+| # | Item | Outcome |
+|---|---|---|
+| A1 | **Full image build + clean boot.** | `m installclean && m`, Cuttlefish launched from the images with no overlay: enforcing, one HAL process, both names registered, fenced 30 fps, zero denials. It took four build iterations to get there — the clean build found a missing compatibility-matrix entry, a stale APEX swept in from the staging dir, a VINTF fragment that Android 13 never read, and a library the GSI rules forbid under `/system` (§9.19–22). The push-and-reboot workflow had masked all four. |
+| A2 | **Live V2-platform / V1-APEX mix.** | Pump logs "HAL implements V1; unfenced V1 frame delivery" against the 642c141 APEX and streams; V2 APEX back → "fenced". Version negotiation proven both ways (§9.18). |
+| A3 | **Producer timestamp end-to-end.** | Vendor tag `com.virtualcamera.producerTimestampNs`; viewer reports 9–35 ms producer→result at 4K30 (§5c). |
 
 ### Phase B — cover the consumers that exist (the substantive work)
 

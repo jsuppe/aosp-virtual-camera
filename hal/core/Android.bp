@@ -24,6 +24,7 @@ cc_library_static {
         "VirtualCameraSocket.cpp",
         "FrameFiller.cpp",
         "MetadataBuilder.cpp",
+        "VendorTags.cpp",
     ],
 
     shared_libs: [

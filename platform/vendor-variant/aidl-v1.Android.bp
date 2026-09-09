@@ -88,8 +88,10 @@ cc_binary {
     ],
     relative_install_path: "hw",
 
-    init_rc: ["android.hardware.camera.provider-virtual-service.rc"],
-    vintf_fragments: ["android.hardware.camera.provider-virtual-service.xml"],
+    // No init_rc / vintf_fragments here: the APEX ships the .rc, and the
+    // VINTF fragment is installed by the prebuilt_etc below (A13 libvintf
+    // ignores /apex). Declaring them on the binary too defines a second
+    // install rule for the same /vendor path -> "overriding commands".
 
     srcs: ["service.cpp"],
 
@@ -124,4 +126,16 @@ cc_binary {
 filegroup {
     name: "android.hardware.camera.provider-virtual-service.xml",
     srcs: ["android.hardware.camera.provider-virtual-service.xml"],
+}
+
+// VINTF fragment on the vendor image. Android 13's libvintf does NOT read
+// /apex/*/etc/vintf (that arrived in 14), so the copy inside the APEX is not
+// enough for servicemanager to accept the registration ("Could not find ...
+// in the VINTF manifest" -> EX_ILLEGAL_ARGUMENT). PRODUCT_PACKAGES lists this.
+prebuilt_etc {
+    name: "android.hardware.camera.provider-virtual-service.vintf",
+    src: "android.hardware.camera.provider-virtual-service.xml",
+    filename: "android.hardware.camera.provider-virtual-service.xml",
+    vendor: true,
+    sub_dir: "vintf/manifest",
 }

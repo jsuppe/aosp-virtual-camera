@@ -24,7 +24,8 @@ struct MetadataBuilder {
 
     /** Build per-frame result metadata (timestamp, frame duration, zoom, crop) */
     static std::vector<uint8_t> buildResultMetadata(int64_t timestamp,
-                                                    int64_t frameDurationNs = 33333333);
+                                                    int64_t frameDurationNs = 33333333,
+                                                    int64_t producerTimestampNs = 0);
 };
 
 }  // namespace virtualcamera

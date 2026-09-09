@@ -30,6 +30,7 @@ $ADB shell "dumpsys media.camera | grep -E \"Number of camera|Device.*maps\"" | 
 
 echo ""
 echo "=== Step 1: start producer service ==="
+$ADB shell pm grant com.example.vcamproducer android.permission.CAMERA 2>/dev/null || true
 $ADB shell am start-foreground-service com.example.vcamproducer/.VCamProducerService
 sleep 3
 $ADB logcat -d -s VCamProducer:* VirtualCameraService:* | tail -10
@@ -61,6 +62,8 @@ echo "--- frame pacing (viewer-side delivery rate over 5 s; HAL paces to AE_TARG
 recv_count() { $ADB logcat -d -s VCamViewer:* | grep "RECEIVED" | tail -1 | sed -E 's/.*RECEIVED ([0-9]+) frames.*/\1/'; }
 R0=$(recv_count); sleep 5; R1=$(recv_count)
 if [ -n "$R0" ] && [ -n "$R1" ]; then echo "viewer received $((R1-R0)) frames in 5 s = ~$(( (R1-R0) / 5 )) fps"; else echo "no viewer counters"; fi
+echo "--- latency (A3: producer BufferQueue timestamp carried in vendor tag com.virtualcamera.producerTimestampNs) ---"
+$ADB logcat -d -s VCamViewer:* | grep -E "latency producer" | tail -2 | sed -E 's/.*RECEIVED/RECEIVED/'
 echo "--- boundary mode ---"
 $ADB logcat -d -s VCamRelayJni:* VCamStableHal:* | grep -E "Connected to|Pushed .*fenced|\[fenced\]|native fences" | tail -3
 $ADB logcat -d -s VCamGpuCompositor:* | grep -E "native fences" | tail -1

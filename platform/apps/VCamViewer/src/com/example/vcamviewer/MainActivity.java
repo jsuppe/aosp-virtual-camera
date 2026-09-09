@@ -23,6 +23,7 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.os.Bundle;
@@ -39,6 +40,11 @@ import java.util.Arrays;
 
 public class MainActivity extends Activity {
     private static final String TAG = "VCamViewer";
+    /** Vendor tag published by the virtual camera HAL (see hal/core/VendorTags.h). */
+    private static final CaptureResult.Key<Long> KEY_PRODUCER_TS =
+            new CaptureResult.Key<>("com.virtualcamera.producerTimestampNs", Long.class);
+    private long mLatencySumNs = 0;
+    private int mLatencyCount = 0;
     private static final String VIRTUAL_CAMERA_ID = "100";
     private static final int REQ_CAMERA = 1;
 
@@ -206,11 +212,36 @@ public class MainActivity extends Activity {
                                                     CaptureRequest req,
                                                     TotalCaptureResult result) {
                                                 mFrameCount++;
+                                                // Producer->result latency: the HAL carries the
+                                                // producer's BufferQueue timestamp (CLOCK_MONOTONIC,
+                                                // same clock as System.nanoTime()) in a vendor tag.
+                                                long now = System.nanoTime();
+                                                Long producerTs = null;
+                                                try {
+                                                    producerTs = result.get(KEY_PRODUCER_TS);
+                                                } catch (IllegalArgumentException ignored) {
+                                                    // vendor tag not published by this HAL build
+                                                }
+                                                Long sensorTs = result.get(CaptureResult.SENSOR_TIMESTAMP);
+                                                if (producerTs != null) {
+                                                    mLatencySumNs += (now - producerTs);
+                                                    mLatencyCount++;
+                                                }
                                                 if (mFrameCount % 30 == 0) {
+                                                    String lat = "";
+                                                    if (mLatencyCount > 0) {
+                                                        lat = String.format(" latency producer->result %.1f ms",
+                                                                (mLatencySumNs / (double) mLatencyCount) / 1e6);
+                                                        mLatencySumNs = 0; mLatencyCount = 0;
+                                                    }
+                                                    if (sensorTs != null) {
+                                                        lat += String.format(" (slot->result %.1f ms)",
+                                                                (now - sensorTs) / 1e6);
+                                                    }
                                                     Log.i(TAG, "RECEIVED " + mFrameCount
                                                             + " frames from camera "
-                                                            + camera.getId());
-                                                    status("frames: " + mFrameCount);
+                                                            + camera.getId() + lat);
+                                                    status("frames: " + mFrameCount + lat);
                                                 }
                                             }
                                         }, mCameraHandler);
