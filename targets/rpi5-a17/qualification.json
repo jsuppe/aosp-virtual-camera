@@ -136,5 +136,11 @@
     "timing_scope": "8 observed requests paired with first changed-source eglSwapBuffers return; handler-to-swap-return18.2\u201329.7ms, NOT Camera2 receipt or physical display latency",
     "negative_control_limit": "Concurrent physical interaction added taps, so no isolated request-count negative-control claim. Raw log and failed initial assertion retained locally.",
     "earlier_results": "Host suites, pixel recording and batch timing above belong to the preceding APK, not rerun as a full performance benchmark for this UI change."
+  },
+  "interactive_clean_ui_revision": {
+    "producer_apk_sha256": "8308535140ca4e693346f92f9a0a336880b2bc044841cdfa0cd2bea08e071d14",
+    "build": "Both producer apps PASS (14 seconds)",
+    "physical_check": "Installed and live; red then green source backgrounds verified on both panes in screenshots. Visible TAP number and tap-instructions removed at user request; internal timing sequence retained.",
+    "scope": "UI-only cleanup of the interactive tap revision; no full image rebuild or new latency benchmark."
   }
 }

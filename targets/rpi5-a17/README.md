@@ -22,8 +22,8 @@ The clock is a60-frame nominal one-second loop: frame01≈0.017, frame60=1.000, 
 ### Interactive live-path check
 
 Tap the LEFT image while live to cycle the source background red → green → blue.
-A nonwrapping `TAP #` (for the current app process) is embedded in the same source
-texture. The activity only publishes an immutable change request; it does not
+No tap numbers or tap instructions are shown in the UI. The activity only
+publishes an immutable change request; it does not
 recolor either TextureView. The EGL owner samples that request once per frame,
 queues the changed pixels to the HAL, then draws the direct mirror with identical
 uniforms. RIGHT remains exclusively a Camera2 preview. Freeze ignores taps.

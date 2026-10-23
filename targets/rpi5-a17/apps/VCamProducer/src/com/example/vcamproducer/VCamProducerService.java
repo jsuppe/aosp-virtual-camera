@@ -458,8 +458,7 @@ public class VCamProducerService extends Service {
                     if (tap == null) GLES20.glUniform4f(uTapBackground, 0, 0, 0, 0);
                     else GLES20.glUniform4f(uTapBackground, tap.red, tap.green, tap.blue, 1);
                     GLES20.glUniform1f(uClockMs, sReferenceSurface == null ? -1f : cycleMs);
-                    if (sReferenceSurface != null) clockTexture.update(cycleFrame, mFps, cycleMs,
-                            tap == null ? 0 : tap.sequence);
+                    if (sReferenceSurface != null) clockTexture.update(cycleFrame, mFps, cycleMs);
                     GLES20.glUniform1f(uTime, t);
                     GLES20.glUniform2f(uBall, bx, by);
                     GLES20.glUniform1f(uBallR, 0.08f);
@@ -519,7 +518,7 @@ public class VCamProducerService extends Service {
         private android.graphics.Canvas canvas;
         private final android.graphics.Paint paint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
         private int texture;
-        void update(int frame, int fps, int millis, long tapSequence) {
+        void update(int frame, int fps, int millis) {
             if (bitmap == null) {
                 bitmap = android.graphics.Bitmap.createBitmap(512, 256, android.graphics.Bitmap.Config.ARGB_8888);
                 canvas = new android.graphics.Canvas(bitmap);
@@ -539,11 +538,6 @@ public class VCamProducerService extends Service {
             canvas.drawText(String.format(java.util.Locale.ROOT, "%d.%03d", millis / 1000, millis % 1000), 256, 84, paint);
             paint.setTextSize(28);
             canvas.drawText(String.format(java.util.Locale.ROOT, "FRAME %02d / %02d", frame, fps), 256, 116, paint);
-            if (tapSequence > 0) {
-                paint.setColor(0xff050505); canvas.drawRect(112, 132, 400, 174, paint);
-                paint.setColor(0xffffffff); paint.setTextSize(30);
-                canvas.drawText("TAP #" + tapSequence, 256, 164, paint);
-            }
             for (int i = 0; i < fps; ++i) {
                 paint.setColor(i < frame ? 0xff19e6cc : 0xff060606);
                 canvas.drawRect(i * 512f / fps + 1, 240, (i + 1) * 512f / fps - 1, 256, paint);
