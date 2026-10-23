@@ -71,6 +71,12 @@ public final class SplitDemoActivity extends Activity {
         mComparison = new FrameLayout(this);
         LinearLayout row = new LinearLayout(this);
         mDirect = pane(row, "LEFT • PRODUCER DIRECT\nSame generated frame, no camera path");
+        mDirect.setContentDescription("Tap to change the producer background color");
+        mDirect.setOnClickListener(v -> {
+            if (!mActive || mCopyPending || mFrozen.getVisibility() == View.VISIBLE) return;
+            long sequence = VCamProducerService.changeBackground();
+            mStatus.setText("Tap #" + sequence + " requested • watch the color travel through the camera");
+        });
         mPreview = pane(row, "RIGHT • VIRTUAL CAMERA " + mCameraId + "\nProducer → HAL → Camera2");
         mComparison.addView(row, new FrameLayout.LayoutParams(-1, -1));
         mFrozen = new ImageView(this);
@@ -80,6 +86,7 @@ public final class SplitDemoActivity extends Activity {
         root.addView(mComparison, new LinearLayout.LayoutParams(-1, 0, 1));
         mStatus = label("Waiting for both surfaces…", 16);
         root.addView(mStatus);
+        root.addView(label("Tap LEFT to cycle red → green → blue. The color and TAP # are rendered into the source pixels; RIGHT receives them through Camera2.", 15));
         root.addView(label("Clock = cycle seconds.milliseconds • FRAME = 01–60 • Strip = 60 steps. At 60fps each step is ≈16.7ms; not a precision latency meter.", 15));
         setContentView(root);
         mDirect.setSurfaceTextureListener(listener(true));

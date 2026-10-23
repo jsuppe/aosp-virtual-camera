@@ -19,6 +19,22 @@ The clock is a60-frame nominal one-second loop: frame01≈0.017, frame60=1.000, 
 
 ## What matching clocks mean
 
+### Interactive live-path check
+
+Tap the LEFT image while live to cycle the source background red → green → blue.
+A nonwrapping `TAP #` (for the current app process) is embedded in the same source
+texture. The activity only publishes an immutable change request; it does not
+recolor either TextureView. The EGL owner samples that request once per frame,
+queues the changed pixels to the HAL, then draws the direct mirror with identical
+uniforms. RIGHT remains exclusively a Camera2 preview. Freeze ignores taps.
+
+This demonstrates causal, live propagation rather than prerecorded animation.
+Rapid taps can coalesce before the next render deadline. `TAP_REQUEST` and
+`TAP_ENQUEUED` logs measure click-handler to first changed-frame swap return,
+NOT physical input-to-photon or Camera2/display latency. For that measurement,
+record the click indication and both panes with a high-speed camera, or match
+source markers to timestamped Camera2 images with explicitly defined endpoints.
+
 The right image really passes through Camera2. It is not a second independently drawn clock widget. But the left mirror is drawn AFTER the source frame is queued to the HAL and has its own presentation buffering. Matching clock values in a photograph mean matching step values in that exposure, not zero pipeline latency or a strict sub16.7ms bound. The one-second wrap can hide integer-second offsets.
 
 Freeze captures one composited-window snapshot of both panes while producer/Camera2 continue. Resume live removes that overlay. For precise latency, use a nonwrapping source frame ID plus real monotonic timestamps, decode/match IDs from Camera2 images, measure well-defined endpoints and validate with a known right-only delay off the shared UI/render thread. Callback timing is not glass/presentation latency.

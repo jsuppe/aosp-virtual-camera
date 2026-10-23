@@ -36,6 +36,27 @@ import com.example.vcamtest.FrameIdentity;
 public class VCamProducerService extends Service {
     private static final String TAG = "VCamProducer";
     static volatile Surface sReferenceSurface; // owned by the split activity
+    // Immutable handoff: UI requests a change; only the EGL owner paints it.
+    private static final class TapState {
+        final long sequence, requestedNs;
+        final float red, green, blue;
+        TapState(long sequence, long requestedNs, float red, float green, float blue) {
+            this.sequence = sequence; this.requestedNs = requestedNs;
+            this.red = red; this.green = green; this.blue = blue;
+        }
+    }
+    private static volatile TapState sTap;
+
+    static synchronized long changeBackground() {
+        long sequence = sTap == null ? 1 : sTap.sequence + 1;
+        int color = (int) ((sequence - 1) % 3);
+        TapState tap = new TapState(sequence, System.nanoTime(),
+                color == 0 ? 0.8f : 0.06f, color == 1 ? 0.65f : 0.06f,
+                color == 2 ? 0.85f : 0.06f);
+        sTap = tap;
+        Log.i(TAG, "TAP_REQUEST sequence=" + sequence + " handlerNs=" + tap.requestedNs);
+        return sequence;
+    }
     private static final String CHANNEL_ID = "vcam_producer";
 
     private volatile IVirtualCameraService mService;
@@ -255,10 +276,12 @@ public class VCamProducerService extends Service {
                 "uniform float uBallR;\n" +
                 "uniform float uAspect;\n" +
                 "uniform vec3 uTint;\n" +
+                "uniform vec4 uTapBackground;\n" +
                 "uniform float uClockMs;\n" +
                 "uniform sampler2D uClockTexture;\n" +
                 "void main() {\n" +
                 "  vec3 bg = vec3(vUv.x, vUv.y, 0.5 + 0.5 * sin(uTime)) * uTint;\n" +
+                "  bg = mix(bg, uTapBackground.rgb, uTapBackground.a);\n" +
                 "  vec2 d = (vUv - uBall) * vec2(uAspect, 1.0);\n" +
                 "  float disc = smoothstep(uBallR, uBallR * 0.85, length(d));\n" +
                 "  vec3 col = mix(bg, vec3(0.95), disc);\n" +
@@ -393,6 +416,7 @@ public class VCamProducerService extends Service {
                 int uBallR = GLES20.glGetUniformLocation(prog, "uBallR");
                 int uAspect = GLES20.glGetUniformLocation(prog, "uAspect");
                 int uTint = GLES20.glGetUniformLocation(prog, "uTint");
+                int uTapBackground = GLES20.glGetUniformLocation(prog, "uTapBackground");
                 float aspect = (float) mWidth / Math.max(1, mHeight);
                 float[] tint = tintFor(sTint);
                 GLES20.glUniform3f(uTint, tint[0], tint[1], tint[2]);
@@ -407,6 +431,7 @@ public class VCamProducerService extends Service {
                 final long frameIntervalNs = 1000000000L / mFps;
                 long nextFrameNs = 0;
                 long animationStartNs = 0;
+                long lastTapSequence = 0;
                 while (mRequests.isCurrent(request) && mSurface.isValid()) {
                     long frameTimeNs = clock.awaitFrame();
                     if (!mRequests.isCurrent(request)) break;
@@ -429,8 +454,12 @@ public class VCamProducerService extends Service {
                     GLES20.glViewport(0, 0, mWidth, mHeight);
                     int cycleFrame = (int) (mFrames % mFps) + 1;
                     int cycleMs = (cycleFrame * 1000 + mFps / 2) / mFps;
+                    TapState tap = sTap; // one snapshot for the camera and direct draws
+                    if (tap == null) GLES20.glUniform4f(uTapBackground, 0, 0, 0, 0);
+                    else GLES20.glUniform4f(uTapBackground, tap.red, tap.green, tap.blue, 1);
                     GLES20.glUniform1f(uClockMs, sReferenceSurface == null ? -1f : cycleMs);
-                    if (sReferenceSurface != null) clockTexture.update(cycleFrame, mFps, cycleMs);
+                    if (sReferenceSurface != null) clockTexture.update(cycleFrame, mFps, cycleMs,
+                            tap == null ? 0 : tap.sequence);
                     GLES20.glUniform1f(uTime, t);
                     GLES20.glUniform2f(uBall, bx, by);
                     GLES20.glUniform1f(uBallR, 0.08f);
@@ -444,6 +473,13 @@ public class VCamProducerService extends Service {
                     if (!EGL14.eglSwapBuffers(dpy, win)) {
                         Log.w(TAG, "eglSwapBuffers failed (surface gone?)");
                         break;
+                    }
+                    if (tap != null && tap.sequence != lastTapSequence) {
+                        lastTapSequence = tap.sequence;
+                        Log.i(TAG, "TAP_ENQUEUED sequence=" + tap.sequence
+                                + " handlerToSwapReturnMs="
+                                + (System.nanoTime() - tap.requestedNs) / 1000000.0);
+                        // Swap return is NOT camera receipt or physical display presentation.
                     }
                     if (marker == null && mRequests.isCurrent(request)) {
                         mirror.draw(dpy, cfgs[0], ctx, win);
@@ -483,7 +519,7 @@ public class VCamProducerService extends Service {
         private android.graphics.Canvas canvas;
         private final android.graphics.Paint paint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
         private int texture;
-        void update(int frame, int fps, int millis) {
+        void update(int frame, int fps, int millis, long tapSequence) {
             if (bitmap == null) {
                 bitmap = android.graphics.Bitmap.createBitmap(512, 256, android.graphics.Bitmap.Config.ARGB_8888);
                 canvas = new android.graphics.Canvas(bitmap);
@@ -503,6 +539,11 @@ public class VCamProducerService extends Service {
             canvas.drawText(String.format(java.util.Locale.ROOT, "%d.%03d", millis / 1000, millis % 1000), 256, 84, paint);
             paint.setTextSize(28);
             canvas.drawText(String.format(java.util.Locale.ROOT, "FRAME %02d / %02d", frame, fps), 256, 116, paint);
+            if (tapSequence > 0) {
+                paint.setColor(0xff050505); canvas.drawRect(112, 132, 400, 174, paint);
+                paint.setColor(0xffffffff); paint.setTextSize(30);
+                canvas.drawText("TAP #" + tapSequence, 256, 164, paint);
+            }
             for (int i = 0; i < fps; ++i) {
                 paint.setColor(i < frame ? 0xff19e6cc : 0xff060606);
                 canvas.drawRect(i * 512f / fps + 1, 240, (i + 1) * 512f / fps - 1, 256, paint);

@@ -128,5 +128,13 @@
     "Clock is nominal frame counter with one-second wrap, not a monotonic latency measurement.",
     "No new full factory-image build/flash; earlier R2 archives contain older apps.",
     "Single VGA RGBA path only; no60fps multicamera/YUV/JPEG/high-resolution qualification."
-  ]
+  ],
+  "interactive_tap_revision": {
+    "producer_apk_sha256": "5bb6359563cef402218a6997f2364651bcf954e18390c311248f241992b02767",
+    "build": "VCamProducer and VCamProducer2 PASS (14 seconds); integration twice/130 hashes stable",
+    "physical_check": "Producer640x480@60 and Camera2 device100 active; source-pixel TAP #1 red and TAP #2 green visually verified on both panes, matching sampled RGB values",
+    "timing_scope": "8 observed requests paired with first changed-source eglSwapBuffers return; handler-to-swap-return18.2\u201329.7ms, NOT Camera2 receipt or physical display latency",
+    "negative_control_limit": "Concurrent physical interaction added taps, so no isolated request-count negative-control claim. Raw log and failed initial assertion retained locally.",
+    "earlier_results": "Host suites, pixel recording and batch timing above belong to the preceding APK, not rerun as a full performance benchmark for this UI change."
+  }
 }
