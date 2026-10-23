@@ -2,9 +2,9 @@
 <manifest>
   <remote name="aosp" fetch=".." review="https://android-review.googlesource.com/"/>
   <remote name="github" fetch="https://github.com/"/>
-  
+
   <default remote="aosp" revision="refs/tags/android-17.0.0_r1" sync-j="4"/>
-  
+
   <project name="device/common" revision="9e48dd8859c3eb6b911bcc9d1ce48a4278bd03f5" upstream="refs/tags/android-17.0.0_r1" dest-branch="refs/tags/android-17.0.0_r1" groups="pdk,pdk-cw-fs"/>
   <project name="device/generic/arm64" revision="71380158d818de918338e34a9cb72316fe3cfa4e" upstream="refs/tags/android-17.0.0_r1" dest-branch="refs/tags/android-17.0.0_r1" groups="pdk"/>
   <project name="device/generic/armv7-a-neon" revision="b7153cb57f487ce183df8a3719248242765dbb31" upstream="refs/tags/android-17.0.0_r1" dest-branch="refs/tags/android-17.0.0_r1" groups="pdk"/>
@@ -1099,8 +1099,8 @@
   <project name="trusty/vendor/google/aosp" revision="93e3ca36bc59e5d357b226e4e5254f8e478213f2" upstream="refs/tags/android-17.0.0_r1" dest-branch="refs/tags/android-17.0.0_r1" groups="pdk,trusty">
     <copyfile src="lk_inc.mk" dest="lk_inc.mk"/>
   </project>
-  
+
   <superproject name="platform/superproject" revision="android-17.0.0_r1"/>
-  
+
   <contactinfo bugurl="go/repo-bug"/>
 </manifest>
