@@ -15,6 +15,7 @@ package android.hardware.virtualcamera.hal;
 
 import android.hardware.virtualcamera.hal.IVirtualCameraHalCallback;
 import android.hardware.common.NativeHandle;
+import android.hardware.virtualcamera.hal.ProducerDescriptor;
 
 @VintfStability
 interface IVirtualCameraHal {
@@ -69,4 +70,18 @@ interface IVirtualCameraHal {
     @nullable ParcelFileDescriptor queueFrameForCamera(int slot, in NativeHandle buffer,
             int width, int height, int stride, int format, long usage,
             long timestampNs, in @nullable ParcelFileDescriptor acquireFence);
+
+    /** V4: configurationToken is issued by the HAL in the V4 configure callback.
+     * A positive token identifies exactly one configuration of one camera session.
+     * Stale/closed/zero/wrong-slot tokens are rejected BEFORE input acceptance;
+     * rejection returns no retirement fence and does not consume the current frame.
+     * V1-V3 frame entry points cannot feed a token-bound camera session.
+     */
+    @nullable ParcelFileDescriptor queueFrameForConfiguration(int slot, long configurationToken,
+            in NativeHandle buffer, int width, int height, int stride, int format, long usage,
+            long timestampNs, in @nullable ParcelFileDescriptor acquireFence);
+    /** V5: descriptor is immutable until generation-matched removal. Publishes only after validation. */
+    void registerProducer(int slot, in ProducerDescriptor descriptor, in IVirtualCameraHalCallback owner);
+    void removeProducer(int slot, long registration, in IVirtualCameraHalCallback owner);
+    void setConfigurationReady(int slot, long configurationToken, boolean ready);
 }

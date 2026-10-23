@@ -27,4 +27,8 @@ interface IVirtualCameraHalCallback {
   void onCameraClosed();
   void onStreamsConfiguredForCamera(int slot, int width, int height, int fps);
   void onCameraClosedForCamera(int slot);
+  void onStreamsConfiguredForConfiguration(int slot, long configurationToken, int width, int height, int fps);
+  void onCameraClosedForConfiguration(int slot, long configurationToken);
+  void onStreamsConfiguredForProducer(int slot, long registration, long configurationToken, int width, int height, int fps);
+  void onCameraClosedForProducer(int slot, long registration, long configurationToken);
 }

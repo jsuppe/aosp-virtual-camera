@@ -8,7 +8,7 @@ android_app {
     platform_apis: true,
     certificate: "platform",
     system_ext_specific: true,
-    static_libs: ["virtual-camera-aidl-java"],
+    static_libs: ["virtual-camera-aidl-java", "vcam-frame-identity"],
 }
 
 // Same app under a second package name: a second, independent producer
@@ -19,6 +19,6 @@ android_app {
     platform_apis: true,
     certificate: "platform",
     system_ext_specific: true,
-    static_libs: ["virtual-camera-aidl-java"],
+    static_libs: ["virtual-camera-aidl-java", "vcam-frame-identity"],
     aaptflags: ["--rename-manifest-package", "com.example.vcamproducer2"],
 }

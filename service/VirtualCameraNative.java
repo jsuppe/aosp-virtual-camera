@@ -63,23 +63,43 @@ public final class VirtualCameraNative {
         }
     }
 
-    public static void setCameraPresent(int slot, boolean present) {
-        if (!sLoaded) return;
-        try {
-            nativeSetCameraPresent(slot, present);
-        } catch (Throwable t) {
-            Log.w(TAG, "setCameraPresent failed", t);
-        }
+    public static boolean registerProducer(int slot, long registration, int[] descriptor) {
+        return sLoaded && nativeRegisterProducer(slot, registration, descriptor);
+    }
+    public static void removeProducer(int slot, long registration) {
+        if (sLoaded) nativeRemoveProducer(slot, registration);
+    }
+    public static boolean setConfigurationReady(int slot, long connection, long token, boolean ready) {
+        return sLoaded && nativeSetConfigurationReady(slot, connection, token, ready);
     }
 
     public static Surface createSurface(int slot, int width, int height) {
         if (!sLoaded) return null;
-        return nativeCreateSurface(slot, width, height);
+        return nativeCreateSurfaceForEpoch(slot, width, height, 0, 0); // rejected on V4
     }
 
     public static void releaseSurface(int slot) {
         if (!sLoaded) return;
         nativeReleaseSurface(slot);
+    }
+
+    // Snapshot the JNI callback scope before deferring work to a lifecycle
+    // executor. Scoped native entry points restore it on that worker thread.
+    public static long callbackEpoch() { return sLoaded ? nativeCallbackEpoch() : 0; }
+    public static long callbackConfiguration() { return sLoaded ? nativeCallbackConfiguration() : 0; }
+    public static long callbackRegistration() { return sLoaded ? nativeCallbackRegistration() : 0; }
+    public static boolean isCurrentCallbackConnection(long epoch) {
+        return sLoaded && epoch != 0 && nativeIsCurrentConnection(epoch);
+    }
+    public static Surface createSurfaceForEpoch(int slot, int width, int height, long epoch, long token) {
+        return sLoaded && epoch != 0 && token > 0 ? nativeCreateSurfaceForEpoch(slot, width, height, epoch, token) : null;
+    }
+    public static void releaseSurfaceForEpoch(int slot, long epoch, long token) {
+        if (sLoaded && epoch != 0 && token > 0) nativeReleaseSurfaceForEpoch(slot, epoch, token);
+    }
+    // HAL death invalidates every configuration owned by that connection.
+    public static void releaseSurfaceForEpoch(int slot, long epoch) {
+        if (sLoaded && epoch != 0) nativeReleaseSurfaceForEpoch(slot, epoch, 0);
     }
 
     // ---- called from JNI (binder threads) ----
@@ -99,8 +119,15 @@ public final class VirtualCameraNative {
     }
 
     private static native boolean nativeIsHalUp();
+    private static native boolean nativeRegisterProducer(int slot, long registration, int[] descriptor);
+    private static native void nativeRemoveProducer(int slot, long registration);
+    private static native boolean nativeSetConfigurationReady(int slot, long connection, long token, boolean ready);
     private static native int nativeGetMaxCameras();
-    private static native void nativeSetCameraPresent(int slot, boolean present);
-    private static native Surface nativeCreateSurface(int slot, int width, int height);
     private static native void nativeReleaseSurface(int slot);
+    private static native long nativeCallbackEpoch();
+    private static native long nativeCallbackConfiguration();
+    private static native long nativeCallbackRegistration();
+    private static native boolean nativeIsCurrentConnection(long epoch);
+    private static native Surface nativeCreateSurfaceForEpoch(int slot, int width, int height, long epoch, long token);
+    private static native void nativeReleaseSurfaceForEpoch(int slot, long epoch, long token);
 }

@@ -5,6 +5,7 @@
 #define LOG_TAG "VCamJpeg"
 
 #include "JpegEncoder.h"
+#include "AcquireFenceWait.h"
 
 #include <android/sync.h>
 #include <log/log.h>
@@ -47,7 +48,11 @@ size_t JpegEncoder::encodeToBlob(AHardwareBuffer* src, int acquireFenceFd,
         ALOGE("encodeToBlob: source format %u not RGBA", desc.format);
         return 0;
     }
-    if (acquireFenceFd >= 0) sync_wait(acquireFenceFd, 100);
+    if (!acquireFenceReady(acquireFenceFd, [](int) { return false; },
+            [](int fd, int timeoutMs) { return sync_wait(fd, timeoutMs); })) {
+        ALOGE("encodeToBlob: source fence wait failed; refusing to read");
+        return 0;
+    }
 
     void* srcPtr = nullptr;
     if (AHardwareBuffer_lock(src, AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN, -1, nullptr, &srcPtr) != 0 ||

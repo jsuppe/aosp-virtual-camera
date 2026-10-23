@@ -32,7 +32,7 @@ cc_library_shared {
         "android.hardware.camera.common-V1-ndk",
         "android.hardware.camera.device-V1-ndk",
         "android.hardware.camera.provider-V1-ndk",
-        "android.hardware.virtualcamera.hal-V3-ndk",
+        "android.hardware.virtualcamera.hal-V6-ndk",
         "android.hardware.graphics.mapper@2.0",
         "android.hardware.graphics.mapper@3.0",
         "android.hardware.graphics.mapper@4.0",
@@ -65,7 +65,7 @@ cc_library_shared {
 
     include_dirs: [
         "hardware/interfaces/camera/common/1.0/default/include",
-        "hardware/interfaces/camera/provider/v2-shared-memory",
+        "hardware/interfaces/camera/provider/virtual/v2-shared-memory",
         "hardware/interfaces/camera/provider/virtual/core",
     ],
 
@@ -98,7 +98,7 @@ cc_binary {
 
     include_dirs: [
         "hardware/interfaces/camera/provider/virtual/core",
-        "hardware/interfaces/camera/provider/v2-shared-memory",
+        "hardware/interfaces/camera/provider/virtual/v2-shared-memory",
         "hardware/interfaces/camera/common/1.0/default/include",
     ],
 
@@ -107,7 +107,7 @@ cc_binary {
         "android.hardware.camera.device-V1-ndk",
         "android.hardware.camera.provider-V1-ndk",
         "android.hardware.camera.provider-V1-virtual-impl",
-        "android.hardware.virtualcamera.hal-V3-ndk",
+        "android.hardware.virtualcamera.hal-V6-ndk",
         "libbinder_ndk",
         "libhidlbase",
         "liblog",

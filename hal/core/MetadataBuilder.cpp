@@ -14,82 +14,57 @@
 #include <algorithm>
 #include <cstring>
 #include <vector>
+#include <map>
+#include <array>
+#include <set>
+#include <tuple>
 
 namespace virtualcamera {
 
-std::vector<uint8_t> MetadataBuilder::buildCameraCharacteristics() {
+std::vector<uint8_t> MetadataBuilder::buildCameraCharacteristics(const ProducerCapabilities* capabilities) {
+    const auto fallback = ProducerCapabilities::diagnostic();
+    const auto& caps = capabilities ? *capabilities : fallback;
+    if (!caps.valid()) return {};
+    int arrayWidth=0,arrayHeight=0,maxPixels=0; bool jpeg=false;
+    for(const auto& m:caps.modes) { arrayWidth=std::max(arrayWidth,m.width);arrayHeight=std::max(arrayHeight,m.height);
+        maxPixels=std::max(maxPixels,m.width*m.height);
+        for(int f:m.formats) if(f==0x21)jpeg=true; }
     // Create camera characteristics with enough space for all entries
-    camera_metadata_t* meta = allocate_camera_metadata(120, 6000);
+    camera_metadata_t* meta = allocate_camera_metadata(128, 32768);
 
     // Required characteristics for a basic camera
-    uint8_t facing = ANDROID_LENS_FACING_EXTERNAL;
+    uint8_t facing = caps.facing;
     add_camera_metadata_entry(meta, ANDROID_LENS_FACING, &facing, 1);
 
-    int32_t orientation = 0;
+    int32_t orientation = caps.orientation;
     add_camera_metadata_entry(meta, ANDROID_SENSOR_ORIENTATION, &orientation, 1);
 
-    // Supported resolutions: 4K, 1080p, 720p, 480p
-    // Each format x resolution is a 4-entry tuple
-    struct Res { int32_t w, h; };
-    static constexpr Res kResolutions[] = {
-        {3840, 2160}, {1920, 1080}, {1280, 720}, {640, 480},
-    };
-    static constexpr int32_t kFormats[] = {
-        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED,
-        HAL_PIXEL_FORMAT_RGBA_8888,
-        HAL_PIXEL_FORMAT_YCbCr_420_888,
-        HAL_PIXEL_FORMAT_BLOB,          // JPEG stills (JpegEncoder)
-    };
-    static constexpr int kNumRes = sizeof(kResolutions) / sizeof(kResolutions[0]);
-    static constexpr int kNumFmt = sizeof(kFormats) / sizeof(kFormats[0]);
-    static constexpr int kNumConfigs = kNumFmt * kNumRes;
-
-    // 16666666ns = 60fps
-    static constexpr int64_t kMinFrameDurationNs = 16666666LL;
-
-    // Stream configurations
-    int32_t streamConfigs[kNumConfigs * 4];
-    int64_t frameDurations[kNumConfigs * 4];
-    int64_t stallDurations[kNumConfigs * 4];
-    int idx = 0;
-    for (int f = 0; f < kNumFmt; f++) {
-        for (int r = 0; r < kNumRes; r++) {
-            int base = idx * 4;
-            streamConfigs[base + 0] = kFormats[f];
-            streamConfigs[base + 1] = kResolutions[r].w;
-            streamConfigs[base + 2] = kResolutions[r].h;
-            streamConfigs[base + 3] = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
-
-            frameDurations[base + 0] = kFormats[f];
-            frameDurations[base + 1] = kResolutions[r].w;
-            frameDurations[base + 2] = kResolutions[r].h;
-            frameDurations[base + 3] = kMinFrameDurationNs;
-
-            stallDurations[base + 0] = kFormats[f];
-            stallDurations[base + 1] = kResolutions[r].w;
-            stallDurations[base + 2] = kResolutions[r].h;
-            // BLOB is a stalling format: CPU JPEG encode of a 4K frame.
-            stallDurations[base + 3] = (kFormats[f] == HAL_PIXEL_FORMAT_BLOB) ? 100000000LL : 0LL;
-            idx++;
-        }
+    // Only declared, pipeline-supported mode outputs. Collapse duplicates using fastest declared rate.
+    std::map<std::tuple<int,int,int>,int> outputs;
+    for(const auto& m:caps.modes)for(int f:m.formats) {
+        auto key=std::make_tuple(f,m.width,m.height); outputs[key]=std::max(outputs[key],m.maxFps);
     }
-    add_camera_metadata_entry(meta, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS,
-                              streamConfigs, kNumConfigs * 4);
-    add_camera_metadata_entry(meta, ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS,
-                              frameDurations, kNumConfigs * 4);
-    add_camera_metadata_entry(meta, ANDROID_SCALER_AVAILABLE_STALL_DURATIONS,
-                              stallDurations, kNumConfigs * 4);
-
+    std::vector<int32_t> streamConfigs;
+    std::vector<int64_t> frameDurations,stallDurations;
+    for(const auto& entry:outputs) {
+        auto [f,w,h]=entry.first;
+        for(int n:std::array<int,4>{f,w,h,int(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT)})streamConfigs.push_back(n);
+        for(int64_t n:std::array<int64_t,4>{f,w,h,(1000000000LL+entry.second-1)/entry.second})frameDurations.push_back(n);
+        for(int64_t n:std::array<int64_t,4>{f,w,h,f==0x21?100000000:0})stallDurations.push_back(n);
+    }
+    add_camera_metadata_entry(meta,ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS,streamConfigs.data(),streamConfigs.size());
+    add_camera_metadata_entry(meta,ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS,frameDurations.data(),frameDurations.size());
+    add_camera_metadata_entry(meta,ANDROID_SCALER_AVAILABLE_STALL_DURATIONS,stallDurations.data(),stallDurations.size());
     // Hardware level
     uint8_t hwLevel = ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL;
     add_camera_metadata_entry(meta, ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL, &hwLevel, 1);
 
     // Available capabilities (required!)
-    const uint8_t capabilities[] = {
+    const uint8_t availableCapabilities[] = {
         ANDROID_REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE,
     };
     add_camera_metadata_entry(meta, ANDROID_REQUEST_AVAILABLE_CAPABILITIES,
-                              capabilities, sizeof(capabilities));
+                              availableCapabilities, jpeg ? sizeof(availableCapabilities) : 0);
 
     // Partial result count (we send single complete result)
     int32_t partialResultCount = 1;
@@ -111,17 +86,19 @@ std::vector<uint8_t> MetadataBuilder::buildCameraCharacteristics() {
     add_camera_metadata_entry(meta, ANDROID_SCALER_CROPPING_TYPE, &croppingType, 1);
 
     // JPEG (BLOB) output
-    int32_t jpegMaxSize = kJpegMaxSize;
+    int32_t jpegMaxSize = maxPixels * 4 + 65536;
+    if (jpeg) {
     add_camera_metadata_entry(meta, ANDROID_JPEG_MAX_SIZE, &jpegMaxSize, 1);
     const int32_t thumbSizes[] = { 0, 0 };   // no thumbnails
     add_camera_metadata_entry(meta, ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES, thumbSizes, 2);
+    }
 
     // Zoom ratio range (1.0x only - no zoom)
     const float zoomRange[] = {1.0f, 1.0f};
     add_camera_metadata_entry(meta, ANDROID_CONTROL_ZOOM_RATIO_RANGE, zoomRange, 2);
 
     // Active array size = max resolution (4K)
-    const int32_t activeArray[] = {0, 0, 3840, 2160};
+    const int32_t activeArray[] = {0, 0, arrayWidth, arrayHeight};
     add_camera_metadata_entry(meta, ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE, activeArray, 4);
 
     // Max digital zoom
@@ -129,21 +106,23 @@ std::vector<uint8_t> MetadataBuilder::buildCameraCharacteristics() {
     add_camera_metadata_entry(meta, ANDROID_SCALER_AVAILABLE_MAX_DIGITAL_ZOOM, &maxZoom, 1);
 
     // Scaler crop region = full sensor (4K)
-    const int32_t cropRegion[] = {0, 0, 3840, 2160};
+    const int32_t cropRegion[] = {0, 0, arrayWidth, arrayHeight};
     add_camera_metadata_entry(meta, ANDROID_SCALER_CROP_REGION, cropRegion, 4);
 
     // AE available FPS ranges
-    const int32_t fpsRanges[] = {
-        15, 30,   // 15-30 fps (power saving / variable)
-        30, 30,   // locked 30 fps
-        30, 60,   // 30-60 fps
-        60, 60,   // locked 60 fps
-    };
-    add_camera_metadata_entry(meta, ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES,
-                              fpsRanges, sizeof(fpsRanges) / sizeof(int32_t));
-
+    const auto rates=caps.fpsRanges();
+    std::vector<int32_t> fpsRanges;
+    for(const auto& r:rates){fpsRanges.push_back(r.first);fpsRanges.push_back(r.second);}
+    add_camera_metadata_entry(meta,ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES,fpsRanges.data(),fpsRanges.size());
+    int32_t pixelSize[]={arrayWidth,arrayHeight};
+    add_camera_metadata_entry(meta,ANDROID_SENSOR_INFO_PIXEL_ARRAY_SIZE,pixelSize,2);
+    int minFps=120;for(const auto& m:caps.modes)minFps=std::min(minFps,m.minFps);
+    int64_t maxDuration=1000000000LL/minFps;
+    add_camera_metadata_entry(meta,ANDROID_SENSOR_INFO_MAX_FRAME_DURATION,&maxDuration,1);
+    int32_t maxOutputs[]={0,std::min(2,caps.maxStreams),jpeg?1:0};
+    add_camera_metadata_entry(meta,ANDROID_REQUEST_MAX_NUM_OUTPUT_STREAMS,maxOutputs,3);
     // Available request keys
-    const int32_t requestKeys[] = {
+    std::vector<int32_t> requestKeys = {
         ANDROID_CONTROL_MODE,
         ANDROID_CONTROL_AE_MODE,
         ANDROID_CONTROL_AWB_MODE,
@@ -152,8 +131,8 @@ std::vector<uint8_t> MetadataBuilder::buildCameraCharacteristics() {
         ANDROID_JPEG_QUALITY,
         ANDROID_JPEG_ORIENTATION,
     };
-    add_camera_metadata_entry(meta, ANDROID_REQUEST_AVAILABLE_REQUEST_KEYS,
-                              requestKeys, sizeof(requestKeys)/sizeof(int32_t));
+    if(!jpeg) for(int k:{ANDROID_JPEG_QUALITY,ANDROID_JPEG_ORIENTATION})requestKeys.erase(std::remove(requestKeys.begin(),requestKeys.end(),k),requestKeys.end());
+    add_camera_metadata_entry(meta, ANDROID_REQUEST_AVAILABLE_REQUEST_KEYS,requestKeys.data(),requestKeys.size());
 
     // Available result keys
     const int32_t resultKeys[] = {
@@ -167,7 +146,7 @@ std::vector<uint8_t> MetadataBuilder::buildCameraCharacteristics() {
                               resultKeys, sizeof(resultKeys)/sizeof(int32_t));
 
     // Available characteristics keys
-    const int32_t charKeys[] = {
+    std::vector<int32_t> charKeys = {
         ANDROID_LENS_FACING,
         ANDROID_SENSOR_ORIENTATION,
         ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS,
@@ -188,8 +167,9 @@ std::vector<uint8_t> MetadataBuilder::buildCameraCharacteristics() {
         ANDROID_JPEG_MAX_SIZE,
         ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES,
     };
-    add_camera_metadata_entry(meta, ANDROID_REQUEST_AVAILABLE_CHARACTERISTICS_KEYS,
-                              charKeys, sizeof(charKeys)/sizeof(int32_t));
+    if(!jpeg)for(int k:{ANDROID_JPEG_MAX_SIZE,ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES})charKeys.erase(std::remove(charKeys.begin(),charKeys.end(),k),charKeys.end());
+    for(int k:{ANDROID_SENSOR_INFO_PIXEL_ARRAY_SIZE,ANDROID_SENSOR_INFO_MAX_FRAME_DURATION,ANDROID_REQUEST_MAX_NUM_OUTPUT_STREAMS})charKeys.push_back(k);
+    add_camera_metadata_entry(meta, ANDROID_REQUEST_AVAILABLE_CHARACTERISTICS_KEYS,charKeys.data(),charKeys.size());
 
     // Serialize to byte vector
     size_t metaSize = get_camera_metadata_size(meta);
@@ -201,28 +181,17 @@ std::vector<uint8_t> MetadataBuilder::buildCameraCharacteristics() {
     return result;
 }
 
-bool MetadataBuilder::isStreamCombinationSupported(const std::vector<StreamDesc>& streams) {
-    if (streams.empty()) return false;
-    static const int kFormats[] = { HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED,
-                                    HAL_PIXEL_FORMAT_RGBA_8888,
-                                    HAL_PIXEL_FORMAT_YCbCr_420_888,
-                                    HAL_PIXEL_FORMAT_BLOB };
-    static const int kSizes[][2] = { {3840, 2160}, {1920, 1080}, {1280, 720}, {640, 480} };
-    for (const auto& s : streams) {
-        if (s.input) return false;                         // no reprocessing
-        if (s.useCase != 0 /* ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_DEFAULT */) {
-            return false;                                  // no use cases advertised
-        }
-        if (s.rotation < 0 || s.rotation > 3) return false;   // StreamRotation enum range
-        bool fmt = false, size = false;
-        for (int f : kFormats) fmt |= (f == s.format);
-        for (const auto& sz : kSizes) size |= (sz[0] == s.width && sz[1] == s.height);
-        if (!fmt || !size) return false;
+bool MetadataBuilder::isStreamCombinationSupported(const std::vector<StreamDesc>& streams,const ProducerCapabilities* capabilities) {
+    const auto fallback=ProducerCapabilities::diagnostic();const auto& caps=capabilities?*capabilities:fallback;
+    std::vector<ProducerCapabilities::Output> outputs;
+    for(const auto& s:streams) {
+        if(s.input||s.useCase!=0||s.rotation!=0)return false; // no unimplemented rotation promise
+        outputs.push_back({s.format,s.width,s.height});
     }
-    return true;
+    return caps.select(outputs)!=nullptr;
 }
 
-std::vector<uint8_t> MetadataBuilder::buildDefaultRequestSettings() {
+std::vector<uint8_t> MetadataBuilder::buildDefaultRequestSettings(const ProducerCapabilities* capabilities) {
     camera_metadata_t* meta = allocate_camera_metadata(10, 200);
 
     uint8_t controlMode = ANDROID_CONTROL_MODE_AUTO;
@@ -233,12 +202,17 @@ std::vector<uint8_t> MetadataBuilder::buildDefaultRequestSettings() {
 
     uint8_t awbMode = ANDROID_CONTROL_AWB_MODE_AUTO;
     add_camera_metadata_entry(meta, ANDROID_CONTROL_AWB_MODE, &awbMode, 1);
-    const int32_t fpsRange[] = { 30, 30 };
+    auto range=capabilities ? capabilities->defaultRange() : std::make_pair(30,30);
+    const int32_t fpsRange[] = { range.first, range.second };
     add_camera_metadata_entry(meta, ANDROID_CONTROL_AE_TARGET_FPS_RANGE, fpsRange, 2);
+    bool jpeg=capabilities==nullptr;
+    if(capabilities)for(const auto& m:capabilities->modes)for(int f:m.formats)if(f==0x21)jpeg=true;
+    if(jpeg) {
     uint8_t jpegQuality = 90;
     add_camera_metadata_entry(meta, ANDROID_JPEG_QUALITY, &jpegQuality, 1);
     int32_t jpegOrientation = 0;
     add_camera_metadata_entry(meta, ANDROID_JPEG_ORIENTATION, &jpegOrientation, 1);
+    }
 
     float zoomRatio = 1.0f;
     add_camera_metadata_entry(meta, ANDROID_CONTROL_ZOOM_RATIO, &zoomRatio, 1);
@@ -253,7 +227,7 @@ std::vector<uint8_t> MetadataBuilder::buildDefaultRequestSettings() {
 
 std::vector<uint8_t> MetadataBuilder::buildResultMetadata(int64_t timestamp,
                                                           int64_t frameDurationNs,
-                                                          int64_t producerTimestampNs) {
+                                                          int64_t producerTimestampNs, int width, int height) {
     camera_metadata_t* meta = allocate_camera_metadata(10, 200);
 
     int64_t ts = timestamp;
@@ -268,7 +242,7 @@ std::vector<uint8_t> MetadataBuilder::buildResultMetadata(int64_t timestamp,
     float zoomRatio = 1.0f;
     add_camera_metadata_entry(meta, ANDROID_CONTROL_ZOOM_RATIO, &zoomRatio, 1);
 
-    int32_t cropRegion[] = {0, 0, 3840, 2160};
+    int32_t cropRegion[] = {0, 0, width, height};
     add_camera_metadata_entry(meta, ANDROID_SCALER_CROP_REGION, cropRegion, 4);
 
     size_t metaSize = get_camera_metadata_size(meta);

@@ -1,3 +1,5 @@
+> **Current source targets (2026-10-23):** the shared Android13 platform integration, stable AIDL V6 negotiation and regression tests are in the root directories. The Android17 Raspberry Pi5 port and **60fps split-camera test app** are in [targets/rpi5-a17](targets/rpi5-a17/README.md). [Browse the Pi test-app source](targets/rpi5-a17/apps/VCamProducer). See [the current change-set summary](docs/CHANGESET-20261023.md) for tested scope and limitations.
+
 # AOSP Virtual Camera — An Explainer
 
 This project adds a **virtual camera** to Android: a camera device (id `100`)

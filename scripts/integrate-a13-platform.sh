@@ -42,6 +42,10 @@ echo "mode: $MODE"
 [ -f "$AOSP_ROOT/build/envsetup.sh" ] || { echo "not an AOSP tree: $AOSP_ROOT"; exit 1; }
 
 echo "=== [0/7] Stable AIDL boundary + platform JNI + APEX (vendor packaging) ==="
+mkdir -p "$HAL_DEST"
+# Keep legacy frame-source headers inside the camera integration subtree.
+mkdir -p "$HAL_DEST/v2-shared-memory"
+cp "$SCRIPT_DIR"/v2-shared-memory/*.h "$HAL_DEST/v2-shared-memory/"
 rm -rf "$HAL_DEST/stable-aidl" "$HAL_DEST/platform-jni" "$HAL_DEST/apex"
 cp -r "$SCRIPT_DIR/stable-aidl"   "$HAL_DEST/stable-aidl"
 cp -r "$SCRIPT_DIR/platform-jni"  "$HAL_DEST/platform-jni"
@@ -80,6 +84,8 @@ SVC_DEST="$HAL_DEST/platform-service"
 mkdir -p "$SVC_DEST/java/com/android/server/camera/virtual"
 cp "$SCRIPT_DIR"/service/VirtualCameraService.java "$SCRIPT_DIR"/service/VirtualCamera.java \
    "$SCRIPT_DIR"/service/VirtualCameraNative.java \
+   "$SCRIPT_DIR"/service/LifecycleSlot.java \
+   "$SCRIPT_DIR"/service/ProducerCapabilities.java \
    "$SVC_DEST/java/com/android/server/camera/virtual/"
 cp "$SCRIPT_DIR/platform/services/Android.bp" "$SVC_DEST/Android.bp"
 
@@ -88,6 +94,7 @@ rm -rf "$HAL_DEST/apps"
 mkdir -p "$HAL_DEST/apps"
 cp -r "$SCRIPT_DIR/platform/apps/VCamProducer" "$HAL_DEST/apps/"
 cp -r "$SCRIPT_DIR/platform/apps/VCamViewer" "$HAL_DEST/apps/"
+cp -r "$SCRIPT_DIR/platform/apps/VCamE2E" "$HAL_DEST/apps/"
 # VCamProducer2 (second package, same sources) is defined in VCamProducer/Android.bp
 
 echo "=== [5/7] frameworks/base hooks ==="

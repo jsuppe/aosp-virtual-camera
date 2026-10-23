@@ -39,4 +39,8 @@ interface IVirtualCameraHal {
   int getMaxCameras();
   void setCameraPresent(int slot, boolean present);
   @nullable ParcelFileDescriptor queueFrameForCamera(int slot, in android.hardware.common.NativeHandle buffer, int width, int height, int stride, int format, long usage, long timestampNs, in @nullable ParcelFileDescriptor acquireFence);
+  @nullable ParcelFileDescriptor queueFrameForConfiguration(int slot, long configurationToken, in android.hardware.common.NativeHandle buffer, int width, int height, int stride, int format, long usage, long timestampNs, in @nullable ParcelFileDescriptor acquireFence);
+  void registerProducer(int slot, in android.hardware.virtualcamera.hal.ProducerDescriptor descriptor, in android.hardware.virtualcamera.hal.IVirtualCameraHalCallback owner);
+  void removeProducer(int slot, long registration, in android.hardware.virtualcamera.hal.IVirtualCameraHalCallback owner);
+  void setConfigurationReady(int slot, long configurationToken, boolean ready);
 }

@@ -16,4 +16,6 @@ parcelable StreamConfig {
     int fps;
     long usage;
     int useCase;
+    long configurationToken;
+    long connectionToken;
 }

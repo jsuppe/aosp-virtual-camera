@@ -1,0 +1,132 @@
+{
+  "target": "Raspberry Pi5 ARM64 / Android17 / single640x480RGBA",
+  "producer_apk_sha256": "2a25a1e4ce4d02842930bb297c41b2202eb1a7fa54060e27da9e6df772b13fe9",
+  "requested_fps": 60,
+  "negotiated_fps": 60,
+  "display_hz": 60,
+  "apps_built": [
+    "VCamProducer",
+    "VCamProducer2"
+  ],
+  "apps_physically_tested": [
+    "VCamProducer"
+  ],
+  "build_result": "PASS 2m17s",
+  "host_suites_passed": [
+    "fence-safety",
+    "frame-identity",
+    "lifecycle-slot",
+    "producer-capabilities",
+    "renderer-mailbox"
+  ],
+  "python_tests": {
+    "count": 48,
+    "result": "PASS",
+    "note": "stale teardown-source guard updated from setCameraPresent to descriptor-aware removeProducer; original red run retained locally"
+  },
+  "source_reproduction": "portable target integration applied twice:130 hashes stable, target Java matches compiled input hashes",
+  "pixel_recording": {
+    "left": {
+      "valid_recorded_samples": 306,
+      "total_recorded_samples": 306,
+      "distinct_cycle_values": 60,
+      "backward_candidates": 0,
+      "repeat_samples": 2
+    },
+    "right": {
+      "valid_recorded_samples": 306,
+      "total_recorded_samples": 306,
+      "distinct_cycle_values": 60,
+      "backward_candidates": 0,
+      "repeat_samples": 87
+    },
+    "video_sha256": "f2d90cc05316942ee41764cd41696bca30e6e6332903a31eba2997cc5294dd86",
+    "duration_seconds": 5.430167
+  },
+  "hiccup_batches": {
+    "producer": {
+      "batches": 300,
+      "expected_seconds": 0.5,
+      "normal_max_seconds": 0.516,
+      "recording_max_seconds": 0.878,
+      "over_520ms": [
+        {
+          "at": "23:31:28.339",
+          "batch_seconds": 0.878,
+          "during_recording": true
+        },
+        {
+          "at": "23:31:28.912",
+          "batch_seconds": 0.573,
+          "during_recording": true
+        },
+        {
+          "at": "23:31:34.578",
+          "batch_seconds": 0.664,
+          "during_recording": true
+        }
+      ]
+    },
+    "camera": {
+      "batches": 297,
+      "expected_seconds": 0.5,
+      "normal_max_seconds": 0.517,
+      "recording_max_seconds": 1.168,
+      "over_520ms": [
+        {
+          "at": "23:31:28.645",
+          "batch_seconds": 1.168,
+          "during_recording": true
+        },
+        {
+          "at": "23:31:29.661",
+          "batch_seconds": 1.016,
+          "during_recording": true
+        },
+        {
+          "at": "23:31:30.278",
+          "batch_seconds": 0.617,
+          "during_recording": true
+        },
+        {
+          "at": "23:31:30.912",
+          "batch_seconds": 0.634,
+          "during_recording": true
+        },
+        {
+          "at": "23:31:31.493",
+          "batch_seconds": 0.581,
+          "during_recording": true
+        },
+        {
+          "at": "23:31:32.194",
+          "batch_seconds": 0.701,
+          "during_recording": true
+        },
+        {
+          "at": "23:31:32.878",
+          "batch_seconds": 0.684,
+          "during_recording": true
+        },
+        {
+          "at": "23:31:33.410",
+          "batch_seconds": 0.532,
+          "during_recording": true
+        },
+        {
+          "at": "23:31:34.627",
+          "batch_seconds": 0.715,
+          "during_recording": true
+        }
+      ]
+    }
+  },
+  "limits": [
+    "Software screen recording adds load; not a steady-state distinct Camera2 ImageReader FPS or zero-drop benchmark.",
+    "Recorded repeats/skips are retained, not discarded.",
+    "Thirty-frame log batches are not per-frame stall or presentation timings.",
+    "Clock is nominal frame counter with one-second wrap, not a monotonic latency measurement.",
+    "No new full factory-image build/flash; earlier R2 archives contain older apps.",
+    "Single VGA RGBA path only; no60fps multicamera/YUV/JPEG/high-resolution qualification."
+  ]
+}

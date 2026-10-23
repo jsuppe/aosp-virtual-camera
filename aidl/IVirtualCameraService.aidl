@@ -17,4 +17,6 @@ interface IVirtualCameraService {
     void unregisterCamera(int cameraId);
     int[] getRegisteredCameras();
     boolean isCameraInUse(int cameraId);
+    /** Token-bound source readiness/rejection, authorized against callback binder and caller UID. */
+    void setProducerReady(in IVirtualCameraCallback callback, long connectionToken, long configurationToken, boolean ready);
 }

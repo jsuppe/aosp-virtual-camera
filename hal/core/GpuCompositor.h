@@ -81,6 +81,7 @@ public:
 private:
     GpuCompositor() = default;
     bool ensureInit();                       // caller holds mLock
+    bool waitForSourceFence(int fd);         // caller holds mLock + context
     bool ensureYuvTargets(int width, int height);   // caller holds mLock + context
     void releaseYuvTargets();
     GLuint buildProgram(const char* vert, const char* frag);

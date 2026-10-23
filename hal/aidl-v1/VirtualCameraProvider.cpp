@@ -6,6 +6,7 @@
 
 #include "VirtualCameraProvider.h"
 #include "VirtualCameraDevice.h"
+#include "VirtualCameraStableHal.h"
 #include "AidlFrameSource.h"
 #include "AvailabilityBridge.h"
 #include "VendorTags.h"
@@ -173,9 +174,14 @@ ndk::ScopedAStatus VirtualCameraProvider::getCameraDeviceInterface(
                 static_cast<int32_t>(Status::ILLEGAL_ARGUMENT));
     }
 
+    std::shared_ptr<const ::virtualcamera::ProducerCapabilities> capabilities;
+#ifdef VCAM_STABLE_AIDL
+    if(auto* h=VirtualCameraStableHal::get())capabilities=h->capabilities(slot);
+    if(!capabilities)return ndk::ScopedAStatus::fromServiceSpecificError(static_cast<int32_t>(Status::ILLEGAL_ARGUMENT));
+#endif
     ALOGI("Creating device interface for: %s (slot %d)", cameraDeviceId.c_str(), slot);
     *device = ndk::SharedRefBase::make<VirtualCameraDevice>(
-        cameraDeviceId, slot, mFrameSource, mFrameSourceV2, mAidlSource);
+        cameraDeviceId, slot, mFrameSource, mFrameSourceV2, mAidlSource, capabilities);
     return ndk::ScopedAStatus::ok();
 }
 

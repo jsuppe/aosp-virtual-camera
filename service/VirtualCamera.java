@@ -20,6 +20,8 @@ class VirtualCamera {
     private final int mCameraId;
     private final VirtualCameraConfig mConfig;
     private final IVirtualCameraCallback mCallback;
+    final int uid;
+    volatile long connection, configuration;
 
     private volatile boolean mIsOpen = false;
     private volatile boolean mIsCapturing = false;
@@ -28,6 +30,7 @@ class VirtualCamera {
         mCameraId = cameraId;
         mConfig = config;
         mCallback = callback;
+        uid = android.os.Binder.getCallingUid();
     }
 
     int getCameraId() {
@@ -35,8 +38,10 @@ class VirtualCamera {
     }
 
     VirtualCameraConfig getConfig() {
-        return mConfig;
+        return ProducerCapabilities.copy(mConfig);
     }
+    boolean hasCallback(IVirtualCameraCallback callback) { return callback != null && mCallback.asBinder().equals(callback.asBinder()); }
+    int[] descriptor() { return ProducerCapabilities.pack(mConfig); }
 
     boolean isInUse() {
         return mIsOpen;

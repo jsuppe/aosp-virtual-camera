@@ -9,6 +9,7 @@
 #define LOG_TAG "VirtualCameraSession"
 
 #include "VirtualCameraSession.h"
+#include "AcquireFenceWait.h"
 
 #include <log/log.h>
 #include <system/camera_metadata.h>
@@ -28,6 +29,7 @@
 #include <cstring>
 #include <thread>
 #include <vector>
+#include <set>
 
 // Core frame filling
 #include "FrameFiller.h"
@@ -54,18 +56,29 @@ VirtualCameraSession::VirtualCameraSession(
         const std::shared_ptr<ICameraDeviceCallback>& callback, int slot,
         std::shared_ptr<::virtualcamera::VirtualCameraFrameSource> frameSource,
         std::shared_ptr<::virtualcamera::VirtualCameraFrameSourceV2> frameSourceV2,
-        std::shared_ptr<::virtualcamera::AidlFrameSource> aidlSource)
+        std::shared_ptr<::virtualcamera::AidlFrameSource> aidlSource,
+        std::shared_ptr<VirtualCameraStableHal> stableSource,
+        std::shared_ptr<const ::virtualcamera::ProducerCapabilities> capabilities)
     : mCallback(callback),
       mSlot(slot),
       mFrameSource(frameSource),
       mFrameSourceV2(frameSourceV2),
       mAidlSource(aidlSource) {
+    mStableSource = std::move(stableSource);
+    mEnforceCapabilities = capabilities != nullptr;
+    mCapabilities = capabilities ? std::move(capabilities) : std::make_shared<::virtualcamera::ProducerCapabilities>(::virtualcamera::ProducerCapabilities::diagnostic());
+#ifdef VCAM_STABLE_AIDL
+    if (auto* hal = mStableSource ? mStableSource.get() : VirtualCameraStableHal::get()) {
+        mSessionIdentity = hal->allocateSessionIdentity();
+    }
+#endif
     mForceCpuYuv = ::android::base::GetBoolProperty("vendor.vcam.yuv.cpu", false);
     ALOGI("VirtualCameraSession created (slot %d; AIDL V1 adapter, v1 + v2 frame sources)%s",
           mSlot, mForceCpuYuv ? " [vendor.vcam.yuv.cpu=1: CPU YUV converter forced]" : "");
 }
 
 VirtualCameraSession::~VirtualCameraSession() {
+    close();  // cancel/drain before releasing cached framework handles
     ALOGI("VirtualCameraSession destroyed, clearing %zu cached buffers", mBufferCache.size());
 
     // Free all cached buffer handles
@@ -76,20 +89,23 @@ VirtualCameraSession::~VirtualCameraSession() {
     }
     mBufferCache.clear();
 
-    close();
 }
 
 ndk::ScopedAStatus VirtualCameraSession::close() {
     ALOGI("Session close requested");
+    const bool wasClosed = mClosed.exchange(true);
+    mCancelEpoch.fetch_add(1);
+    mWaitCv.notify_all();
+    std::lock_guard<std::recursive_mutex> requests(mRequestLock);
+    if (wasClosed) return ndk::ScopedAStatus::ok();
 #ifdef VCAM_AIDL_SOURCE
-    if (mAidlSource && !mClosed) {
+    if (mAidlSource) {
         mAidlSource->sessionClosed();
     }
 #endif
 #ifdef VCAM_STABLE_AIDL
-    if (!mClosed) {
-        if (auto* hal = VirtualCameraStableHal::get()) hal->notifyCameraClosed(mSlot);
-    }
+    auto* hal = mStableSource ? mStableSource.get() : VirtualCameraStableHal::get();
+    if (hal) hal->notifyCameraClosed(mSlot, mSessionIdentity, mConfigurationToken);
 #endif
     mClosed = true;
     return ndk::ScopedAStatus::ok();
@@ -99,6 +115,7 @@ ndk::ScopedAStatus VirtualCameraSession::configureStreams(
         const StreamConfiguration& requestedConfiguration,
         std::vector<HalStream>* halStreams) {
 
+    std::lock_guard<std::recursive_mutex> requests(mRequestLock);
     std::lock_guard<std::mutex> lock(mLock);
 
     if (mClosed) {
@@ -106,9 +123,30 @@ ndk::ScopedAStatus VirtualCameraSession::configureStreams(
                 static_cast<int32_t>(CameraStatus::INTERNAL_ERROR));
     }
 
+    // Same rule as ICameraDevice.isStreamCombinationSupported: only advertised
+    // formats/sizes, no input streams, no stream use cases (none advertised).
+    {
+        std::vector<::virtualcamera::MetadataBuilder::StreamDesc> descs;
+        std::set<int> streamIds;
+        for (const auto& s : requestedConfiguration.streams) {
+            if(s.id<0 || !streamIds.insert(s.id).second)return ndk::ScopedAStatus::fromServiceSpecificError(static_cast<int32_t>(CameraStatus::ILLEGAL_ARGUMENT));
+            descs.push_back({static_cast<int>(s.format), s.width, s.height,
+                             static_cast<int64_t>(s.useCase),
+                             s.streamType == ::aidl::android::hardware::camera::device::StreamType::INPUT,
+                             static_cast<int>(s.rotation)});
+        }
+        if (!::virtualcamera::MetadataBuilder::isStreamCombinationSupported(descs, mCapabilities.get())) {
+            ALOGE("configureStreams: unsupported stream combination");
+            return ndk::ScopedAStatus::fromServiceSpecificError(
+                    static_cast<int32_t>(CameraStatus::ILLEGAL_ARGUMENT));
+        }
+    }
+
+
     // Clear old streams and buffer cache
     mStreams.clear();
     mHaveSettings = false;
+    mStartupWaitPending = true;
     for (auto& pair : mBufferCache) {
         if (pair.second != nullptr) {
             sHandleImporter.freeBuffer(pair.second);
@@ -119,23 +157,17 @@ ndk::ScopedAStatus VirtualCameraSession::configureStreams(
 
     ALOGI("Configuring %zu streams", requestedConfiguration.streams.size());
 
-    // Same rule as ICameraDevice.isStreamCombinationSupported: only advertised
-    // formats/sizes, no input streams, no stream use cases (none advertised).
-    {
-        std::vector<::virtualcamera::MetadataBuilder::StreamDesc> descs;
-        for (const auto& s : requestedConfiguration.streams) {
-            descs.push_back({static_cast<int>(s.format), s.width, s.height,
-                             static_cast<int64_t>(s.useCase),
-                             s.streamType == ::aidl::android::hardware::camera::device::StreamType::INPUT,
-                             static_cast<int>(s.rotation)});
-        }
-        if (!::virtualcamera::MetadataBuilder::isStreamCombinationSupported(descs)) {
-            ALOGE("configureStreams: unsupported stream combination");
-            return ndk::ScopedAStatus::fromServiceSpecificError(
-                    static_cast<int32_t>(CameraStatus::ILLEGAL_ARGUMENT));
-        }
+    mOutputs.clear();
+    for(const auto& stream:requestedConfiguration.streams)mOutputs.push_back({int(stream.format),stream.width,stream.height});
+    const auto* selected=mCapabilities->select(mOutputs);
+    if(!selected)return ndk::ScopedAStatus::fromServiceSpecificError(static_cast<int32_t>(CameraStatus::ILLEGAL_ARGUMENT));
+    mSourceMode=*selected;mTargetFps=std::clamp(30,selected->minFps,selected->maxFps);mNextFrameNs=0;
+#ifdef VCAM_STABLE_AIDL
+    if(mEnforceCapabilities) {
+        auto* h=mStableSource?mStableSource.get():VirtualCameraStableHal::get();
+        if(!h||!h->registrationCurrent(mSlot,mCapabilities->registration))return ndk::ScopedAStatus::fromServiceSpecificError(static_cast<int32_t>(CameraStatus::INTERNAL_ERROR));
     }
-
+#endif
     for (const auto& stream : requestedConfiguration.streams) {
         ALOGI("Stream %d: %dx%d format=%d",
               stream.id, stream.width, stream.height,
@@ -220,17 +252,20 @@ ndk::ScopedAStatus VirtualCameraSession::configureStreams(
     // Platform relay mode: create the BufferQueue and deliver the Surface to
     // the registered producer app (via VirtualCameraService in system_server).
     if (mAidlSource && !requestedConfiguration.streams.empty()) {
-        const auto& primary = requestedConfiguration.streams[0];
-        mAidlSource->configureStreams(primary.width, primary.height, 30);
+        mAidlSource->configureStreams(mSourceMode.width, mSourceMode.height, mTargetFps);
     }
 #endif
 #ifdef VCAM_STABLE_AIDL
     // Stable-AIDL relay: tell the platform service the stream shape so it can
     // create the BufferQueue and hand its Surface to the producer app.
     if (!requestedConfiguration.streams.empty()) {
-        const auto& primary = requestedConfiguration.streams[0];
-        if (auto* hal = VirtualCameraStableHal::get()) {
-            hal->notifyStreamsConfigured(mSlot, primary.width, primary.height, 30);
+        if (auto* hal = mStableSource ? mStableSource.get() : VirtualCameraStableHal::get()) {
+            mConfigurationToken = hal->notifyStreamsConfigured(
+                    mSlot, mSessionIdentity, mSourceMode.width, mSourceMode.height, mTargetFps);
+            if (mConfigurationToken <= 0) {
+                return ndk::ScopedAStatus::fromServiceSpecificError(
+                        static_cast<int32_t>(CameraStatus::INTERNAL_ERROR));
+            }
         }
     }
 #endif
@@ -251,12 +286,18 @@ ndk::ScopedAStatus VirtualCameraSession::constructDefaultRequestSettings(
         CameraMetadata* metadata) {
 
     (void)type;  // All templates return the same minimal settings
-    metadata->metadata = ::virtualcamera::MetadataBuilder::buildDefaultRequestSettings();
+    metadata->metadata = ::virtualcamera::MetadataBuilder::buildDefaultRequestSettings(mCapabilities.get());
     return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus VirtualCameraSession::flush() {
     ALOGI("Flush requested");
+    mFlushing = true;
+    mCancelEpoch.fetch_add(1);
+    mWaitCv.notify_all();
+    std::lock_guard<std::recursive_mutex> requests(mRequestLock);
+    mNextFrameNs = 0;
+    mFlushing = false;
     return ndk::ScopedAStatus::ok();
 }
 
@@ -309,7 +350,6 @@ buffer_handle_t VirtualCameraSession::importBuffer(const StreamBuffer& buffer) {
         ALOGE("importBuffer: Invalid handle from AIDL (numFds=%d)",
               nativeHandle ? nativeHandle->numFds : -1);
         if (nativeHandle) {
-            native_handle_close(nativeHandle);
             native_handle_delete(nativeHandle);
         }
         return nullptr;
@@ -319,17 +359,21 @@ buffer_handle_t VirtualCameraSession::importBuffer(const StreamBuffer& buffer) {
     buffer_handle_t bufHandle = nativeHandle;
     if (!sHandleImporter.importBuffer(bufHandle)) {
         ALOGE("importBuffer: HandleImporter.importBuffer failed");
-        native_handle_close(nativeHandle);
         native_handle_delete(nativeHandle);
         return nullptr;
     }
+
+    // makeFromAidl borrows the parcel's fds; the mapper cloned the imported
+    // handle. Delete our temporary wrapper, but NEVER close borrowed fds.
+    const int inputFdCount = nativeHandle->numFds;
+    native_handle_delete(nativeHandle);
 
     // Cache it
     mBufferCache[key] = bufHandle;
 
     if (mBufferCache.size() <= 8) {  // Only log first few
         ALOGI("importBuffer: Cached buffer (streamId=%d, bufferId=%lu, numFds=%d)",
-              buffer.streamId, (unsigned long)buffer.bufferId, nativeHandle->numFds);
+              buffer.streamId, (unsigned long)buffer.bufferId, inputFdCount);
     }
 
     return bufHandle;
@@ -353,7 +397,8 @@ ndk::ScopedAStatus VirtualCameraSession::processCaptureRequest(
         const std::vector<BufferCache>& cachesToRemove,
         int32_t* numRequestsProcessed) {
 
-    if (mClosed) {
+    std::lock_guard<std::recursive_mutex> requestsLock(mRequestLock);
+    if (mClosed || mFlushing) {
         *numRequestsProcessed = 0;
         return ndk::ScopedAStatus::fromServiceSpecificError(
                 static_cast<int32_t>(CameraStatus::INTERNAL_ERROR));
@@ -364,6 +409,7 @@ ndk::ScopedAStatus VirtualCameraSession::processCaptureRequest(
     }
 
     *numRequestsProcessed = 0;
+    const uint64_t cancelEpoch = mCancelEpoch.load();
 
     for (const auto& request : requests) {
         // Validate before any callback fires: a request with no output
@@ -377,7 +423,13 @@ ndk::ScopedAStatus VirtualCameraSession::processCaptureRequest(
         }
         for (const auto& b : request.outputBuffers) {
             if (!valid) break;
-            if (mStreams.find(b.streamId) == mStreams.end()) valid = false;
+            // A sync-fence NativeHandle is null or exactly one valid fd,
+            // without integer payload. Reject malformed handles before
+            // taking ownership or emitting any capture callbacks.
+            if (!b.acquireFence.ints.empty() || b.acquireFence.fds.size() > 1 ||
+                    (!b.acquireFence.fds.empty() && b.acquireFence.fds[0].get() < 0)) {
+                valid = false;
+            } else if (mStreams.find(b.streamId) == mStreams.end()) valid = false;
             else if (b.buffer.fds.empty() &&
                      mBufferCache.find(BufferKey(b.streamId, b.bufferId)) == mBufferCache.end()) {
                 valid = false;
@@ -389,7 +441,8 @@ ndk::ScopedAStatus VirtualCameraSession::processCaptureRequest(
             return ndk::ScopedAStatus::fromServiceSpecificError(
                     static_cast<int32_t>(CameraStatus::ILLEGAL_ARGUMENT));
         }
-        CameraStatus status = processSingleRequest(request);
+        if(!updateTargetFps(request.settings))return ndk::ScopedAStatus::fromServiceSpecificError(static_cast<int32_t>(CameraStatus::ILLEGAL_ARGUMENT));
+        CameraStatus status = processSingleRequest(request, cancelEpoch);
         if (status != CameraStatus::OK) {
             ALOGE("Failed to process request %d", request.frameNumber);
             return ndk::ScopedAStatus::fromServiceSpecificError(static_cast<int32_t>(status));
@@ -400,63 +453,194 @@ ndk::ScopedAStatus VirtualCameraSession::processCaptureRequest(
     return ndk::ScopedAStatus::ok();
 }
 
-void VirtualCameraSession::updateTargetFps(const CameraMetadata& settings) {
-    if (settings.metadata.empty()) return;   // unchanged since the last request
-    mHaveSettings = true;
-    const auto* meta = reinterpret_cast<const camera_metadata_t*>(settings.metadata.data());
-    const size_t size = settings.metadata.size();
-    if (validate_camera_metadata_structure(meta, &size) != 0) return;
+bool VirtualCameraSession::updateTargetFps(const CameraMetadata& settings) {
+#ifdef VCAM_STABLE_AIDL
+    auto* hal=mStableSource?mStableSource.get():VirtualCameraStableHal::get();
+    if(mEnforceCapabilities && (!hal||!hal->registrationCurrent(mSlot,mCapabilities->registration)))return false;
+#endif
+    if(settings.metadata.empty())return true;
+    const auto* meta=reinterpret_cast<const camera_metadata_t*>(settings.metadata.data());
+    const size_t size=settings.metadata.size();if(validate_camera_metadata_structure(meta,&size)!=0)return false;
     camera_metadata_ro_entry_t e;
-    if (find_camera_metadata_ro_entry(meta, ANDROID_CONTROL_AE_TARGET_FPS_RANGE, &e) != 0 ||
-        e.count < 2) {
-        return;
+    int fps=mTargetFps;
+    const ::virtualcamera::ProducerMode* selected=&mSourceMode;
+    if(find_camera_metadata_ro_entry(meta,ANDROID_CONTROL_AE_TARGET_FPS_RANGE,&e)==0) {
+        if(e.count!=2)return false;
+        selected=mCapabilities->select(mOutputs,e.data.i32[0],e.data.i32[1]);
+        if(!selected)return false;
+        fps=std::min(e.data.i32[1],selected->maxFps);
     }
-    int32_t fps = e.data.i32[1];   // upper bound of the requested range
-    if (fps > 0 && fps <= 120 && fps != mTargetFps) {
-        ALOGI("Target fps %d -> %d (AE_TARGET_FPS_RANGE [%d,%d])",
-              mTargetFps, fps, e.data.i32[0], e.data.i32[1]);
-        mTargetFps = fps;
+    if(fps!=mTargetFps||selected->id!=mSourceMode.id) {
+#ifdef VCAM_STABLE_AIDL
+        if(!hal)return false;
+        int64_t token=hal->notifyStreamsConfigured(mSlot,mSessionIdentity,selected->width,selected->height,fps);
+        if(token<=0)return false;
+        mConfigurationToken=token;
+#endif
+        mSourceMode=*selected;mTargetFps=fps;mNextFrameNs=0;mStartupWaitPending=true;
+        ALOGI("Negotiated source mode=%d %dx%d @%d token=%lld",selected->id,selected->width,selected->height,fps,(long long)mConfigurationToken);
     }
-    if (find_camera_metadata_ro_entry(meta, ANDROID_JPEG_QUALITY, &e) == 0 && e.count >= 1) {
-        mJpegQuality = e.data.u8[0];
-    }
+    if(find_camera_metadata_ro_entry(meta,ANDROID_JPEG_QUALITY,&e)==0&&e.count>=1)mJpegQuality=e.data.u8[0];
+    mHaveSettings=true;return true;
 }
 
-int64_t VirtualCameraSession::paceFrame() {
+int64_t VirtualCameraSession::paceFrame(uint64_t cancelEpoch) {
     using namespace std::chrono;
-    const int64_t interval = 1000000000LL / mTargetFps;
+    const int64_t interval = (1000000000LL + mTargetFps - 1) / mTargetFps;
     int64_t now = duration_cast<nanoseconds>(steady_clock::now().time_since_epoch()).count();
     if (mNextFrameNs == 0 || now > mNextFrameNs + interval) {
         mNextFrameNs = now;   // first frame, or we fell more than a slot behind: resync
     }
     if (now < mNextFrameNs) {
-        std::this_thread::sleep_for(nanoseconds(mNextFrameNs - now));
+        std::unique_lock<std::mutex> wait(mWaitLock);
+        mWaitCv.wait_for(wait, nanoseconds(mNextFrameNs - now), [&] {
+            return mClosed || mCancelEpoch.load() != cancelEpoch;
+        });
     }
+    if (mClosed || mCancelEpoch.load() != cancelEpoch) return 0;
     const int64_t slot = mNextFrameNs;
     mNextFrameNs += interval;
     return slot;
 }
 
-CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& request) {
-    // Pace to the requested frame rate: without this the loop free-runs at
-    // whatever rate the framework can cycle buffers (thousands of fps on a
-    // fast GPU), which is wrong for consumers and burns power. The paced
-    // slot is the frame's sensor timestamp.
-    updateTargetFps(request.settings);
-    int64_t timestamp = paceFrame();
-    const int64_t frameDurationNs = 1000000000LL / mTargetFps;
-    int64_t producerTs = 0;   // stable-AIDL path: producer's queue timestamp of the frame used
-
-    // Send shutter notification
-    {
-        std::vector<NotifyMsg> msgs(1);
-        msgs[0].set<NotifyMsg::Tag::shutter>(ShutterMsg{
-            .frameNumber = request.frameNumber,
-            .timestamp = timestamp,
-            .readoutTimestamp = timestamp
-        });
-        mCallback->notify(msgs);
+CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& request,
+                                                       uint64_t cancelEpoch) {
+    // Reserve the dependencies required to return UNTOUCHED output buffers on
+    // error before any wait, import, shutter or target write. Never replace a
+    // failed dup with the no-fence sentinel. The request is not accepted if we
+    // cannot preserve its dependencies; INTERNAL_ERROR makes the session fatal.
+    std::vector<ndk::ScopedFileDescriptor> pendingFences(request.outputBuffers.size());
+    for (size_t i = 0; i < request.outputBuffers.size(); ++i) {
+        const auto& fence = request.outputBuffers[i].acquireFence;
+        if (!fence.fds.empty()) {
+            int fd = ::dup(fence.fds[0].get());
+            if (fd < 0) {
+                ALOGE("Cannot preserve destination acquire fence for request %d", request.frameNumber);
+                close();
+                return CameraStatus::INTERNAL_ERROR;
+            }
+            pendingFences[i].set(fd);
+        }
     }
+
+    // Importing only establishes handle ownership/metadata; it does not touch
+    // image contents. Accepted failed requests must still cache newly supplied
+    // buffers, since the framework may refer to them by ID on its next request.
+    for (const auto& buffer : request.outputBuffers) {
+        if (importBuffer(buffer) == nullptr) return CameraStatus::ILLEGAL_ARGUMENT;
+    }
+
+    auto cancelled = [&] { return mClosed || mCancelEpoch.load() != cancelEpoch; };
+    // This helper returns only UNTOUCHED buffers. A no-source capture is a
+    // whole-request failure, not ERROR_DEVICE and not a successful blank frame.
+    auto failUntouched = [&]() {
+        std::vector<NotifyMsg> messages(1);
+        messages[0].set<NotifyMsg::Tag::error>(ErrorMsg{
+            .frameNumber = request.frameNumber, .errorStreamId = -1,
+            .errorCode = ErrorCode::ERROR_REQUEST,
+        });
+        mCallback->notify(messages);
+        CaptureResult result;
+        result.frameNumber = request.frameNumber;
+        result.inputBuffer.streamId = -1;
+        result.partialResult = 0;
+        for (size_t j = 0; j < request.outputBuffers.size(); ++j) {
+            StreamBuffer buffer;
+            buffer.streamId = request.outputBuffers[j].streamId;
+            buffer.bufferId = request.outputBuffers[j].bufferId;
+            buffer.status = BufferStatus::ERROR;
+            if (pendingFences[j].get() >= 0) {
+                buffer.releaseFence.fds.emplace_back(pendingFences[j].release());
+            }
+            result.outputBuffers.push_back(std::move(buffer));
+        }
+        std::vector<CaptureResult> results;
+        results.push_back(std::move(result));
+        mCallback->processCaptureResult(results);
+        return CameraStatus::OK;
+    };
+
+    // Destination dependencies precede every possible target write. Preserve
+    // failed/unvisited fences when returning untouched buffers.
+    for (size_t i = 0; i < pendingFences.size(); ++i) {
+        int fd = pendingFences[i].get();
+        if (cancelled() || (fd >= 0 && sync_wait(fd, 100) != 0)) {
+            return failUntouched();
+        }
+        pendingFences[i].set(-1);
+    }
+
+    int64_t timestamp = paceFrame(cancelEpoch);
+    if (cancelled()) return failUntouched();
+    const int64_t frameDurationNs = (1000000000LL + mTargetFps - 1) / mTargetFps;
+    int64_t producerTs = 0;
+    AHardwareBuffer* src = nullptr;
+    int acquireFence = -1;
+#ifdef VCAM_STABLE_AIDL
+    auto* hal = mStableSource ? mStableSource.get() : VirtualCameraStableHal::get();
+    // A single reservation pins a single submission for the entire capture.
+    if (!hal || mConfigurationToken <= 0) return failUntouched();
+    // Destruction records ALL output read dependencies before waking enqueue.
+    struct CaptureSource {
+        VirtualCameraStableHal* hal;
+        int slot;
+        AHardwareBuffer* buffer = nullptr;
+        ndk::ScopedFileDescriptor acquire;
+        std::vector<int> fences;
+        ~CaptureSource() {
+            if (acquire.get() >= 0) fences.push_back(acquire.release());
+            if (buffer) hal->releaseFrame(slot, buffer, std::move(fences));
+        }
+    } source{hal, mSlot, nullptr, {}, {}};
+    auto& sourceFence = source.acquire;
+    // Provisional reference policy: one requested frame period for normal
+    // availability + readiness, with a 200ms minimum for the first attempt
+    // after configuration. Measured cold GL startup exceeds a frame period.
+    // Startup is NOT the steady-state latency objective; neither budget is
+    // a producer-health/removal timeout or product-approved acceptance bound.
+    // Polling is cancellable <=2ms (apart from actual driver calls).
+    auto sourceBudget = std::chrono::nanoseconds(frameDurationNs);
+    if (mStartupWaitPending) {
+        sourceBudget = std::max(sourceBudget, std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::milliseconds(200)));
+        mStartupWaitPending = false;
+    }
+    const auto deadline = std::chrono::steady_clock::now() +
+            sourceBudget;
+    uint64_t sequence = 0;
+    while (hal && !cancelled()) {
+        src = hal->acquireLatest(mSlot, &producerTs, &acquireFence,
+                                &sequence, mLastSourceSequence, mConfigurationToken);
+        if (src) break;
+        std::unique_lock<std::mutex> wait(mWaitLock);
+        if (std::chrono::steady_clock::now() >= deadline) break;
+        mWaitCv.wait_until(wait, std::min(deadline, std::chrono::steady_clock::now() +
+                std::chrono::milliseconds(2)), cancelled);
+    }
+    source.buffer = src;
+    sourceFence.set(acquireFence);
+    if (!src || cancelled()) return failUntouched();
+    // Consume submission identity, even if its fence or conversion later
+    // fails. Timestamps may repeat and gralloc buffers may be reused.
+    mLastSourceSequence = sequence;
+    while (sourceFence.get() >= 0 && sync_wait(sourceFence.get(), 0) != 0) {
+        if (cancelled() || !hal->isFrameCurrent(mSlot, src, sequence, mConfigurationToken) ||
+                std::chrono::steady_clock::now() >= deadline) {
+            return failUntouched();
+        }
+        std::unique_lock<std::mutex> wait(mWaitLock);
+        mWaitCv.wait_until(wait, std::min(deadline, std::chrono::steady_clock::now() +
+                std::chrono::milliseconds(2)), cancelled);
+    }
+    if (cancelled() || !hal->isFrameCurrent(mSlot, src, sequence, mConfigurationToken)) return failUntouched();
+    // Source fence completed on the CPU; downstream renderers need no wait.
+    sourceFence.set(-1);
+    acquireFence = -1;
+#else
+    // Legacy socket/platform-relay sources do not expose capture freshness.
+    // Fail closed instead of silently using their cached/synthetic fallback.
+    return failUntouched();
+#endif
 
     // Process each output buffer
     std::vector<StreamBuffer> outputBuffers;
@@ -465,6 +649,7 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
     for (size_t i = 0; i < request.outputBuffers.size(); i++) {
         const auto& inBuffer = request.outputBuffers[i];
         int outputReleaseFence = -1;   // owned; attached to the result buffer
+        bool filled = false;
 
         // Import/cache the buffer (adapter owns this — touches AIDL StreamBuffer)
         buffer_handle_t handle = importBuffer(inBuffer);
@@ -475,22 +660,9 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
             int width = streamIt->second.width;
             int height = streamIt->second.height;
 
-            // Delegate frame filling to core — try v2 zero-copy first, fall back to v1
-            bool filled = false;
-#ifdef VCAM_AIDL_SOURCE
-            if (mAidlSource) {
-                mAidlSource->retryIfNeeded();
-                filled = mAidlSource->fillLatestInto(sHandleImporter, handle,
-                                                     width, height);
-            }
-#endif
 #ifdef VCAM_STABLE_AIDL
-            if (!filled) {
-                if (auto* hal = VirtualCameraStableHal::get()) {
-                    int64_t srcTs = 0;
-                    int acquireFence = -1;   // producer's GPU-done fence (ours to close)
-                    if (AHardwareBuffer* src = hal->acquireLatest(mSlot, &srcTs, &acquireFence)) {
-                        producerTs = srcTs;
+            if (src && !cancelled() && hal->isFrameCurrent(mSlot, src, sequence, mConfigurationToken)) {
+                        mOutputRenderAttempts++;
                         int dstFormat = static_cast<int>(streamIt->second.format);
                         int doneFence = -1;      // our GPU read+write completion
                         constexpr int kFmtBlob = 0x21;
@@ -561,15 +733,19 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
                             // CPU converter reads src directly: wait for the
                             // producer's render to land first.
                             const auto t0 = clk::now();
-                            if (acquireFence >= 0) sync_wait(acquireFence, 100);
-                            filled = ::virtualcamera::FrameFiller::fillFromAHardwareBuffer(
-                                    sHandleImporter, handle, width, height, src);
+                            if (::virtualcamera::acquireFenceReady(acquireFence,
+                                    [](int) { return false; },
+                                    [](int fd, int ms) { return sync_wait(fd, ms); })) {
+                                filled = ::virtualcamera::FrameFiller::fillFromAHardwareBuffer(
+                                        sHandleImporter, handle, width, height, src);
+                            } else {
+                                ALOGE("source fence wait failed; refusing CPU source read");
+                            }
                             if (filled) {
                                 mStats.cpuYuv++;
                                 mStats.cpuYuvNs += std::chrono::duration_cast<std::chrono::nanoseconds>(clk::now() - t0).count();
                             }
                         }
-                        if (acquireFence >= 0) ::close(acquireFence);
                         if (doneFence >= 0) {
                             // Same fence, two consumers: the framework must not
                             // read dst before it fires (release fence on the
@@ -578,27 +754,15 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
                             // the HAL as the buffer's release fence).
                             outputReleaseFence = ::dup(doneFence);
                         }
-                        hal->releaseFrame(mSlot, src, doneFence);   // takes doneFence
-                    }
-                }
+                        if (doneFence >= 0) source.fences.push_back(doneFence);
             }
 #endif
-            if (!filled && mFrameSourceV2 && mFrameSourceV2->isActive()) {
-                filled = ::virtualcamera::FrameFiller::fillBufferFromV2(
-                    sHandleImporter, handle, width, height,
-                    mFrameSourceV2.get());
-            }
-            if (!filled) {
-                ::virtualcamera::FrameFiller::fillYuvBufferFromRenderer(
-                    sHandleImporter, handle, width, height,
-                    mFrameCounter.load(), mFrameSource.get());
-            }
         }
 
         StreamBuffer outBuffer;
         outBuffer.streamId = inBuffer.streamId;
         outBuffer.bufferId = inBuffer.bufferId;
-        outBuffer.status = BufferStatus::OK;
+        outBuffer.status = filled ? BufferStatus::OK : BufferStatus::ERROR;
         if (outputReleaseFence >= 0) {
             // Framework waits on this before consuming the buffer; ownership
             // of the fd moves into the parcel.
@@ -619,16 +783,48 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
               (unsigned long long)mStats.jpeg, ms(mStats.jpegNs, mStats.jpeg));
     }
 
+    // A successful capture must contain at least one genuinely filled output.
+    // Whole-request failure has no shutter/metadata; mixed results retain good
+    // outputs and report ERROR_BUFFER only for the failed streams.
+    const bool anyFilled = std::any_of(outputBuffers.begin(), outputBuffers.end(),
+            [](const StreamBuffer& b) { return b.status == BufferStatus::OK; });
+    std::vector<NotifyMsg> notifications;
+    if (anyFilled) {
+        NotifyMsg shutter;
+        shutter.set<NotifyMsg::Tag::shutter>(ShutterMsg{
+            .frameNumber = request.frameNumber, .timestamp = timestamp,
+            .readoutTimestamp = timestamp,
+        });
+        notifications.push_back(std::move(shutter));
+        for (const auto& b : outputBuffers) {
+            if (b.status != BufferStatus::ERROR) continue;
+            NotifyMsg error;
+            error.set<NotifyMsg::Tag::error>(ErrorMsg{
+                .frameNumber = request.frameNumber, .errorStreamId = b.streamId,
+                .errorCode = ErrorCode::ERROR_BUFFER,
+            });
+            notifications.push_back(std::move(error));
+        }
+    } else {
+        NotifyMsg error;
+        error.set<NotifyMsg::Tag::error>(ErrorMsg{
+            .frameNumber = request.frameNumber, .errorStreamId = -1,
+            .errorCode = ErrorCode::ERROR_REQUEST,
+        });
+        notifications.push_back(std::move(error));
+    }
+    mCallback->notify(notifications);
+
     // Build result metadata via core::MetadataBuilder
     CaptureResult captureResult;
     captureResult.frameNumber = request.frameNumber;
     captureResult.fmqResultSize = 0;
     captureResult.outputBuffers = std::move(outputBuffers);
     captureResult.inputBuffer.streamId = -1;
-    captureResult.partialResult = 1;
+    captureResult.partialResult = anyFilled ? 1 : 0;
     captureResult.physicalCameraMetadata = {};
-    captureResult.result.metadata = ::virtualcamera::MetadataBuilder::buildResultMetadata(
-            timestamp, frameDurationNs, producerTs);
+    if (anyFilled) captureResult.result.metadata = ::virtualcamera::MetadataBuilder::buildResultMetadata(
+            timestamp, frameDurationNs, producerTs, mSourceMode.width, mSourceMode.height);
 
     std::vector<CaptureResult> results;
     results.push_back(std::move(captureResult));

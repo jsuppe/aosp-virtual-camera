@@ -52,7 +52,7 @@ cc_library_static {
 
     include_dirs: [
         "hardware/interfaces/camera/common/1.0/default/include",
-        "hardware/interfaces/camera/provider/v2-shared-memory",
+        "hardware/interfaces/camera/provider/virtual/v2-shared-memory",
     ],
 
     local_include_dirs: ["."],

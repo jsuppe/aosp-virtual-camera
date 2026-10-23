@@ -6,6 +6,7 @@
  */
 #pragma once
 
+#include "ProducerCapabilities.h"
 #include <aidl/android/hardware/camera/device/BnCameraDevice.h>
 #include <aidl/android/hardware/camera/device/ICameraDeviceCallback.h>
 #include <aidl/android/hardware/camera/common/Status.h>
@@ -32,7 +33,8 @@ public:
     VirtualCameraDevice(const std::string& cameraId, int slot,
                         std::shared_ptr<::virtualcamera::VirtualCameraFrameSource> frameSource,
                         std::shared_ptr<::virtualcamera::VirtualCameraFrameSourceV2> frameSourceV2,
-                        std::shared_ptr<::virtualcamera::AidlFrameSource> aidlSource = nullptr);
+                        std::shared_ptr<::virtualcamera::AidlFrameSource> aidlSource = nullptr,
+                        std::shared_ptr<const ::virtualcamera::ProducerCapabilities> capabilities = nullptr);
     ~VirtualCameraDevice() override = default;
 
     // ICameraDevice V1 interface
@@ -72,6 +74,7 @@ private:
     std::shared_ptr<::virtualcamera::VirtualCameraFrameSourceV2> mFrameSourceV2;
     std::shared_ptr<::virtualcamera::AidlFrameSource> mAidlSource;
 
+    std::shared_ptr<const ::virtualcamera::ProducerCapabilities> mCapabilities;
     CameraMetadata mCharacteristics;
 };
 

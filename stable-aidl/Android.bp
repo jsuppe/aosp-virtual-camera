@@ -43,6 +43,18 @@ aidl_interface {
             version: "3",
             imports: ["android.hardware.common-V2"],
         },
+        {
+            version: "4",
+            imports: ["android.hardware.common-V2"],
+        },
+        {
+            version: "5",
+            imports: ["android.hardware.common-V2"],
+        },
+        {
+            version: "6",
+            imports: ["android.hardware.common-V2"],
+        },
 
     ],
 

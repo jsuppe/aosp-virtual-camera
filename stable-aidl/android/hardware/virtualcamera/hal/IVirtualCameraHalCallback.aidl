@@ -22,4 +22,18 @@ interface IVirtualCameraHalCallback {
      *  methods for slot 0 against a V2 platform. */
     void onStreamsConfiguredForCamera(int slot, int width, int height, int fps);
     void onCameraClosedForCamera(int slot);
+
+    /** V4: token is positive, unique and strictly increasing within one HAL lifetime.
+     * It changes for every configuration, including reconfiguration of one session.
+     * Callers must scope tokens to the HAL connection and reject delayed callbacks.
+     */
+    void onStreamsConfiguredForConfiguration(int slot, long configurationToken,
+            int width, int height, int fps);
+
+    /** V4: closes only this configuration, never a later configuration/session. */
+    void onCameraClosedForConfiguration(int slot, long configurationToken);
+    /** V6: registration scopes lifecycle to the producer that originated it, not a later slot owner. */
+    void onStreamsConfiguredForProducer(int slot, long registration, long configurationToken,
+            int width, int height, int fps);
+    void onCameraClosedForProducer(int slot, long registration, long configurationToken);
 }

@@ -7,6 +7,7 @@
 #define LOG_TAG "VCamGpuCompositor"
 
 #include "GpuCompositor.h"
+#include "AcquireFenceWait.h"
 
 #include <EGL/eglext.h>
 #include <GLES2/gl2ext.h>
@@ -354,6 +355,24 @@ bool GpuCompositor::ensureYuvTargets(int width, int height) {
     return true;
 }
 
+bool GpuCompositor::waitForSourceFence(int fenceFd) {
+    return acquireFenceReady(fenceFd, [this](int sourceFd) {
+        if (!mNativeFence) return false;
+        int fd = ::dup(sourceFd);
+        // -1 means "create a new fence" to EGL, not "wait on sourceFd".
+        if (fd < 0) return false;
+        const EGLint attrs[] = { EGL_SYNC_NATIVE_FENCE_FD_ANDROID, fd, EGL_NONE };
+        EGLSyncKHR s = eglCreateSyncKHR_(mDpy, EGL_SYNC_NATIVE_FENCE_ANDROID, attrs);
+        if (s == EGL_NO_SYNC_KHR) {
+            ::close(fd);
+            return false;
+        }
+        const bool waited = (eglWaitSyncKHR_(mDpy, s, 0) == EGL_TRUE);
+        eglDestroySyncKHR_(mDpy, s);
+        return waited;
+    }, [](int fd, int timeoutMs) { return sync_wait(fd, timeoutMs); });
+}
+
 bool GpuCompositor::compositeToYcbcr(AHardwareBuffer* src, int srcAcquireFence,
                                      const YCbCrBuffer& dst, int width, int height) {
     if (!dst.y || !dst.cb || !dst.cr || (width % 4) != 0 || (height % 2) != 0) return false;
@@ -369,21 +388,9 @@ bool GpuCompositor::compositeToYcbcr(AHardwareBuffer* src, int srcAcquireFence,
 
     if (!ensureYuvTargets(width, height)) return false;
 
-    // Producer's acquire fence: GPU-side wait (same as composite()).
-    if (srcAcquireFence >= 0) {
-        bool waited = false;
-        if (mNativeFence) {
-            int fd = ::dup(srcAcquireFence);
-            const EGLint attrs[] = { EGL_SYNC_NATIVE_FENCE_FD_ANDROID, fd, EGL_NONE };
-            EGLSyncKHR s = eglCreateSyncKHR_(mDpy, EGL_SYNC_NATIVE_FENCE_ANDROID, attrs);
-            if (s != EGL_NO_SYNC_KHR) {
-                waited = (eglWaitSyncKHR_(mDpy, s, 0) == EGL_TRUE);
-                eglDestroySyncKHR_(mDpy, s);
-            } else {
-                ::close(fd);
-            }
-        }
-        if (!waited) sync_wait(srcAcquireFence, 100);
+    if (!waitForSourceFence(srcAcquireFence)) {
+        ALOGE("compositeToYcbcr: source fence wait failed; refusing to sample");
+        return false;
     }
 
     EGLImageKHR srcImg = imageFromAhb(src);
@@ -500,20 +507,10 @@ bool GpuCompositor::composite(AHardwareBuffer* src, int srcAcquireFence,
     // Producer's acquire fence: make the GPU wait for the producer's render
     // to land before we sample src. GPU-side wait when native fences work,
     // CPU wait otherwise.
-    if (srcAcquireFence >= 0) {
-        bool waited = false;
-        if (mNativeFence) {
-            int fd = ::dup(srcAcquireFence);   // the sync object takes ownership
-            const EGLint attrs[] = { EGL_SYNC_NATIVE_FENCE_FD_ANDROID, fd, EGL_NONE };
-            EGLSyncKHR s = eglCreateSyncKHR_(mDpy, EGL_SYNC_NATIVE_FENCE_ANDROID, attrs);
-            if (s != EGL_NO_SYNC_KHR) {
-                waited = (eglWaitSyncKHR_(mDpy, s, 0) == EGL_TRUE);
-                eglDestroySyncKHR_(mDpy, s);
-            } else {
-                ::close(fd);
-            }
-        }
-        if (!waited) sync_wait(srcAcquireFence, /*timeout ms*/ 100);
+    if (!waitForSourceFence(srcAcquireFence)) {
+        ALOGE("composite: source fence wait failed; refusing to sample");
+        eglMakeCurrent(mDpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+        return false;
     }
 
     EGLImageKHR srcImg = imageFromAhb(src);
