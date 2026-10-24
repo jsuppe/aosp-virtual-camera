@@ -1,0 +1,1049 @@
+{
+  "831": {
+    "independent_fence_join_crosschecks": 1168,
+    "independent_fence_join_mismatches": 0,
+    "matched_jobs": 1167,
+    "unmatched_boundary_jobs": 2,
+    "window_seconds": 5.012918000000354,
+    "groups": {
+      "producer": {
+        "queue_to_hardware": {
+          "n": 601,
+          "median_ms": 7.880999999542837,
+          "p95_ms": 11.769999999160063,
+          "p99_ms": 14.502999998512678,
+          "max_ms": 16.142000000400003
+        },
+        "hardware_to_irq": {
+          "n": 601,
+          "median_ms": 3.486999999950058,
+          "p95_ms": 3.749999999854481,
+          "p99_ms": 3.785000000789296,
+          "max_ms": 4.046000000016647
+        },
+        "submit_to_irq": {
+          "n": 601,
+          "median_ms": 11.553999998795916,
+          "p95_ms": 15.097999999852618,
+          "p99_ms": 18.017000000327243,
+          "max_ms": 19.741000000067288
+        },
+        "render_engine_time_share": 0.4199015423733135
+      },
+      "hal": {
+        "queue_to_hardware": {
+          "n": 548,
+          "median_ms": 3.08249999943655,
+          "p95_ms": 4.895000000033178,
+          "p99_ms": 7.686000000830973,
+          "max_ms": 8.723000000827597
+        },
+        "hardware_to_irq": {
+          "n": 548,
+          "median_ms": 5.047999999987951,
+          "p95_ms": 5.411000000094646,
+          "p99_ms": 5.460000000311993,
+          "max_ms": 5.580000000918517
+        },
+        "submit_to_irq": {
+          "n": 548,
+          "median_ms": 8.065999999416817,
+          "p95_ms": 9.879999999611755,
+          "p99_ms": 12.485000001106528,
+          "max_ms": 13.609000001451932
+        },
+        "render_engine_time_share": 0.5519102845830857
+      },
+      "android_RenderThread": {
+        "queue_to_hardware": {
+          "n": 18,
+          "median_ms": 10.4750000000422,
+          "p95_ms": 16.204000001380336,
+          "p99_ms": 16.204000001380336,
+          "max_ms": 16.556000000491622
+        },
+        "hardware_to_irq": {
+          "n": 18,
+          "median_ms": 4.142499999943539,
+          "p95_ms": 4.361000001154025,
+          "p99_ms": 4.361000001154025,
+          "max_ms": 4.3880000011995435
+        },
+        "submit_to_irq": {
+          "n": 18,
+          "median_ms": 14.50600000043778,
+          "p95_ms": 20.398000000568572,
+          "p99_ms": 20.398000000568572,
+          "max_ms": 20.687000000179978
+        },
+        "render_engine_time_share": 0.014973713913074704
+      }
+    },
+    "origin_threads": {
+      "VCamRenderGL-7169": 601,
+      "android.hardwar-7130": 278,
+      "binder:7130_1-7132": 257,
+      "RenderThread-7161": 18,
+      "binder:7130_3-7137": 13
+    }
+  },
+  "832": {
+    "independent_fence_join_crosschecks": 1224,
+    "independent_fence_join_mismatches": 0,
+    "matched_jobs": 1223,
+    "unmatched_boundary_jobs": 0,
+    "window_seconds": 5.013080999999147,
+    "groups": {
+      "hal": {
+        "queue_to_hardware": {
+          "n": 602,
+          "median_ms": 3.790500000832253,
+          "p95_ms": 4.034999999930733,
+          "p99_ms": 4.501999999774853,
+          "max_ms": 6.21800000044459
+        },
+        "hardware_to_irq": {
+          "n": 602,
+          "median_ms": 2.4080000002868474,
+          "p95_ms": 2.5200000000040745,
+          "p99_ms": 3.048000000489992,
+          "max_ms": 3.4529999993537785
+        },
+        "submit_to_irq": {
+          "n": 602,
+          "median_ms": 6.159499999739637,
+          "p95_ms": 6.396999999196851,
+          "p99_ms": 6.8109999992884696,
+          "max_ms": 9.310999999797787
+        },
+        "render_engine_time_share": 0.2868403682252401
+      },
+      "producer": {
+        "queue_to_hardware": {
+          "n": 601,
+          "median_ms": 0.28200000087963417,
+          "p95_ms": 2.4950000006356277,
+          "p99_ms": 4.770999999891501,
+          "max_ms": 5.377000001317356
+        },
+        "hardware_to_irq": {
+          "n": 601,
+          "median_ms": 3.733999999894877,
+          "p95_ms": 3.7759999995614635,
+          "p99_ms": 3.869000000122469,
+          "max_ms": 3.899999999703141
+        },
+        "submit_to_irq": {
+          "n": 601,
+          "median_ms": 4.0300000000570435,
+          "p95_ms": 5.794999999125139,
+          "p99_ms": 8.189000000129454,
+          "max_ms": 8.816000001388602
+        },
+        "render_engine_time_share": 0.4451651589104826
+      },
+      "android_RenderThread": {
+        "queue_to_hardware": {
+          "n": 20,
+          "median_ms": 5.82250000024942,
+          "p95_ms": 6.482000000687549,
+          "p99_ms": 6.482000000687549,
+          "max_ms": 6.514000000606757
+        },
+        "hardware_to_irq": {
+          "n": 20,
+          "median_ms": 4.644499998903484,
+          "p95_ms": 4.725999999209307,
+          "p99_ms": 4.725999999209307,
+          "max_ms": 4.802999999810709
+        },
+        "submit_to_irq": {
+          "n": 20,
+          "median_ms": 10.463499999787018,
+          "p95_ms": 11.205999999219785,
+          "p99_ms": 11.205999999219785,
+          "max_ms": 11.239999999816064
+        },
+        "render_engine_time_share": 0.018575004073755046
+      }
+    },
+    "origin_threads": {
+      "android.hardwar-7130": 320,
+      "VCamRenderGL-7265": 601,
+      "binder:7130_1-7132": 282,
+      "RenderThread-7258": 20
+    }
+  },
+  "833": {
+    "independent_fence_join_crosschecks": 1229,
+    "independent_fence_join_mismatches": 0,
+    "matched_jobs": 1228,
+    "unmatched_boundary_jobs": 3,
+    "window_seconds": 5.012995999999475,
+    "groups": {
+      "producer": {
+        "queue_to_hardware": {
+          "n": 834,
+          "median_ms": 12.217499999678694,
+          "p95_ms": 17.352000000755652,
+          "p99_ms": 17.509000001155073,
+          "max_ms": 18.125999999028863
+        },
+        "hardware_to_irq": {
+          "n": 834,
+          "median_ms": 3.3920000005309703,
+          "p95_ms": 3.7159999992582016,
+          "p99_ms": 3.951999999117106,
+          "max_ms": 4.0479999988747295
+        },
+        "submit_to_irq": {
+          "n": 834,
+          "median_ms": 15.666999999666587,
+          "p95_ms": 20.689999999376596,
+          "p99_ms": 20.839999999225256,
+          "max_ms": 21.5939999998227
+        },
+        "render_engine_time_share": 0.5672270634105763
+      },
+      "android_RenderThread": {
+        "queue_to_hardware": {
+          "n": 394,
+          "median_ms": 13.75000000007276,
+          "p95_ms": 17.692999999781023,
+          "p99_ms": 19.068999999944936,
+          "max_ms": 19.35799999955634
+        },
+        "hardware_to_irq": {
+          "n": 394,
+          "median_ms": 5.2339999992909725,
+          "p95_ms": 5.558000000746688,
+          "p99_ms": 5.644000000756932,
+          "max_ms": 5.698999999367516
+        },
+        "submit_to_irq": {
+          "n": 394,
+          "median_ms": 19.123000000035972,
+          "p95_ms": 22.78200000000652,
+          "p99_ms": 23.8389999994979,
+          "max_ms": 24.355999999897904
+        },
+        "render_engine_time_share": 0.4117092852276978
+      }
+    },
+    "origin_threads": {
+      "VCamRenderGL-7404": 834,
+      "RenderThread-7397": 394
+    }
+  },
+  "834": {
+    "independent_fence_join_crosschecks": 1223,
+    "independent_fence_join_mismatches": 0,
+    "matched_jobs": 1222,
+    "unmatched_boundary_jobs": 1,
+    "window_seconds": 5.0122730000002775,
+    "groups": {
+      "producer": {
+        "queue_to_hardware": {
+          "n": 601,
+          "median_ms": 1.6560000003664754,
+          "p95_ms": 2.395999999862397,
+          "p99_ms": 4.132000000026892,
+          "max_ms": 6.977999999435269
+        },
+        "hardware_to_irq": {
+          "n": 601,
+          "median_ms": 3.5189999998692656,
+          "p95_ms": 3.6629999995057005,
+          "p99_ms": 3.763000000617467,
+          "max_ms": 3.9050000013958197
+        },
+        "submit_to_irq": {
+          "n": 601,
+          "median_ms": 5.169000000023516,
+          "p95_ms": 5.97600000037346,
+          "p99_ms": 7.792999998855521,
+          "max_ms": 10.74499999958789
+        },
+        "render_engine_time_share": 0.4236846237199464
+      },
+      "hal": {
+        "queue_to_hardware": {
+          "n": 601,
+          "median_ms": 0.2949999998236308,
+          "p95_ms": 2.253000000564498,
+          "p99_ms": 3.85900000037509,
+          "max_ms": 4.08900000002177
+        },
+        "hardware_to_irq": {
+          "n": 601,
+          "median_ms": 3.3349999994243262,
+          "p95_ms": 3.447999999480089,
+          "p99_ms": 3.703000000314205,
+          "max_ms": 3.767999998672167
+        },
+        "submit_to_irq": {
+          "n": 601,
+          "median_ms": 3.6439999985304894,
+          "p95_ms": 5.23800000155461,
+          "p99_ms": 6.304999998974381,
+          "max_ms": 7.30199999998149
+        },
+        "render_engine_time_share": 0.3954672860009771
+      },
+      "android_RenderThread": {
+        "queue_to_hardware": {
+          "n": 20,
+          "median_ms": 5.1990000010846416,
+          "p95_ms": 5.677999999534222,
+          "p99_ms": 5.677999999534222,
+          "max_ms": 5.817999999635504
+        },
+        "hardware_to_irq": {
+          "n": 20,
+          "median_ms": 4.96000000021013,
+          "p95_ms": 5.046000000220374,
+          "p99_ms": 5.046000000220374,
+          "max_ms": 5.054000001109671
+        },
+        "submit_to_irq": {
+          "n": 20,
+          "median_ms": 10.215500001322653,
+          "p95_ms": 10.679000000891392,
+          "p99_ms": 10.679000000891392,
+          "max_ms": 10.775999999168562
+        },
+        "render_engine_time_share": 0.01914281205435261
+      }
+    },
+    "origin_threads": {
+      "VCamRenderGL-7495": 601,
+      "binder:7130_4-7375": 262,
+      "binder:7130_2-7133": 339,
+      "RenderThread-7488": 20
+    }
+  },
+  "835": {
+    "independent_fence_join_crosschecks": 1183,
+    "independent_fence_join_mismatches": 0,
+    "matched_jobs": 1182,
+    "unmatched_boundary_jobs": 2,
+    "window_seconds": 5.012554999999338,
+    "groups": {
+      "hal": {
+        "queue_to_hardware": {
+          "n": 64,
+          "median_ms": 3.1169999992926023,
+          "p95_ms": 3.432999999859021,
+          "p99_ms": 3.582999999707681,
+          "max_ms": 3.5950000001321314
+        },
+        "hardware_to_irq": {
+          "n": 64,
+          "median_ms": 3.163499999573105,
+          "p95_ms": 3.532999999151798,
+          "p99_ms": 3.645999999207561,
+          "max_ms": 3.7229999998089625
+        },
+        "submit_to_irq": {
+          "n": 64,
+          "median_ms": 6.262500000048021,
+          "p95_ms": 6.688999999823864,
+          "p99_ms": 7.023000000117463,
+          "max_ms": 7.159000000683591
+        },
+        "render_engine_time_share": 0.040599853766639646
+      },
+      "android_RenderThread": {
+        "queue_to_hardware": {
+          "n": 373,
+          "median_ms": 6.913000001077307,
+          "p95_ms": 11.671000000205822,
+          "p99_ms": 12.924000000566593,
+          "max_ms": 13.176000000385102
+        },
+        "hardware_to_irq": {
+          "n": 373,
+          "median_ms": 5.313999999998487,
+          "p95_ms": 5.614000001514796,
+          "p99_ms": 5.661000001055072,
+          "max_ms": 5.912999999054591
+        },
+        "submit_to_irq": {
+          "n": 373,
+          "median_ms": 12.441999999282416,
+          "p95_ms": 17.01099999991129,
+          "p99_ms": 18.210000000181026,
+          "max_ms": 18.74099999986356
+        },
+        "render_engine_time_share": 0.39599784939769067
+      },
+      "producer": {
+        "queue_to_hardware": {
+          "n": 745,
+          "median_ms": 7.647000000361004,
+          "p95_ms": 10.491999999430845,
+          "p99_ms": 10.673000000679167,
+          "max_ms": 11.099000001195236
+        },
+        "hardware_to_irq": {
+          "n": 745,
+          "median_ms": 3.6330000002635643,
+          "p95_ms": 3.7789999987580813,
+          "p99_ms": 3.883999999743537,
+          "max_ms": 3.9759999999660067
+        },
+        "submit_to_irq": {
+          "n": 745,
+          "median_ms": 11.276999999608961,
+          "p95_ms": 14.100000000325963,
+          "p99_ms": 14.33300000098825,
+          "max_ms": 14.709000000948436
+        },
+        "render_engine_time_share": 0.5406392548310243
+      }
+    },
+    "origin_threads": {
+      "binder:7130_2-7133": 27,
+      "RenderThread-7581": 373,
+      "VCamRenderGL-7588": 745,
+      "binder:7130_4-7375": 37
+    }
+  },
+  "836": {
+    "independent_fence_join_crosschecks": 1205,
+    "independent_fence_join_mismatches": 0,
+    "matched_jobs": 1204,
+    "unmatched_boundary_jobs": 0,
+    "window_seconds": 5.01391700000022,
+    "groups": {
+      "producer": {
+        "queue_to_hardware": {
+          "n": 603,
+          "median_ms": 7.4399999994057,
+          "p95_ms": 8.40299999981653,
+          "p99_ms": 8.522999998604064,
+          "max_ms": 10.600999999951455
+        },
+        "hardware_to_irq": {
+          "n": 603,
+          "median_ms": 3.867999999783933,
+          "p95_ms": 4.009999998743297,
+          "p99_ms": 4.036999998788815,
+          "max_ms": 4.061999999976251
+        },
+        "submit_to_irq": {
+          "n": 603,
+          "median_ms": 11.120999999548076,
+          "p95_ms": 12.192999998660525,
+          "p99_ms": 12.311000000408967,
+          "max_ms": 14.190999998390907
+        },
+        "render_engine_time_share": 0.467859559693962
+      },
+      "android_RenderThread": {
+        "queue_to_hardware": {
+          "n": 300,
+          "median_ms": 4.175000000032014,
+          "p95_ms": 4.256000000168569,
+          "p99_ms": 8.510999999998603,
+          "max_ms": 10.45200000044133
+        },
+        "hardware_to_irq": {
+          "n": 300,
+          "median_ms": 4.689999999754946,
+          "p95_ms": 5.073000000265893,
+          "p99_ms": 5.100000000311411,
+          "max_ms": 5.626000000120257
+        },
+        "submit_to_irq": {
+          "n": 300,
+          "median_ms": 8.875999999872874,
+          "p95_ms": 9.20600000063132,
+          "p99_ms": 13.742000001002452,
+          "max_ms": 15.213000000585453
+        },
+        "render_engine_time_share": 0.28400629687164164
+      },
+      "hal": {
+        "queue_to_hardware": {
+          "n": 301,
+          "median_ms": 0.8870000001479639,
+          "p95_ms": 1.4930000015738187,
+          "p99_ms": 3.1180000005406328,
+          "max_ms": 8.229000000937958
+        },
+        "hardware_to_irq": {
+          "n": 301,
+          "median_ms": 2.37100000049395,
+          "p95_ms": 2.4389999998675194,
+          "p99_ms": 3.1720000006316695,
+          "max_ms": 3.704999999172287
+        },
+        "submit_to_irq": {
+          "n": 301,
+          "median_ms": 3.244999999878928,
+          "p95_ms": 3.8050000002840534,
+          "p99_ms": 6.250999998883344,
+          "max_ms": 11.934000000110245
+        },
+        "render_engine_time_share": 0.14353827556116255
+      }
+    },
+    "origin_threads": {
+      "VCamRenderGL-7738": 603,
+      "RenderThread-7730": 300,
+      "binder:7130_2-7133": 301
+    }
+  },
+  "837": {
+    "independent_fence_join_crosschecks": 2407,
+    "independent_fence_join_mismatches": 0,
+    "matched_jobs": 2406,
+    "unmatched_boundary_jobs": 0,
+    "window_seconds": 5.013800000000629,
+    "groups": {
+      "android_RenderThread": {
+        "queue_to_hardware": {
+          "n": 602,
+          "median_ms": 0.7260000002133893,
+          "p95_ms": 0.7769999992888188,
+          "p99_ms": 0.7919999989098869,
+          "max_ms": 0.8099999995465623
+        },
+        "hardware_to_irq": {
+          "n": 602,
+          "median_ms": 4.247999999279273,
+          "p95_ms": 4.549000001134118,
+          "p99_ms": 4.5939999999973224,
+          "max_ms": 4.969999999957508
+        },
+        "submit_to_irq": {
+          "n": 602,
+          "median_ms": 4.985499999747844,
+          "p95_ms": 5.218000000240863,
+          "p99_ms": 5.269999999654829,
+          "max_ms": 5.581999999776599
+        },
+        "render_engine_time_share": 0.5145492440915123
+      },
+      "producer": {
+        "queue_to_hardware": {
+          "n": 1203,
+          "median_ms": 4.103999999642838,
+          "p95_ms": 4.566999999951804,
+          "p99_ms": 4.637999998521991,
+          "max_ms": 4.9539999999979045
+        },
+        "hardware_to_irq": {
+          "n": 1203,
+          "median_ms": 0.5420000015874393,
+          "p95_ms": 0.6949999988137279,
+          "p99_ms": 0.7060000007186318,
+          "max_ms": 0.7640000003448222
+        },
+        "submit_to_irq": {
+          "n": 1203,
+          "median_ms": 4.635999999663909,
+          "p95_ms": 5.0890000002254965,
+          "p99_ms": 5.157000001418055,
+          "max_ms": 5.513000000064494
+        },
+        "render_engine_time_share": 0.141825561466506
+      },
+      "hal": {
+        "queue_to_hardware": {
+          "n": 601,
+          "median_ms": 3.4040000009554205,
+          "p95_ms": 3.7830000001122244,
+          "p99_ms": 3.875000000334694,
+          "max_ms": 4.358000000138418
+        },
+        "hardware_to_irq": {
+          "n": 601,
+          "median_ms": 0.29799999902024865,
+          "p95_ms": 0.33199999961652793,
+          "p99_ms": 0.41200000123353675,
+          "max_ms": 0.5359999995562248
+        },
+        "submit_to_irq": {
+          "n": 601,
+          "median_ms": 3.6980000004405156,
+          "p95_ms": 4.0699999990465585,
+          "p99_ms": 4.168000001300243,
+          "max_ms": 4.735999998956686
+        },
+        "render_engine_time_share": 0.035991663005676376
+      }
+    },
+    "origin_threads": {
+      "RenderThread-7837": 602,
+      "VCamRenderGL-7845": 1203,
+      "binder:7130_4-7375": 2,
+      "binder:7130_2-7133": 599
+    }
+  },
+  "838": {
+    "independent_fence_join_crosschecks": 1491,
+    "independent_fence_join_mismatches": 0,
+    "matched_jobs": 1490,
+    "unmatched_boundary_jobs": 1,
+    "window_seconds": 5.011782999999923,
+    "groups": {
+      "hal": {
+        "queue_to_hardware": {
+          "n": 457,
+          "median_ms": 5.278999999063672,
+          "p95_ms": 12.61499999964144,
+          "p99_ms": 13.205000001107692,
+          "max_ms": 14.476000000286149
+        },
+        "hardware_to_irq": {
+          "n": 457,
+          "median_ms": 1.699999998891144,
+          "p95_ms": 2.0660000009229407,
+          "p99_ms": 2.1759999999630963,
+          "max_ms": 2.4930000017775455
+        },
+        "submit_to_irq": {
+          "n": 457,
+          "median_ms": 7.1029999999154825,
+          "p95_ms": 14.289000000644592,
+          "p99_ms": 14.807999999902677,
+          "max_ms": 16.13299999917217
+        },
+        "render_engine_time_share": 0.15759600924684639
+      },
+      "producer": {
+        "queue_to_hardware": {
+          "n": 599,
+          "median_ms": 7.3879999999917345,
+          "p95_ms": 11.583999999857042,
+          "p99_ms": 13.321000000360073,
+          "max_ms": 14.900000000125146
+        },
+        "hardware_to_irq": {
+          "n": 599,
+          "median_ms": 3.2559999999648426,
+          "p95_ms": 3.487999998469604,
+          "p99_ms": 3.5540000008040806,
+          "max_ms": 3.657000001112465
+        },
+        "submit_to_irq": {
+          "n": 599,
+          "median_ms": 10.72299999941606,
+          "p95_ms": 14.804000000367523,
+          "p99_ms": 16.560000000026776,
+          "max_ms": 18.110999999407795
+        },
+        "render_engine_time_share": 0.39080921899650334
+      },
+      "android_RenderThread": {
+        "queue_to_hardware": {
+          "n": 434,
+          "median_ms": 9.56899999982852,
+          "p95_ms": 14.155000000755535,
+          "p99_ms": 15.032999999675667,
+          "max_ms": 16.155999999682535
+        },
+        "hardware_to_irq": {
+          "n": 434,
+          "median_ms": 4.950499999722524,
+          "p95_ms": 5.342000000382541,
+          "p99_ms": 5.4630000013276,
+          "max_ms": 5.554000001211534
+        },
+        "submit_to_irq": {
+          "n": 434,
+          "median_ms": 14.47699999971519,
+          "p95_ms": 19.124999998894054,
+          "p99_ms": 19.9560000000929,
+          "max_ms": 20.99400000042806
+        },
+        "render_engine_time_share": 0.43288386588047445
+      }
+    },
+    "origin_threads": {
+      "binder:7130_4-7375": 216,
+      "VCamRenderGL-7962": 599,
+      "RenderThread-7955": 434,
+      "binder:7130_2-7133": 157,
+      "android.hardwar-7130": 84
+    }
+  },
+  "839": {
+    "independent_fence_join_crosschecks": 1093,
+    "independent_fence_join_mismatches": 0,
+    "matched_jobs": 1093,
+    "unmatched_boundary_jobs": 3,
+    "window_seconds": 5.010900999999649,
+    "groups": {
+      "producer": {
+        "queue_to_hardware": {
+          "n": 563,
+          "median_ms": 5.630999999993946,
+          "p95_ms": 15.559999999823049,
+          "p99_ms": 19.37999999972817,
+          "max_ms": 23.1789999998
+        },
+        "hardware_to_irq": {
+          "n": 563,
+          "median_ms": 3.7599999996018596,
+          "p95_ms": 6.867999998576124,
+          "p99_ms": 7.381999999779509,
+          "max_ms": 7.950000001073931
+        },
+        "submit_to_irq": {
+          "n": 563,
+          "median_ms": 11.155000000144355,
+          "p95_ms": 21.484000000782544,
+          "p99_ms": 25.709999999889988,
+          "max_ms": 26.830999999219785
+        },
+        "render_engine_time_share": 0.5331125081155765
+      },
+      "hal": {
+        "queue_to_hardware": {
+          "n": 366,
+          "median_ms": 0.833500000226195,
+          "p95_ms": 7.4189999995724065,
+          "p99_ms": 9.58100000025297,
+          "max_ms": 12.985999999727937
+        },
+        "hardware_to_irq": {
+          "n": 366,
+          "median_ms": 3.110999999989872,
+          "p95_ms": 5.223000000114553,
+          "p99_ms": 5.773999999291846,
+          "max_ms": 6.304000000454835
+        },
+        "submit_to_irq": {
+          "n": 366,
+          "median_ms": 4.0844999994078535,
+          "p95_ms": 12.550999999803025,
+          "p99_ms": 14.787000000069384,
+          "max_ms": 17.733000000589527
+        },
+        "render_engine_time_share": 0.25135260105759927
+      },
+      "RenderEngine": {
+        "queue_to_hardware": {
+          "n": 152,
+          "median_ms": 22.60000000023865,
+          "p95_ms": 30.40099999998347,
+          "p99_ms": 32.68299999945157,
+          "max_ms": 33.230000000912696
+        },
+        "hardware_to_irq": {
+          "n": 152,
+          "median_ms": 2.6784999990923097,
+          "p95_ms": 3.0880000012984965,
+          "p99_ms": 3.396000000066124,
+          "max_ms": 3.5439999992377125
+        },
+        "submit_to_irq": {
+          "n": 152,
+          "median_ms": 24.949000000560773,
+          "p95_ms": 33.26600000036706,
+          "p99_ms": 35.143999999490916,
+          "max_ms": 35.756000001128996
+        },
+        "render_engine_time_share": 0.08196390229680506
+      },
+      "android_RenderThread": {
+        "queue_to_hardware": {
+          "n": 12,
+          "median_ms": 5.496499999935622,
+          "p95_ms": 19.833000000289758,
+          "p99_ms": 19.833000000289758,
+          "max_ms": 24.198000000978936
+        },
+        "hardware_to_irq": {
+          "n": 12,
+          "median_ms": 4.745500000353786,
+          "p95_ms": 7.496000000173808,
+          "p99_ms": 7.496000000173808,
+          "max_ms": 8.009999999558204
+        },
+        "submit_to_irq": {
+          "n": 12,
+          "median_ms": 10.242000000289408,
+          "p95_ms": 27.84299999984796,
+          "p99_ms": 27.84299999984796,
+          "max_ms": 31.283000000257744
+        },
+        "render_engine_time_share": 0.013431915737475363
+      }
+    },
+    "origin_threads": {
+      "VCamRenderGL-8099": 563,
+      "android.hardwar-7130": 65,
+      "binder:7130_2-7133": 134,
+      "RenderEngine-647": 152,
+      "binder:7130_4-7375": 167,
+      "RenderThread-8092": 12
+    }
+  },
+  "840": {
+    "independent_fence_join_crosschecks": 1224,
+    "independent_fence_join_mismatches": 0,
+    "matched_jobs": 1223,
+    "unmatched_boundary_jobs": 0,
+    "window_seconds": 5.012956000000486,
+    "groups": {
+      "hal": {
+        "queue_to_hardware": {
+          "n": 602,
+          "median_ms": 0.2769999991869554,
+          "p95_ms": 1.510000000052969,
+          "p99_ms": 3.205000000889413,
+          "max_ms": 3.351999999722466
+        },
+        "hardware_to_irq": {
+          "n": 602,
+          "median_ms": 3.077500000472355,
+          "p95_ms": 3.2649999993736856,
+          "p99_ms": 3.45500000003085,
+          "max_ms": 3.5670000015670666
+        },
+        "submit_to_irq": {
+          "n": 602,
+          "median_ms": 3.4150000001318404,
+          "p95_ms": 4.510000000664149,
+          "p99_ms": 5.78499999937776,
+          "max_ms": 6.027999999787426
+        },
+        "render_engine_time_share": 0.3616620612643833
+      },
+      "producer": {
+        "queue_to_hardware": {
+          "n": 601,
+          "median_ms": 1.7019999995682156,
+          "p95_ms": 2.4040000007516937,
+          "p99_ms": 4.324000001361128,
+          "max_ms": 4.707000000053085
+        },
+        "hardware_to_irq": {
+          "n": 601,
+          "median_ms": 3.3349999994243262,
+          "p95_ms": 3.623999999035732,
+          "p99_ms": 3.7549999997281702,
+          "max_ms": 3.839999999399879
+        },
+        "submit_to_irq": {
+          "n": 601,
+          "median_ms": 5.01799999983632,
+          "p95_ms": 5.708999999114894,
+          "p99_ms": 7.615000000441796,
+          "max_ms": 7.970000000568689
+        },
+        "render_engine_time_share": 0.4124993317265058
+      },
+      "android_RenderThread": {
+        "queue_to_hardware": {
+          "n": 20,
+          "median_ms": 4.020499999569438,
+          "p95_ms": 4.689999999754946,
+          "p99_ms": 4.689999999754946,
+          "max_ms": 4.914999999527936
+        },
+        "hardware_to_irq": {
+          "n": 20,
+          "median_ms": 4.5085000010658405,
+          "p95_ms": 4.707000000053085,
+          "p99_ms": 4.707000000053085,
+          "max_ms": 4.725000000689761
+        },
+        "submit_to_irq": {
+          "n": 20,
+          "median_ms": 8.543500000087079,
+          "p95_ms": 9.388999998918734,
+          "p99_ms": 9.388999998918734,
+          "max_ms": 9.583000000930042
+        },
+        "render_engine_time_share": 0.01782780459231282
+      }
+    },
+    "origin_threads": {
+      "binder:7130_2-7133": 328,
+      "VCamRenderGL-8257": 601,
+      "binder:7130_4-7375": 154,
+      "RenderThread-8250": 20,
+      "android.hardwar-7130": 120
+    }
+  },
+  "841": {
+    "independent_fence_join_crosschecks": 1224,
+    "independent_fence_join_mismatches": 0,
+    "matched_jobs": 1223,
+    "unmatched_boundary_jobs": 1,
+    "window_seconds": 5.013727999999901,
+    "groups": {
+      "hal": {
+        "queue_to_hardware": {
+          "n": 602,
+          "median_ms": 0.2610000010463409,
+          "p95_ms": 2.629000000524684,
+          "p99_ms": 3.2030000002123415,
+          "max_ms": 3.38000000010652
+        },
+        "hardware_to_irq": {
+          "n": 602,
+          "median_ms": 3.003000000717293,
+          "p95_ms": 3.1579999995301478,
+          "p99_ms": 3.419999999096035,
+          "max_ms": 3.501999999571126
+        },
+        "submit_to_irq": {
+          "n": 602,
+          "median_ms": 3.321000000141794,
+          "p95_ms": 5.232999999861931,
+          "p99_ms": 5.7679999990796205,
+          "max_ms": 6.085999999413616
+        },
+        "render_engine_time_share": 0.3532555016887453
+      },
+      "producer": {
+        "queue_to_hardware": {
+          "n": 600,
+          "median_ms": 2.0184999993944075,
+          "p95_ms": 2.5819999991654186,
+          "p99_ms": 4.290999999284395,
+          "max_ms": 4.875999999057967
+        },
+        "hardware_to_irq": {
+          "n": 600,
+          "median_ms": 3.311000000394415,
+          "p95_ms": 3.5759999991569202,
+          "p99_ms": 3.7280000015016412,
+          "max_ms": 3.7769999998999992
+        },
+        "submit_to_irq": {
+          "n": 600,
+          "median_ms": 5.321499999809021,
+          "p95_ms": 5.870999999388005,
+          "p99_ms": 7.6310000004014,
+          "max_ms": 8.1850000005943
+        },
+        "render_engine_time_share": 0.4068052754350759
+      },
+      "android_RenderThread": {
+        "queue_to_hardware": {
+          "n": 21,
+          "median_ms": 3.8289999993139645,
+          "p95_ms": 5.096999999295804,
+          "p99_ms": 5.096999999295804,
+          "max_ms": 5.328000001100008
+        },
+        "hardware_to_irq": {
+          "n": 21,
+          "median_ms": 4.421999999976833,
+          "p95_ms": 4.764999999679276,
+          "p99_ms": 4.764999999679276,
+          "max_ms": 4.779999999300344
+        },
+        "submit_to_irq": {
+          "n": 21,
+          "median_ms": 8.250999999290798,
+          "p95_ms": 9.863999999652151,
+          "p99_ms": 9.863999999652151,
+          "max_ms": 10.055000000647851
+        },
+        "render_engine_time_share": 0.017936553398576693
+      }
+    },
+    "origin_threads": {
+      "android.hardwar-7130": 271,
+      "binder:7130_2-7133": 331,
+      "VCamRenderGL-8387": 600,
+      "RenderThread-8380": 20,
+      "RenderThread-1185": 1
+    }
+  },
+  "842": {
+    "independent_fence_join_crosschecks": 1224,
+    "independent_fence_join_mismatches": 0,
+    "matched_jobs": 1223,
+    "unmatched_boundary_jobs": 0,
+    "window_seconds": 5.01280399999996,
+    "groups": {
+      "hal": {
+        "queue_to_hardware": {
+          "n": 602,
+          "median_ms": 0.240999999732594,
+          "p95_ms": 1.156000000264612,
+          "p99_ms": 2.043000000412576,
+          "max_ms": 3.5819999993691454
+        },
+        "hardware_to_irq": {
+          "n": 602,
+          "median_ms": 3.1749999998282874,
+          "p95_ms": 3.3089999997173436,
+          "p99_ms": 3.6419999996724073,
+          "max_ms": 4.452000001037959
+        },
+        "submit_to_irq": {
+          "n": 602,
+          "median_ms": 3.432999999859021,
+          "p95_ms": 4.118999999263906,
+          "p99_ms": 4.799000000275555,
+          "max_ms": 6.2450000004901085
+        },
+        "render_engine_time_share": 0.38133008990549283
+      },
+      "producer": {
+        "queue_to_hardware": {
+          "n": 601,
+          "median_ms": 1.6049999994720565,
+          "p95_ms": 2.3600000004080357,
+          "p99_ms": 3.058000000237371,
+          "max_ms": 3.807000000961125
+        },
+        "hardware_to_irq": {
+          "n": 601,
+          "median_ms": 2.226999999038526,
+          "p95_ms": 2.246000000013737,
+          "p99_ms": 2.2559999997611158,
+          "max_ms": 2.6269999998476123
+        },
+        "submit_to_irq": {
+          "n": 601,
+          "median_ms": 3.8320000003295718,
+          "p95_ms": 4.544999999779975,
+          "p99_ms": 5.178000001251348,
+          "max_ms": 5.933000000368338
+        },
+        "render_engine_time_share": 0.266538647830768
+      },
+      "android_RenderThread": {
+        "queue_to_hardware": {
+          "n": 20,
+          "median_ms": 2.8725000001941225,
+          "p95_ms": 3.300999998828047,
+          "p99_ms": 3.300999998828047,
+          "max_ms": 3.4500000001571607
+        },
+        "hardware_to_irq": {
+          "n": 20,
+          "median_ms": 4.3704999989131466,
+          "p95_ms": 4.5939999999973224,
+          "p99_ms": 4.5939999999973224,
+          "max_ms": 5.261000000245986
+        },
+        "submit_to_irq": {
+          "n": 20,
+          "median_ms": 7.254500000271946,
+          "p95_ms": 7.579999999506981,
+          "p99_ms": 7.579999999506981,
+          "max_ms": 8.711000000403146
+        },
+        "render_engine_time_share": 0.017636636101534934
+      }
+    },
+    "origin_threads": {
+      "binder:7130_2-7133": 227,
+      "VCamRenderGL-8513": 601,
+      "android.hardwar-7130": 375,
+      "RenderThread-8506": 20
+    }
+  }
+}

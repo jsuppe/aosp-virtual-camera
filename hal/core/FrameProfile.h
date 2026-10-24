@@ -23,6 +23,7 @@ public:
         uint64_t sequence=0;
         int frame=0, fps=0, width=0, height=0, failure=None;
         std::array<int64_t, PhaseCount> ns{};
+        std::array<int64_t, 6> gpuCpu{};
     };
     static int64_t now() {
         return std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -52,6 +53,7 @@ public:
             if (!mOwner) return;
             mark(phase); mRow.failure=failure;
         }
+        void gpuCpu(const std::array<int64_t,6>& phases) { if (mOwner) mRow.gpuCpu=phases; }
         void source(uint64_t sequence,int64_t timestamp) {
             if (mOwner) { mRow.sequence=sequence; mRow.producer=timestamp; mRow.acquired=now(); }
         }
@@ -80,17 +82,19 @@ public:
         if (fd<0) return false;
         FILE* f=fdopen(fd,"w");
         if (!f) { close(fd); return false; }
-        fprintf(f,"# schema=2 run=%d session=%lld dropped=%zu\n",mRun,
+        fprintf(f,"# schema=3 run=%d session=%lld dropped=%zu\n",mRun,
                 (long long)mSession,mDropped);
-        fprintf(f,"start_ns,frame,fps,width,height,token,source_sequence,producer_ns,failure,import_ns,destination_wait_ns,pace_ns,source_wait_ns,source_fence_wait_ns,output_ns,callback_ns,cleanup_ns,total_ns,source_acquired_ns,deadline_ns,fence_signal_ns,fence_observed_ns,fence_status\n");
+        fprintf(f,"start_ns,frame,fps,width,height,token,source_sequence,producer_ns,failure,import_ns,destination_wait_ns,pace_ns,source_wait_ns,source_fence_wait_ns,output_ns,callback_ns,cleanup_ns,total_ns,source_acquired_ns,deadline_ns,fence_signal_ns,fence_observed_ns,fence_status,gpu_context_ns,gpu_source_import_ns,gpu_destination_import_ns,gpu_draw_submit_ns,gpu_fence_submit_ns,gpu_cleanup_ns\n");
         for (const auto& r:mRows) {
             fprintf(f,"%lld,%d,%d,%d,%d,%lld,%llu,%lld,%d",(long long)r.start,
                     r.frame,r.fps,r.width,r.height,(long long)r.token,
                     (unsigned long long)r.sequence,(long long)r.producer,r.failure);
             for (auto ns:r.ns) fprintf(f,",%lld",(long long)ns);
-            fprintf(f,",%lld,%lld,%lld,%lld,%lld,%d\n",(long long)r.total,
+            fprintf(f,",%lld,%lld,%lld,%lld,%lld,%d",(long long)r.total,
                     (long long)r.acquired,(long long)r.deadline,(long long)r.fenceSignal,
                     (long long)r.fenceObserved,r.fenceStatus);
+            for (auto ns:r.gpuCpu) fprintf(f,",%lld",(long long)ns);
+            fputc('\n',f);
         }
         bool good=!ferror(f); if (fclose(f)!=0) good=false;
         mWritten=good;

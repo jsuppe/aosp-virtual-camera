@@ -791,12 +791,14 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
                             // waits on the producer's fence and hands back its own.
                             // Returns false for YUV or if the GPU stack is
                             // unavailable -> CPU fallback.
+                            std::array<int64_t,6> gpuCpu{};
                             filled = ::virtualcamera::GpuCompositor::get().composite(
                                     src, acquireFence, handle, width, height,
                                     /*stride*/ width, dstFormat,
                                     AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
                                     AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT,
-                                    &doneFence, mProfileClearOutput);
+                                    &doneFence, mProfileClearOutput, mProfile.enabled() ? &gpuCpu : nullptr);
+                            profile.gpuCpu(gpuCpu);
                             if (filled) mStats.gpuRgba++;
                         }
 #endif

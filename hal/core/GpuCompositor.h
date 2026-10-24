@@ -27,6 +27,7 @@
 #include <GLES2/gl2.h>
 
 #include <mutex>
+#include <array>
 
 #include "HandleImporterCompat.h"
 
@@ -57,7 +58,8 @@ public:
      */
     bool composite(AHardwareBuffer* src, int srcAcquireFence, buffer_handle_t dst,
                    int width, int height, int stride, int dstFormat,
-                   uint64_t dstUsage, int* outFence, bool clearBeforeOverwrite = false);
+                   uint64_t dstUsage, int* outFence, bool clearBeforeOverwrite = false,
+                   std::array<int64_t, 6>* profilePhases = nullptr);
 
     /**
      * YUV 4:2:0 output with the color conversion on the GPU.

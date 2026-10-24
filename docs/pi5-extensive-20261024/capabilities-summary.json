@@ -1,0 +1,28 @@
+{
+  "ab24_plane_format_entries": 56,
+  "ab24_modifiers_unique": [
+    "BROADCOM_VC4_T_TILED(0x700000000000001) LINEAR(0x0)"
+  ],
+  "uif_advertised": false,
+  "active_mode_evidence": "CRTC94:1920x1080@120Hz; VRR_ENABLED=0",
+  "v3d_revision": "7.1.7.0",
+  "v3d_qpus": 16,
+  "cpu_pmu_available": true,
+  "gpu_bandwidth_counter_values_collected": false,
+  "source_revisions": {
+    "external/mesa3d": "875160ed32cc5bc32777fa04870a0a57ed38c987",
+    "external/drm_hwcomposer": "566aadf0ac75a9bbb022c8eaae57e40d930e4297",
+    "external/minigbm": "b1f72f8e41ceb349fd91428491ccc7af67459eff",
+    "frameworks/native": "ae266dcb706d083868578cfedce381ef44488a07",
+    "hardware/interfaces": "0162af698935100a590b7359581ac8b1b80693e5",
+    "device/brcm/rpi5": "25a7ccffe9d769039906859f5641967e1aaa7564"
+  },
+  "mesa_rgba_modifier_source_list": [
+    "BROADCOM_UIF",
+    "LINEAR"
+  ],
+  "observed_kms_and_mesa_rgba_intersection": [
+    "LINEAR"
+  ],
+  "modifier_intersection_scope": "KMS runtime plane query plus matched Mesa source; no layout-only microbenchmark or driver change"
+}

@@ -19,6 +19,7 @@ int main() {
         sample.mark(FrameProfile::Import);
         sample.source(i+1,200+i);
         sample.fence(500,400,1);
+        sample.gpuCpu({1,2,3,4,5,6});
         if(i==1)sample.fail(FrameProfile::SourceFenceTimeout,FrameProfile::SourceFenceWait);
     }
     assert(on.write(path)); assert(on.write(path));
@@ -30,10 +31,12 @@ int main() {
         while(std::getline(input,line)) {
             std::istringstream in(line);std::string field;std::vector<int64_t> values;
             while(std::getline(in,field,','))values.push_back(std::stoll(field));
-            assert(values.size()==23);assert(values[8]==(rows==1?6:0));
+            assert(values.size()==29);assert(values[8]==(rows==1?6:0));
             int64_t sum=0;for(size_t j=9;j<17;j++){assert(values[j]>=0);sum+=values[j];}
             assert(values[19]==500 && values[20]==400 && values[22]==1);
-            assert(sum==values[17]);rows++;
+            assert(sum==values[17]);
+            for(size_t j=0;j<6;j++)assert(values[23+j]==int64_t(j+1));
+            rows++;
         }
         std::filesystem::remove(entry.path());
     }

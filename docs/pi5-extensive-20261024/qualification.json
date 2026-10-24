@@ -1,0 +1,2094 @@
+{
+  "cases": {
+    "811": {
+      "status": {
+        "schema": 1,
+        "pixel_format": 1,
+        "dropped_samples": 0,
+        "command": 0,
+        "elapsed_ms": 8023446,
+        "failure": "",
+        "inventory": [
+          "100"
+        ],
+        "cameras": {
+          "100": {
+            "width": 640,
+            "height": 480,
+            "requested_fps": 60,
+            "advertised_yuv": [
+              {
+                "width": 640,
+                "height": 480,
+                "min_duration_ns": 8333334
+              },
+              {
+                "width": 1280,
+                "height": 720,
+                "min_duration_ns": 33333334
+              },
+              {
+                "width": 1920,
+                "height": 1080,
+                "min_duration_ns": 8333334
+              },
+              {
+                "width": 3840,
+                "height": 2160,
+                "min_duration_ns": 33333334
+              }
+            ],
+            "advertised_fps": [
+              [
+                15,
+                15
+              ],
+              [
+                15,
+                30
+              ],
+              [
+                15,
+                60
+              ],
+              [
+                15,
+                120
+              ],
+              [
+                30,
+                30
+              ],
+              [
+                30,
+                60
+              ],
+              [
+                30,
+                120
+              ],
+              [
+                60,
+                60
+              ],
+              [
+                120,
+                120
+              ]
+            ],
+            "jpeg": true,
+            "expected_run": 811,
+            "producer": 1,
+            "images": 2203,
+            "completed": 2203,
+            "frame_duration_ns": 16666667,
+            "capture_failures": 4,
+            "buffer_lost": 0,
+            "opens": 1,
+            "disconnects": 0,
+            "device_errors": 0,
+            "last_device_error": 0,
+            "sequence": 2207,
+            "generation": 2,
+            "minimum_generation": 1,
+            "flipped": false,
+            "timestamp": 8023423394919,
+            "active": true
+          },
+          "101": {
+            "width": 640,
+            "height": 480,
+            "requested_fps": 30,
+            "expected_run": 0,
+            "producer": 2,
+            "images": 0,
+            "completed": 0,
+            "frame_duration_ns": 0,
+            "capture_failures": 0,
+            "buffer_lost": 0,
+            "opens": 0,
+            "disconnects": 0,
+            "device_errors": 0,
+            "last_device_error": 0,
+            "sequence": 0,
+            "generation": 0,
+            "minimum_generation": 1,
+            "flipped": false,
+            "timestamp": 0,
+            "active": false
+          }
+        }
+      },
+      "window_seconds": 30,
+      "decoded_unique_frames_per_second": 59.9,
+      "duplicates": 0,
+      "sequence_regressions": 0,
+      "receipt_interval": {
+        "n": 1796,
+        "median_ms": 16.627806,
+        "p95_ms": 18.234482,
+        "p99_ms": 20.466945,
+        "max_ms": 40.070389
+      },
+      "image_timestamp_to_receipt": {
+        "n": 1797,
+        "median_ms": 17.467819,
+        "p95_ms": 19.205061,
+        "p99_ms": 20.733143,
+        "max_ms": 27.872218
+      },
+      "image_result_timestamp_matches": 1797,
+      "images_in_window": 1797
+    },
+    "812": {
+      "status": {
+        "schema": 1,
+        "pixel_format": 1,
+        "dropped_samples": 0,
+        "command": 0,
+        "elapsed_ms": 8066578,
+        "failure": "",
+        "inventory": [
+          "100"
+        ],
+        "cameras": {
+          "100": {
+            "width": 640,
+            "height": 480,
+            "requested_fps": 60,
+            "advertised_yuv": [
+              {
+                "width": 640,
+                "height": 480,
+                "min_duration_ns": 8333334
+              },
+              {
+                "width": 1280,
+                "height": 720,
+                "min_duration_ns": 33333334
+              },
+              {
+                "width": 1920,
+                "height": 1080,
+                "min_duration_ns": 8333334
+              },
+              {
+                "width": 3840,
+                "height": 2160,
+                "min_duration_ns": 33333334
+              }
+            ],
+            "advertised_fps": [
+              [
+                15,
+                15
+              ],
+              [
+                15,
+                30
+              ],
+              [
+                15,
+                60
+              ],
+              [
+                15,
+                120
+              ],
+              [
+                30,
+                30
+              ],
+              [
+                30,
+                60
+              ],
+              [
+                30,
+                120
+              ],
+              [
+                60,
+                60
+              ],
+              [
+                120,
+                120
+              ]
+            ],
+            "jpeg": true,
+            "expected_run": 812,
+            "producer": 1,
+            "images": 2209,
+            "completed": 2209,
+            "frame_duration_ns": 16666667,
+            "capture_failures": 1,
+            "buffer_lost": 0,
+            "opens": 1,
+            "disconnects": 0,
+            "device_errors": 0,
+            "last_device_error": 0,
+            "sequence": 2210,
+            "generation": 2,
+            "minimum_generation": 1,
+            "flipped": false,
+            "timestamp": 8066548465357,
+            "active": true
+          },
+          "101": {
+            "width": 640,
+            "height": 480,
+            "requested_fps": 30,
+            "expected_run": 0,
+            "producer": 2,
+            "images": 0,
+            "completed": 0,
+            "frame_duration_ns": 0,
+            "capture_failures": 0,
+            "buffer_lost": 0,
+            "opens": 0,
+            "disconnects": 0,
+            "device_errors": 0,
+            "last_device_error": 0,
+            "sequence": 0,
+            "generation": 0,
+            "minimum_generation": 1,
+            "flipped": false,
+            "timestamp": 0,
+            "active": false
+          }
+        }
+      },
+      "window_seconds": 30,
+      "decoded_unique_frames_per_second": 60.0,
+      "duplicates": 0,
+      "sequence_regressions": 0,
+      "receipt_interval": {
+        "n": 1799,
+        "median_ms": 16.619389,
+        "p95_ms": 18.258371,
+        "p99_ms": 20.514704,
+        "max_ms": 24.867204
+      },
+      "image_timestamp_to_receipt": {
+        "n": 1800,
+        "median_ms": 17.1576325,
+        "p95_ms": 18.92073,
+        "p99_ms": 20.508393,
+        "max_ms": 23.941827
+      },
+      "image_result_timestamp_matches": 1800,
+      "images_in_window": 1800
+    },
+    "813": {
+      "status": {
+        "schema": 1,
+        "pixel_format": 1,
+        "dropped_samples": 0,
+        "command": 0,
+        "elapsed_ms": 8109379,
+        "failure": "",
+        "inventory": [
+          "100"
+        ],
+        "cameras": {
+          "100": {
+            "width": 1920,
+            "height": 1080,
+            "requested_fps": 60,
+            "advertised_yuv": [
+              {
+                "width": 640,
+                "height": 480,
+                "min_duration_ns": 8333334
+              },
+              {
+                "width": 1280,
+                "height": 720,
+                "min_duration_ns": 33333334
+              },
+              {
+                "width": 1920,
+                "height": 1080,
+                "min_duration_ns": 8333334
+              },
+              {
+                "width": 3840,
+                "height": 2160,
+                "min_duration_ns": 33333334
+              }
+            ],
+            "advertised_fps": [
+              [
+                15,
+                15
+              ],
+              [
+                15,
+                30
+              ],
+              [
+                15,
+                60
+              ],
+              [
+                15,
+                120
+              ],
+              [
+                30,
+                30
+              ],
+              [
+                30,
+                60
+              ],
+              [
+                30,
+                120
+              ],
+              [
+                60,
+                60
+              ],
+              [
+                120,
+                120
+              ]
+            ],
+            "jpeg": true,
+            "expected_run": 813,
+            "producer": 1,
+            "images": 2188,
+            "completed": 2188,
+            "frame_duration_ns": 16666667,
+            "capture_failures": 10,
+            "buffer_lost": 0,
+            "opens": 1,
+            "disconnects": 0,
+            "device_errors": 0,
+            "last_device_error": 0,
+            "sequence": 2197,
+            "generation": 2,
+            "minimum_generation": 1,
+            "flipped": false,
+            "timestamp": 8109358220124,
+            "active": true
+          },
+          "101": {
+            "width": 640,
+            "height": 480,
+            "requested_fps": 30,
+            "expected_run": 0,
+            "producer": 2,
+            "images": 0,
+            "completed": 0,
+            "frame_duration_ns": 0,
+            "capture_failures": 0,
+            "buffer_lost": 0,
+            "opens": 0,
+            "disconnects": 0,
+            "device_errors": 0,
+            "last_device_error": 0,
+            "sequence": 0,
+            "generation": 0,
+            "minimum_generation": 1,
+            "flipped": false,
+            "timestamp": 0,
+            "active": false
+          }
+        }
+      },
+      "window_seconds": 30,
+      "decoded_unique_frames_per_second": 60.0,
+      "duplicates": 0,
+      "sequence_regressions": 0,
+      "receipt_interval": {
+        "n": 1799,
+        "median_ms": 16.6625,
+        "p95_ms": 16.893407,
+        "p99_ms": 21.715129,
+        "max_ms": 35.500926
+      },
+      "image_timestamp_to_receipt": {
+        "n": 1800,
+        "median_ms": 4.9722015,
+        "p95_ms": 13.208474,
+        "p99_ms": 13.391577,
+        "max_ms": 19.043522
+      },
+      "image_result_timestamp_matches": 1800,
+      "images_in_window": 1800
+    },
+    "814": {
+      "status": {
+        "schema": 1,
+        "pixel_format": 1,
+        "dropped_samples": 0,
+        "command": 0,
+        "elapsed_ms": 8152161,
+        "failure": "",
+        "inventory": [
+          "100"
+        ],
+        "cameras": {
+          "100": {
+            "width": 1920,
+            "height": 1080,
+            "requested_fps": 60,
+            "advertised_yuv": [
+              {
+                "width": 640,
+                "height": 480,
+                "min_duration_ns": 8333334
+              },
+              {
+                "width": 1280,
+                "height": 720,
+                "min_duration_ns": 33333334
+              },
+              {
+                "width": 1920,
+                "height": 1080,
+                "min_duration_ns": 8333334
+              },
+              {
+                "width": 3840,
+                "height": 2160,
+                "min_duration_ns": 33333334
+              }
+            ],
+            "advertised_fps": [
+              [
+                15,
+                15
+              ],
+              [
+                15,
+                30
+              ],
+              [
+                15,
+                60
+              ],
+              [
+                15,
+                120
+              ],
+              [
+                30,
+                30
+              ],
+              [
+                30,
+                60
+              ],
+              [
+                30,
+                120
+              ],
+              [
+                60,
+                60
+              ],
+              [
+                120,
+                120
+              ]
+            ],
+            "jpeg": true,
+            "expected_run": 814,
+            "producer": 1,
+            "images": 2192,
+            "completed": 2192,
+            "frame_duration_ns": 16666667,
+            "capture_failures": 8,
+            "buffer_lost": 0,
+            "opens": 1,
+            "disconnects": 0,
+            "device_errors": 0,
+            "last_device_error": 0,
+            "sequence": 2192,
+            "generation": 2,
+            "minimum_generation": 1,
+            "flipped": false,
+            "timestamp": 8152154626247,
+            "active": true
+          },
+          "101": {
+            "width": 640,
+            "height": 480,
+            "requested_fps": 30,
+            "expected_run": 0,
+            "producer": 2,
+            "images": 0,
+            "completed": 0,
+            "frame_duration_ns": 0,
+            "capture_failures": 0,
+            "buffer_lost": 0,
+            "opens": 0,
+            "disconnects": 0,
+            "device_errors": 0,
+            "last_device_error": 0,
+            "sequence": 0,
+            "generation": 0,
+            "minimum_generation": 1,
+            "flipped": false,
+            "timestamp": 0,
+            "active": false
+          }
+        }
+      },
+      "window_seconds": 30,
+      "decoded_unique_frames_per_second": 60.0,
+      "duplicates": 0,
+      "sequence_regressions": 0,
+      "receipt_interval": {
+        "n": 1799,
+        "median_ms": 16.664204,
+        "p95_ms": 17.039537,
+        "p99_ms": 25.623,
+        "max_ms": 61.665518
+      },
+      "image_timestamp_to_receipt": {
+        "n": 1800,
+        "median_ms": 0.9466595,
+        "p95_ms": 7.151809,
+        "p99_ms": 11.09145,
+        "max_ms": 45.970316
+      },
+      "image_result_timestamp_matches": 1800,
+      "images_in_window": 1800
+    },
+    "815": {
+      "status": {
+        "schema": 1,
+        "pixel_format": 1,
+        "dropped_samples": 0,
+        "command": 0,
+        "elapsed_ms": 8195266,
+        "failure": "",
+        "inventory": [
+          "100"
+        ],
+        "cameras": {
+          "100": {
+            "width": 1920,
+            "height": 1080,
+            "requested_fps": 120,
+            "advertised_yuv": [
+              {
+                "width": 640,
+                "height": 480,
+                "min_duration_ns": 8333334
+              },
+              {
+                "width": 1280,
+                "height": 720,
+                "min_duration_ns": 33333334
+              },
+              {
+                "width": 1920,
+                "height": 1080,
+                "min_duration_ns": 8333334
+              },
+              {
+                "width": 3840,
+                "height": 2160,
+                "min_duration_ns": 33333334
+              }
+            ],
+            "advertised_fps": [
+              [
+                15,
+                15
+              ],
+              [
+                15,
+                30
+              ],
+              [
+                15,
+                60
+              ],
+              [
+                15,
+                120
+              ],
+              [
+                30,
+                30
+              ],
+              [
+                30,
+                60
+              ],
+              [
+                30,
+                120
+              ],
+              [
+                60,
+                60
+              ],
+              [
+                120,
+                120
+              ]
+            ],
+            "jpeg": true,
+            "expected_run": 815,
+            "producer": 1,
+            "images": 2143,
+            "completed": 2143,
+            "frame_duration_ns": 8333334,
+            "capture_failures": 2246,
+            "buffer_lost": 0,
+            "opens": 1,
+            "disconnects": 0,
+            "device_errors": 0,
+            "last_device_error": 0,
+            "sequence": 2207,
+            "generation": 2,
+            "minimum_generation": 1,
+            "flipped": false,
+            "timestamp": 8195250690738,
+            "active": true
+          },
+          "101": {
+            "width": 640,
+            "height": 480,
+            "requested_fps": 30,
+            "expected_run": 0,
+            "producer": 2,
+            "images": 0,
+            "completed": 0,
+            "frame_duration_ns": 0,
+            "capture_failures": 0,
+            "buffer_lost": 0,
+            "opens": 0,
+            "disconnects": 0,
+            "device_errors": 0,
+            "last_device_error": 0,
+            "sequence": 0,
+            "generation": 0,
+            "minimum_generation": 1,
+            "flipped": false,
+            "timestamp": 0,
+            "active": false
+          }
+        }
+      },
+      "window_seconds": 30,
+      "decoded_unique_frames_per_second": 58.733333333333334,
+      "duplicates": 0,
+      "sequence_regressions": 0,
+      "receipt_interval": {
+        "n": 1761,
+        "median_ms": 16.324796,
+        "p95_ms": 18.361426,
+        "p99_ms": 24.186055,
+        "max_ms": 83.089129
+      },
+      "image_timestamp_to_receipt": {
+        "n": 1762,
+        "median_ms": 10.0056675,
+        "p95_ms": 13.735857,
+        "p99_ms": 15.448275,
+        "max_ms": 20.14176
+      },
+      "image_result_timestamp_matches": 1762,
+      "images_in_window": 1762
+    },
+    "816": {
+      "status": {
+        "schema": 1,
+        "pixel_format": 1,
+        "dropped_samples": 0,
+        "command": 0,
+        "elapsed_ms": 8238261,
+        "failure": "",
+        "inventory": [
+          "100"
+        ],
+        "cameras": {
+          "100": {
+            "width": 640,
+            "height": 480,
+            "requested_fps": 120,
+            "advertised_yuv": [
+              {
+                "width": 640,
+                "height": 480,
+                "min_duration_ns": 8333334
+              },
+              {
+                "width": 1280,
+                "height": 720,
+                "min_duration_ns": 33333334
+              },
+              {
+                "width": 1920,
+                "height": 1080,
+                "min_duration_ns": 8333334
+              },
+              {
+                "width": 3840,
+                "height": 2160,
+                "min_duration_ns": 33333334
+              }
+            ],
+            "advertised_fps": [
+              [
+                15,
+                15
+              ],
+              [
+                15,
+                30
+              ],
+              [
+                15,
+                60
+              ],
+              [
+                15,
+                120
+              ],
+              [
+                30,
+                30
+              ],
+              [
+                30,
+                60
+              ],
+              [
+                30,
+                120
+              ],
+              [
+                60,
+                60
+              ],
+              [
+                120,
+                120
+              ]
+            ],
+            "jpeg": true,
+            "expected_run": 816,
+            "producer": 1,
+            "images": 2205,
+            "completed": 2205,
+            "frame_duration_ns": 8333334,
+            "capture_failures": 2211,
+            "buffer_lost": 0,
+            "opens": 1,
+            "disconnects": 0,
+            "device_errors": 0,
+            "last_device_error": 0,
+            "sequence": 2208,
+            "generation": 2,
+            "minimum_generation": 1,
+            "flipped": false,
+            "timestamp": 8238250763989,
+            "active": true
+          },
+          "101": {
+            "width": 640,
+            "height": 480,
+            "requested_fps": 30,
+            "expected_run": 0,
+            "producer": 2,
+            "images": 0,
+            "completed": 0,
+            "frame_duration_ns": 0,
+            "capture_failures": 0,
+            "buffer_lost": 0,
+            "opens": 0,
+            "disconnects": 0,
+            "device_errors": 0,
+            "last_device_error": 0,
+            "sequence": 0,
+            "generation": 0,
+            "minimum_generation": 1,
+            "flipped": false,
+            "timestamp": 0,
+            "active": false
+          }
+        }
+      },
+      "window_seconds": 30,
+      "decoded_unique_frames_per_second": 60.0,
+      "duplicates": 0,
+      "sequence_regressions": 0,
+      "receipt_interval": {
+        "n": 1799,
+        "median_ms": 16.670019,
+        "p95_ms": 16.893944,
+        "p99_ms": 20.564037,
+        "max_ms": 24.899056
+      },
+      "image_timestamp_to_receipt": {
+        "n": 1800,
+        "median_ms": 5.553968,
+        "p95_ms": 7.646596,
+        "p99_ms": 10.191088,
+        "max_ms": 15.582321
+      },
+      "image_result_timestamp_matches": 1800,
+      "images_in_window": 1800
+    }
+  },
+  "lifecycle": {
+    "lifecycle-producer-dead": {
+      "schema": 1,
+      "pixel_format": 1,
+      "dropped_samples": 0,
+      "command": 0,
+      "elapsed_ms": 8283557,
+      "failure": "",
+      "inventory": [],
+      "cameras": {
+        "100": {
+          "width": 1920,
+          "height": 1080,
+          "requested_fps": 60,
+          "expected_run": 818,
+          "producer": 1,
+          "images": 1762,
+          "completed": 1762,
+          "frame_duration_ns": 16666667,
+          "capture_failures": 670,
+          "buffer_lost": 0,
+          "opens": 3,
+          "disconnects": 1,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 1776,
+          "generation": 10,
+          "minimum_generation": 3,
+          "flipped": false,
+          "timestamp": 8280640459627,
+          "active": false
+        },
+        "101": {
+          "width": 640,
+          "height": 480,
+          "requested_fps": 30,
+          "expected_run": 0,
+          "producer": 2,
+          "images": 0,
+          "completed": 0,
+          "frame_duration_ns": 0,
+          "capture_failures": 0,
+          "buffer_lost": 0,
+          "opens": 0,
+          "disconnects": 0,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 0,
+          "generation": 0,
+          "minimum_generation": 1,
+          "flipped": false,
+          "timestamp": 0,
+          "active": false
+        }
+      }
+    },
+    "lifecycle-resumed": {
+      "schema": 1,
+      "pixel_format": 1,
+      "dropped_samples": 0,
+      "command": 0,
+      "elapsed_ms": 8260414,
+      "failure": "",
+      "inventory": [
+        "100"
+      ],
+      "cameras": {
+        "100": {
+          "width": 640,
+          "height": 480,
+          "requested_fps": 60,
+          "advertised_yuv": [
+            {
+              "width": 640,
+              "height": 480,
+              "min_duration_ns": 8333334
+            },
+            {
+              "width": 1280,
+              "height": 720,
+              "min_duration_ns": 33333334
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "min_duration_ns": 8333334
+            },
+            {
+              "width": 3840,
+              "height": 2160,
+              "min_duration_ns": 33333334
+            }
+          ],
+          "advertised_fps": [
+            [
+              15,
+              15
+            ],
+            [
+              15,
+              30
+            ],
+            [
+              15,
+              60
+            ],
+            [
+              15,
+              120
+            ],
+            [
+              30,
+              30
+            ],
+            [
+              30,
+              60
+            ],
+            [
+              30,
+              120
+            ],
+            [
+              60,
+              60
+            ],
+            [
+              120,
+              120
+            ]
+          ],
+          "jpeg": true,
+          "expected_run": 818,
+          "producer": 1,
+          "images": 589,
+          "completed": 589,
+          "frame_duration_ns": 16666667,
+          "capture_failures": 355,
+          "buffer_lost": 0,
+          "opens": 1,
+          "disconnects": 0,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 589,
+          "generation": 2,
+          "minimum_generation": 1,
+          "flipped": false,
+          "timestamp": 8260394811308,
+          "active": true
+        },
+        "101": {
+          "width": 640,
+          "height": 480,
+          "requested_fps": 30,
+          "expected_run": 0,
+          "producer": 2,
+          "images": 0,
+          "completed": 0,
+          "frame_duration_ns": 0,
+          "capture_failures": 0,
+          "buffer_lost": 0,
+          "opens": 0,
+          "disconnects": 0,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 0,
+          "generation": 0,
+          "minimum_generation": 1,
+          "flipped": false,
+          "timestamp": 0,
+          "active": false
+        }
+      }
+    },
+    "lifecycle-producer-restarted": {
+      "schema": 1,
+      "pixel_format": 1,
+      "dropped_samples": 0,
+      "command": 0,
+      "elapsed_ms": 8288732,
+      "failure": "",
+      "inventory": [
+        "100"
+      ],
+      "cameras": {
+        "100": {
+          "width": 1920,
+          "height": 1080,
+          "requested_fps": 60,
+          "advertised_yuv": [
+            {
+              "width": 640,
+              "height": 480,
+              "min_duration_ns": 8333334
+            },
+            {
+              "width": 1280,
+              "height": 720,
+              "min_duration_ns": 33333334
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "min_duration_ns": 8333334
+            },
+            {
+              "width": 3840,
+              "height": 2160,
+              "min_duration_ns": 33333334
+            }
+          ],
+          "advertised_fps": [
+            [
+              15,
+              15
+            ],
+            [
+              15,
+              30
+            ],
+            [
+              15,
+              60
+            ],
+            [
+              15,
+              120
+            ],
+            [
+              30,
+              30
+            ],
+            [
+              30,
+              60
+            ],
+            [
+              30,
+              120
+            ],
+            [
+              60,
+              60
+            ],
+            [
+              120,
+              120
+            ]
+          ],
+          "jpeg": true,
+          "expected_run": 819,
+          "producer": 1,
+          "images": 2040,
+          "completed": 2040,
+          "frame_duration_ns": 16666667,
+          "capture_failures": 673,
+          "buffer_lost": 0,
+          "opens": 4,
+          "disconnects": 1,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 279,
+          "generation": 2,
+          "minimum_generation": 1,
+          "flipped": false,
+          "timestamp": 8288720515507,
+          "active": true
+        },
+        "101": {
+          "width": 640,
+          "height": 480,
+          "requested_fps": 30,
+          "expected_run": 0,
+          "producer": 2,
+          "images": 0,
+          "completed": 0,
+          "frame_duration_ns": 0,
+          "capture_failures": 0,
+          "buffer_lost": 0,
+          "opens": 0,
+          "disconnects": 0,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 0,
+          "generation": 0,
+          "minimum_generation": 1,
+          "flipped": false,
+          "timestamp": 0,
+          "active": false
+        }
+      }
+    },
+    "lifecycle-live": {
+      "schema": 1,
+      "pixel_format": 1,
+      "dropped_samples": 0,
+      "command": 0,
+      "elapsed_ms": 8249148,
+      "failure": "",
+      "inventory": [
+        "100"
+      ],
+      "cameras": {
+        "100": {
+          "width": 640,
+          "height": 480,
+          "requested_fps": 60,
+          "advertised_yuv": [
+            {
+              "width": 640,
+              "height": 480,
+              "min_duration_ns": 8333334
+            },
+            {
+              "width": 1280,
+              "height": 720,
+              "min_duration_ns": 33333334
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "min_duration_ns": 8333334
+            },
+            {
+              "width": 3840,
+              "height": 2160,
+              "min_duration_ns": 33333334
+            }
+          ],
+          "advertised_fps": [
+            [
+              15,
+              15
+            ],
+            [
+              15,
+              30
+            ],
+            [
+              15,
+              60
+            ],
+            [
+              15,
+              120
+            ],
+            [
+              30,
+              30
+            ],
+            [
+              30,
+              60
+            ],
+            [
+              30,
+              120
+            ],
+            [
+              60,
+              60
+            ],
+            [
+              120,
+              120
+            ]
+          ],
+          "jpeg": true,
+          "expected_run": 818,
+          "producer": 1,
+          "images": 278,
+          "completed": 278,
+          "frame_duration_ns": 16666667,
+          "capture_failures": 0,
+          "buffer_lost": 0,
+          "opens": 1,
+          "disconnects": 0,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 278,
+          "generation": 2,
+          "minimum_generation": 1,
+          "flipped": false,
+          "timestamp": 8249125250807,
+          "active": true
+        },
+        "101": {
+          "width": 640,
+          "height": 480,
+          "requested_fps": 30,
+          "expected_run": 0,
+          "producer": 2,
+          "images": 0,
+          "completed": 0,
+          "frame_duration_ns": 0,
+          "capture_failures": 0,
+          "buffer_lost": 0,
+          "opens": 0,
+          "disconnects": 0,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 0,
+          "generation": 0,
+          "minimum_generation": 1,
+          "flipped": false,
+          "timestamp": 0,
+          "active": false
+        }
+      }
+    },
+    "lifecycle-stall-b": {
+      "schema": 1,
+      "pixel_format": 1,
+      "dropped_samples": 0,
+      "command": 0,
+      "elapsed_ms": 8255293,
+      "failure": "",
+      "inventory": [
+        "100"
+      ],
+      "cameras": {
+        "100": {
+          "width": 640,
+          "height": 480,
+          "requested_fps": 60,
+          "advertised_yuv": [
+            {
+              "width": 640,
+              "height": 480,
+              "min_duration_ns": 8333334
+            },
+            {
+              "width": 1280,
+              "height": 720,
+              "min_duration_ns": 33333334
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "min_duration_ns": 8333334
+            },
+            {
+              "width": 3840,
+              "height": 2160,
+              "min_duration_ns": 33333334
+            }
+          ],
+          "advertised_fps": [
+            [
+              15,
+              15
+            ],
+            [
+              15,
+              30
+            ],
+            [
+              15,
+              60
+            ],
+            [
+              15,
+              120
+            ],
+            [
+              30,
+              30
+            ],
+            [
+              30,
+              60
+            ],
+            [
+              30,
+              120
+            ],
+            [
+              60,
+              60
+            ],
+            [
+              120,
+              120
+            ]
+          ],
+          "jpeg": true,
+          "expected_run": 818,
+          "producer": 1,
+          "images": 292,
+          "completed": 292,
+          "frame_duration_ns": 16666667,
+          "capture_failures": 345,
+          "buffer_lost": 0,
+          "opens": 1,
+          "disconnects": 0,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 292,
+          "generation": 2,
+          "minimum_generation": 1,
+          "flipped": false,
+          "timestamp": 8249358584145,
+          "active": true
+        },
+        "101": {
+          "width": 640,
+          "height": 480,
+          "requested_fps": 30,
+          "expected_run": 0,
+          "producer": 2,
+          "images": 0,
+          "completed": 0,
+          "frame_duration_ns": 0,
+          "capture_failures": 0,
+          "buffer_lost": 0,
+          "opens": 0,
+          "disconnects": 0,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 0,
+          "generation": 0,
+          "minimum_generation": 1,
+          "flipped": false,
+          "timestamp": 0,
+          "active": false
+        }
+      }
+    },
+    "lifecycle-60": {
+      "schema": 1,
+      "pixel_format": 1,
+      "dropped_samples": 0,
+      "command": 0,
+      "elapsed_ms": 8280496,
+      "failure": "",
+      "inventory": [
+        "100"
+      ],
+      "cameras": {
+        "100": {
+          "width": 1920,
+          "height": 1080,
+          "requested_fps": 60,
+          "advertised_yuv": [
+            {
+              "width": 640,
+              "height": 480,
+              "min_duration_ns": 8333334
+            },
+            {
+              "width": 1280,
+              "height": 720,
+              "min_duration_ns": 33333334
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "min_duration_ns": 8333334
+            },
+            {
+              "width": 3840,
+              "height": 2160,
+              "min_duration_ns": 33333334
+            }
+          ],
+          "advertised_fps": [
+            [
+              15,
+              15
+            ],
+            [
+              15,
+              30
+            ],
+            [
+              15,
+              60
+            ],
+            [
+              15,
+              120
+            ],
+            [
+              30,
+              30
+            ],
+            [
+              30,
+              60
+            ],
+            [
+              30,
+              120
+            ],
+            [
+              60,
+              60
+            ],
+            [
+              120,
+              120
+            ]
+          ],
+          "jpeg": true,
+          "expected_run": 818,
+          "producer": 1,
+          "images": 1751,
+          "completed": 1751,
+          "frame_duration_ns": 16666667,
+          "capture_failures": 669,
+          "buffer_lost": 0,
+          "opens": 3,
+          "disconnects": 0,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 1765,
+          "generation": 10,
+          "minimum_generation": 3,
+          "flipped": false,
+          "timestamp": 8280457126290,
+          "active": true
+        },
+        "101": {
+          "width": 640,
+          "height": 480,
+          "requested_fps": 30,
+          "expected_run": 0,
+          "producer": 2,
+          "images": 0,
+          "completed": 0,
+          "frame_duration_ns": 0,
+          "capture_failures": 0,
+          "buffer_lost": 0,
+          "opens": 0,
+          "disconnects": 0,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 0,
+          "generation": 0,
+          "minimum_generation": 1,
+          "flipped": false,
+          "timestamp": 0,
+          "active": false
+        }
+      }
+    },
+    "lifecycle-120": {
+      "schema": 1,
+      "pixel_format": 1,
+      "dropped_samples": 0,
+      "command": 0,
+      "elapsed_ms": 8275367,
+      "failure": "",
+      "inventory": [
+        "100"
+      ],
+      "cameras": {
+        "100": {
+          "width": 1920,
+          "height": 1080,
+          "requested_fps": 120,
+          "advertised_yuv": [
+            {
+              "width": 640,
+              "height": 480,
+              "min_duration_ns": 8333334
+            },
+            {
+              "width": 1280,
+              "height": 720,
+              "min_duration_ns": 33333334
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "min_duration_ns": 8333334
+            },
+            {
+              "width": 3840,
+              "height": 2160,
+              "min_duration_ns": 33333334
+            }
+          ],
+          "advertised_fps": [
+            [
+              15,
+              15
+            ],
+            [
+              15,
+              30
+            ],
+            [
+              15,
+              60
+            ],
+            [
+              15,
+              120
+            ],
+            [
+              30,
+              30
+            ],
+            [
+              30,
+              60
+            ],
+            [
+              30,
+              120
+            ],
+            [
+              60,
+              60
+            ],
+            [
+              120,
+              120
+            ]
+          ],
+          "jpeg": true,
+          "expected_run": 818,
+          "producer": 1,
+          "images": 1455,
+          "completed": 1455,
+          "frame_duration_ns": 8333334,
+          "capture_failures": 644,
+          "buffer_lost": 0,
+          "opens": 3,
+          "disconnects": 0,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 1460,
+          "generation": 9,
+          "minimum_generation": 3,
+          "flipped": false,
+          "timestamp": 8275340139947,
+          "active": true
+        },
+        "101": {
+          "width": 640,
+          "height": 480,
+          "requested_fps": 30,
+          "expected_run": 0,
+          "producer": 2,
+          "images": 0,
+          "completed": 0,
+          "frame_duration_ns": 0,
+          "capture_failures": 0,
+          "buffer_lost": 0,
+          "opens": 0,
+          "disconnects": 0,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 0,
+          "generation": 0,
+          "minimum_generation": 1,
+          "flipped": false,
+          "timestamp": 0,
+          "active": false
+        }
+      }
+    },
+    "lifecycle-1080": {
+      "schema": 1,
+      "pixel_format": 1,
+      "dropped_samples": 0,
+      "command": 0,
+      "elapsed_ms": 8270495,
+      "failure": "",
+      "inventory": [
+        "100"
+      ],
+      "cameras": {
+        "100": {
+          "width": 1920,
+          "height": 1080,
+          "requested_fps": 60,
+          "advertised_yuv": [
+            {
+              "width": 640,
+              "height": 480,
+              "min_duration_ns": 8333334
+            },
+            {
+              "width": 1280,
+              "height": 720,
+              "min_duration_ns": 33333334
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "min_duration_ns": 8333334
+            },
+            {
+              "width": 3840,
+              "height": 2160,
+              "min_duration_ns": 33333334
+            }
+          ],
+          "advertised_fps": [
+            [
+              15,
+              15
+            ],
+            [
+              15,
+              30
+            ],
+            [
+              15,
+              60
+            ],
+            [
+              15,
+              120
+            ],
+            [
+              30,
+              30
+            ],
+            [
+              30,
+              60
+            ],
+            [
+              30,
+              120
+            ],
+            [
+              60,
+              60
+            ],
+            [
+              120,
+              120
+            ]
+          ],
+          "jpeg": true,
+          "expected_run": 818,
+          "producer": 1,
+          "images": 1168,
+          "completed": 1168,
+          "frame_duration_ns": 16666667,
+          "capture_failures": 356,
+          "buffer_lost": 0,
+          "opens": 3,
+          "disconnects": 0,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 1169,
+          "generation": 8,
+          "minimum_generation": 3,
+          "flipped": false,
+          "timestamp": 8270478390558,
+          "active": true
+        },
+        "101": {
+          "width": 640,
+          "height": 480,
+          "requested_fps": 30,
+          "expected_run": 0,
+          "producer": 2,
+          "images": 0,
+          "completed": 0,
+          "frame_duration_ns": 0,
+          "capture_failures": 0,
+          "buffer_lost": 0,
+          "opens": 0,
+          "disconnects": 0,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 0,
+          "generation": 0,
+          "minimum_generation": 1,
+          "flipped": false,
+          "timestamp": 0,
+          "active": false
+        }
+      }
+    },
+    "lifecycle-stall-a": {
+      "schema": 1,
+      "pixel_format": 1,
+      "dropped_samples": 0,
+      "command": 0,
+      "elapsed_ms": 8252222,
+      "failure": "",
+      "inventory": [
+        "100"
+      ],
+      "cameras": {
+        "100": {
+          "width": 640,
+          "height": 480,
+          "requested_fps": 60,
+          "advertised_yuv": [
+            {
+              "width": 640,
+              "height": 480,
+              "min_duration_ns": 8333334
+            },
+            {
+              "width": 1280,
+              "height": 720,
+              "min_duration_ns": 33333334
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "min_duration_ns": 8333334
+            },
+            {
+              "width": 3840,
+              "height": 2160,
+              "min_duration_ns": 33333334
+            }
+          ],
+          "advertised_fps": [
+            [
+              15,
+              15
+            ],
+            [
+              15,
+              30
+            ],
+            [
+              15,
+              60
+            ],
+            [
+              15,
+              120
+            ],
+            [
+              30,
+              30
+            ],
+            [
+              30,
+              60
+            ],
+            [
+              30,
+              120
+            ],
+            [
+              60,
+              60
+            ],
+            [
+              120,
+              120
+            ]
+          ],
+          "jpeg": true,
+          "expected_run": 818,
+          "producer": 1,
+          "images": 292,
+          "completed": 292,
+          "frame_duration_ns": 16666667,
+          "capture_failures": 165,
+          "buffer_lost": 0,
+          "opens": 1,
+          "disconnects": 0,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 292,
+          "generation": 2,
+          "minimum_generation": 1,
+          "flipped": false,
+          "timestamp": 8249358584145,
+          "active": true
+        },
+        "101": {
+          "width": 640,
+          "height": 480,
+          "requested_fps": 30,
+          "expected_run": 0,
+          "producer": 2,
+          "images": 0,
+          "completed": 0,
+          "frame_duration_ns": 0,
+          "capture_failures": 0,
+          "buffer_lost": 0,
+          "opens": 0,
+          "disconnects": 0,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 0,
+          "generation": 0,
+          "minimum_generation": 1,
+          "flipped": false,
+          "timestamp": 0,
+          "active": false
+        }
+      }
+    },
+    "lifecycle-reopened": {
+      "schema": 1,
+      "pixel_format": 1,
+      "dropped_samples": 0,
+      "command": 0,
+      "elapsed_ms": 8265368,
+      "failure": "",
+      "inventory": [
+        "100"
+      ],
+      "cameras": {
+        "100": {
+          "width": 640,
+          "height": 480,
+          "requested_fps": 60,
+          "advertised_yuv": [
+            {
+              "width": 640,
+              "height": 480,
+              "min_duration_ns": 8333334
+            },
+            {
+              "width": 1280,
+              "height": 720,
+              "min_duration_ns": 33333334
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "min_duration_ns": 8333334
+            },
+            {
+              "width": 3840,
+              "height": 2160,
+              "min_duration_ns": 33333334
+            }
+          ],
+          "advertised_fps": [
+            [
+              15,
+              15
+            ],
+            [
+              15,
+              30
+            ],
+            [
+              15,
+              60
+            ],
+            [
+              15,
+              120
+            ],
+            [
+              30,
+              30
+            ],
+            [
+              30,
+              60
+            ],
+            [
+              30,
+              120
+            ],
+            [
+              60,
+              60
+            ],
+            [
+              120,
+              120
+            ]
+          ],
+          "jpeg": true,
+          "expected_run": 818,
+          "producer": 1,
+          "images": 868,
+          "completed": 868,
+          "frame_duration_ns": 16666667,
+          "capture_failures": 356,
+          "buffer_lost": 0,
+          "opens": 2,
+          "disconnects": 0,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 868,
+          "generation": 5,
+          "minimum_generation": 3,
+          "flipped": false,
+          "timestamp": 8265354996797,
+          "active": true
+        },
+        "101": {
+          "width": 640,
+          "height": 480,
+          "requested_fps": 30,
+          "expected_run": 0,
+          "producer": 2,
+          "images": 0,
+          "completed": 0,
+          "frame_duration_ns": 0,
+          "capture_failures": 0,
+          "buffer_lost": 0,
+          "opens": 0,
+          "disconnects": 0,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 0,
+          "generation": 0,
+          "minimum_generation": 1,
+          "flipped": false,
+          "timestamp": 0,
+          "active": false
+        }
+      }
+    }
+  },
+  "negative": {
+    "schema": 1,
+    "pixel_format": 1,
+    "dropped_samples": 0,
+    "command": 0,
+    "elapsed_ms": 8292439,
+    "failure": "100 pixels: java.lang.IllegalStateException: wrong producer/run 1/819 expected 1/99999",
+    "inventory": [
+      "100"
+    ],
+    "cameras": {
+      "100": {
+        "width": 640,
+        "height": 480,
+        "requested_fps": 60,
+        "advertised_yuv": [
+          {
+            "width": 640,
+            "height": 480,
+            "min_duration_ns": 8333334
+          },
+          {
+            "width": 1280,
+            "height": 720,
+            "min_duration_ns": 33333334
+          },
+          {
+            "width": 1920,
+            "height": 1080,
+            "min_duration_ns": 8333334
+          },
+          {
+            "width": 3840,
+            "height": 2160,
+            "min_duration_ns": 33333334
+          }
+        ],
+        "advertised_fps": [
+          [
+            15,
+            15
+          ],
+          [
+            15,
+            30
+          ],
+          [
+            15,
+            60
+          ],
+          [
+            15,
+            120
+          ],
+          [
+            30,
+            30
+          ],
+          [
+            30,
+            60
+          ],
+          [
+            30,
+            120
+          ],
+          [
+            60,
+            60
+          ],
+          [
+            120,
+            120
+          ]
+        ],
+        "jpeg": true,
+        "expected_run": 99999,
+        "producer": 1,
+        "images": 0,
+        "completed": 168,
+        "frame_duration_ns": 16666667,
+        "capture_failures": 0,
+        "buffer_lost": 0,
+        "opens": 1,
+        "disconnects": 0,
+        "device_errors": 0,
+        "last_device_error": 0,
+        "sequence": 0,
+        "generation": 0,
+        "minimum_generation": 1,
+        "flipped": false,
+        "timestamp": 0,
+        "active": true
+      },
+      "101": {
+        "width": 640,
+        "height": 480,
+        "requested_fps": 30,
+        "expected_run": 0,
+        "producer": 2,
+        "images": 0,
+        "completed": 0,
+        "frame_duration_ns": 0,
+        "capture_failures": 0,
+        "buffer_lost": 0,
+        "opens": 0,
+        "disconnects": 0,
+        "device_errors": 0,
+        "last_device_error": 0,
+        "sequence": 0,
+        "generation": 0,
+        "minimum_generation": 1,
+        "flipped": false,
+        "timestamp": 0,
+        "active": false
+      }
+    }
+  },
+  "checks": {
+    "stall_no_new_images": true,
+    "stall_failed_attempts_continue": true,
+    "resumed_images": true,
+    "positive_failure_strings_empty": true,
+    "negative_rejected": true,
+    "images_progress_after_each_transition": true,
+    "reopen_new_generation": true,
+    "producer_death_disconnected": true,
+    "producer_restart_expected_identity": true,
+    "requested_120_metadata": true
+  },
+  "scope": "RGBA marker cells and monotonic identity, not full-image golden comparison; CPU readback and marker workload differs from Surface demo"
+}

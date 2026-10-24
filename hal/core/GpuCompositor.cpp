@@ -17,6 +17,7 @@
 #include <unistd.h>
 
 #include <cstring>
+#include <chrono>
 
 namespace virtualcamera {
 
@@ -491,7 +492,16 @@ bool GpuCompositor::compositeToYcbcr(AHardwareBuffer* src, int srcAcquireFence,
 bool GpuCompositor::composite(AHardwareBuffer* src, int srcAcquireFence,
                               buffer_handle_t dst,
                               int width, int height, int stride, int dstFormat,
-                              uint64_t dstUsage, int* outFence, bool clearBeforeOverwrite) {
+                              uint64_t dstUsage, int* outFence, bool clearBeforeOverwrite,
+                              std::array<int64_t, 6>* profilePhases) {
+    auto last = profilePhases ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+    if (profilePhases) profilePhases->fill(0);
+    auto mark = [&](size_t phase) {
+        if (!profilePhases) return;
+        auto now = std::chrono::steady_clock::now();
+        (*profilePhases)[phase] = std::chrono::duration_cast<std::chrono::nanoseconds>(now-last).count();
+        last = now;
+    };
     if (outFence) *outFence = -1;
     if (dstFormat != kFmtRGBA8888 && dstFormat != kFmtRGBX8888) {
         return false;  // YUV etc. -> CPU fallback
@@ -513,12 +523,14 @@ bool GpuCompositor::composite(AHardwareBuffer* src, int srcAcquireFence,
         return false;
     }
 
+    mark(0); // lock/context/source dependency
     EGLImageKHR srcImg = imageFromAhb(src);
     if (srcImg == EGL_NO_IMAGE_KHR) {
         ALOGE("composite: src EGLImage failed");
         eglMakeCurrent(mDpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
         return false;
     }
+    mark(1); // source image import
     void* dstGb = nullptr;
     EGLImageKHR dstImg = imageFromHandle(dst, width, height, dstFormat,
                                          dstUsage, stride, &dstGb);
@@ -529,6 +541,7 @@ bool GpuCompositor::composite(AHardwareBuffer* src, int srcAcquireFence,
         return false;
     }
 
+    mark(2); // destination image import
     // Source as sampled texture.
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, mSrcTex);
@@ -574,6 +587,7 @@ bool GpuCompositor::composite(AHardwareBuffer* src, int srcAcquireFence,
         glUniform1i(mUniTex, 0);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         result = (glGetError() == GL_NO_ERROR);
+        mark(3); // GL setup and draw submission, not GPU service
         // Completion: hand back a fence instead of stalling here. The same
         // fence covers the read of src and the write of dst.
         int fence = -1;
@@ -594,6 +608,7 @@ bool GpuCompositor::composite(AHardwareBuffer* src, int srcAcquireFence,
         ALOGE("composite: FBO incomplete");
     }
 
+    mark(4); // native fence creation/flush or fallback finish
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDeleteRenderbuffers(1, &dstRb);
     eglDestroyImageKHR_(mDpy, dstImg);
@@ -603,6 +618,7 @@ bool GpuCompositor::composite(AHardwareBuffer* src, int srcAcquireFence,
     // Release the context so the next capture request (possibly a different
     // binder thread) can acquire it.
     eglMakeCurrent(mDpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+    mark(5); // image/renderbuffer teardown and context release
     return result;
 }
 

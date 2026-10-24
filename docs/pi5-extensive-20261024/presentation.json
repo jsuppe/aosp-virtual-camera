@@ -1,0 +1,1664 @@
+{
+  "838": {
+    "display_frames": 831,
+    "presented_records": 830,
+    "out_of_order_completion_count": 0,
+    "software_display_frame_duration": {
+      "n": 830,
+      "median_ms": 7.2844995,
+      "p95_ms": 7.535833,
+      "p99_ms": 7.611444,
+      "max_ms": 7.643963
+    },
+    "display_frame_completion_interval": {
+      "n": 829,
+      "median_ms": 8.334944,
+      "p95_ms": 25.001888,
+      "p99_ms": 33.333258,
+      "max_ms": 50.315944
+    },
+    "jank_counts": [
+      {
+        "jank_type": "Dropped Frame",
+        "present_type": "Dropped Frame",
+        "gpu_composition": "0",
+        "n": "1"
+      },
+      {
+        "jank_type": "None",
+        "present_type": "On-time Present",
+        "gpu_composition": "0",
+        "n": "829"
+      },
+      {
+        "jank_type": "SurfaceFlinger CPU Deadline Missed",
+        "present_type": "Late Present",
+        "gpu_composition": "0",
+        "n": "1"
+      }
+    ],
+    "layer_counts": [
+      {
+        "layer_name": "[NULL]",
+        "n": "831"
+      },
+      {
+        "layer_name": "TX - VRI-com.example.vcamproducer/com.example.vcamproducer.SplitDemoActivity#2330",
+        "n": "830"
+      }
+    ],
+    "scheduler_rows": [
+      {
+        "n": "0"
+      }
+    ],
+    "cpu_by_thread": [],
+    "event_counts": [],
+    "nonzero_stats": [
+      {
+        "name": "guess_trace_type_duration_ns",
+        "value": "68890",
+        "severity": "info"
+      },
+      {
+        "name": "parse_trace_duration_ns",
+        "value": "16718023",
+        "severity": "info"
+      },
+      {
+        "name": "clock_sync_cache_miss",
+        "value": "10",
+        "severity": "info"
+      },
+      {
+        "name": "traced_chunks_discarded",
+        "value": "2",
+        "severity": "info"
+      },
+      {
+        "name": "traced_data_sources_registered",
+        "value": "54",
+        "severity": "info"
+      },
+      {
+        "name": "traced_data_sources_seen",
+        "value": "16",
+        "severity": "info"
+      },
+      {
+        "name": "traced_final_flush_succeeded",
+        "value": "1",
+        "severity": "info"
+      },
+      {
+        "name": "traced_flushes_requested",
+        "value": "1",
+        "severity": "info"
+      },
+      {
+        "name": "traced_flushes_succeeded",
+        "value": "1",
+        "severity": "info"
+      },
+      {
+        "name": "traced_producers_connected",
+        "value": "14",
+        "severity": "info"
+      },
+      {
+        "name": "traced_producers_seen",
+        "value": "84",
+        "severity": "info"
+      },
+      {
+        "name": "traced_total_buffers",
+        "value": "1",
+        "severity": "info"
+      },
+      {
+        "name": "traced_tracing_sessions",
+        "value": "1",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_buffer_size",
+        "value": "33554432",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_bytes_written",
+        "value": "417792",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_bytes_read",
+        "value": "413696",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_chunks_written",
+        "value": "95",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_chunks_rewritten",
+        "value": "1",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_chunks_read",
+        "value": "94",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_patches_succeeded",
+        "value": "141",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_readaheads_succeeded",
+        "value": "87",
+        "severity": "info"
+      }
+    ],
+    "scope": "Display frames, not uniquely decoded camera buffers or photons. Initial832/835 captures excluded due probe crash.",
+    "kms_vblank_period_normalized_by_sequence": null,
+    "kms_trace_event_sequence_gaps": {
+      "count": 0,
+      "largest_sequence_step": 1,
+      "interpretation": "Missing logged events are not proof of stopped physical scanout or a missed camera frame."
+    }
+  },
+  "881": {
+    "display_frames": 1178,
+    "presented_records": 1178,
+    "out_of_order_completion_count": 0,
+    "software_display_frame_duration": {
+      "n": 1178,
+      "median_ms": 7.291287,
+      "p95_ms": 7.38937,
+      "p99_ms": 7.426111,
+      "max_ms": 7.511592
+    },
+    "display_frame_completion_interval": {
+      "n": 1177,
+      "median_ms": 8.333369,
+      "p95_ms": 8.654203,
+      "p99_ms": 8.658055,
+      "max_ms": 133.333944
+    },
+    "jank_counts": [
+      {
+        "jank_type": "None",
+        "present_type": "On-time Present",
+        "gpu_composition": "0",
+        "n": "1178"
+      }
+    ],
+    "layer_counts": [
+      {
+        "layer_name": "[NULL]",
+        "n": "1178"
+      },
+      {
+        "layer_name": "TX - VRI-com.example.vcamproducer/com.example.vcamproducer.SplitDemoActivity#2585",
+        "n": "39"
+      }
+    ],
+    "scheduler_rows": [
+      {
+        "n": "123522"
+      }
+    ],
+    "cpu_by_thread": [
+      {
+        "name": "swapper",
+        "cpu_s": "28.226912"
+      },
+      {
+        "name": "C3Dev-100-ReqQu",
+        "cpu_s": "0.754502"
+      },
+      {
+        "name": "surfaceflinger",
+        "cpu_s": "0.697632"
+      },
+      {
+        "name": "VCamRenderGL",
+        "cpu_s": "0.683219"
+      },
+      {
+        "name": "le.vcamproducer",
+        "cpu_s": "0.543620"
+      },
+      {
+        "name": "android.hardwar",
+        "cpu_s": "0.515475"
+      },
+      {
+        "name": "binder:8700_3",
+        "cpu_s": "0.495297"
+      },
+      {
+        "name": "binder:8700_1",
+        "cpu_s": "0.306522"
+      },
+      {
+        "name": "binder:8716_5",
+        "cpu_s": "0.254000"
+      },
+      {
+        "name": "binder:8716_7",
+        "cpu_s": "0.241156"
+      },
+      {
+        "name": "binder:8716_4",
+        "cpu_s": "0.210521"
+      },
+      {
+        "name": "binder:8700_2",
+        "cpu_s": "0.197917"
+      },
+      {
+        "name": "binder:687_6",
+        "cpu_s": "0.179890"
+      },
+      {
+        "name": "binder:8716_3",
+        "cpu_s": "0.161713"
+      },
+      {
+        "name": "binder:568_1",
+        "cpu_s": "0.153951"
+      }
+    ],
+    "event_counts": [
+      {
+        "name": "sched_switch",
+        "n": "123522"
+      },
+      {
+        "name": "sched_wakeup",
+        "n": "67689"
+      },
+      {
+        "name": "v3d_submit_cl",
+        "n": "4276"
+      },
+      {
+        "name": "v3d_rcl_irq",
+        "n": "2139"
+      },
+      {
+        "name": "drm_vblank_event_delivered",
+        "n": "1050"
+      },
+      {
+        "name": "drm_vblank_event",
+        "n": "1050"
+      }
+    ],
+    "nonzero_stats": [
+      {
+        "name": "guess_trace_type_duration_ns",
+        "value": "137128",
+        "severity": "info"
+      },
+      {
+        "name": "parse_trace_duration_ns",
+        "value": "27591173",
+        "severity": "info"
+      },
+      {
+        "name": "clock_sync_cache_miss",
+        "value": "10",
+        "severity": "info"
+      },
+      {
+        "name": "traced_chunks_discarded",
+        "value": "3",
+        "severity": "info"
+      },
+      {
+        "name": "traced_data_sources_registered",
+        "value": "54",
+        "severity": "info"
+      },
+      {
+        "name": "traced_data_sources_seen",
+        "value": "19",
+        "severity": "info"
+      },
+      {
+        "name": "traced_final_flush_succeeded",
+        "value": "1",
+        "severity": "info"
+      },
+      {
+        "name": "traced_flushes_requested",
+        "value": "1",
+        "severity": "info"
+      },
+      {
+        "name": "traced_flushes_succeeded",
+        "value": "1",
+        "severity": "info"
+      },
+      {
+        "name": "traced_producers_connected",
+        "value": "14",
+        "severity": "info"
+      },
+      {
+        "name": "traced_producers_seen",
+        "value": "91",
+        "severity": "info"
+      },
+      {
+        "name": "traced_total_buffers",
+        "value": "1",
+        "severity": "info"
+      },
+      {
+        "name": "traced_tracing_sessions",
+        "value": "1",
+        "severity": "info"
+      },
+      {
+        "name": "compact_sched_switch_skipped",
+        "value": "4",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_begin",
+        "value": "71",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_begin",
+        "value": "4148",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_begin",
+        "value": "9430395158000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_begin",
+        "value": "9430385869000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_begin",
+        "value": "3",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_begin",
+        "value": "176",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_begin",
+        "value": "9430395184000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_begin",
+        "value": "9430394472000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_begin",
+        "value": "54",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_begin",
+        "value": "3076",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_begin",
+        "value": "9430395198000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_begin",
+        "value": "9430385831000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_begin",
+        "value": "36",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_begin",
+        "value": "2052",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_begin",
+        "value": "9430395211000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_begin",
+        "value": "9430385892000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_end",
+        "value": "2",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_end",
+        "value": "108",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_end",
+        "value": "44747",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_end",
+        "value": "9439147401000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_delta",
+        "value": "-69",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_delta",
+        "value": "-4040",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_delta",
+        "value": "44747",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_end",
+        "value": "9439137505000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_end",
+        "value": "45855",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_end",
+        "value": "9439147426000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_delta",
+        "value": "-3",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_delta",
+        "value": "-176",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_delta",
+        "value": "45855",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_end",
+        "value": "9439133392000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_end",
+        "value": "1",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_end",
+        "value": "68",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_end",
+        "value": "58006",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_end",
+        "value": "9439147441000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_delta",
+        "value": "-53",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_delta",
+        "value": "-3008",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_delta",
+        "value": "58006",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_end",
+        "value": "9439145921000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_end",
+        "value": "3",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_end",
+        "value": "176",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_end",
+        "value": "51122",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_end",
+        "value": "9439147455000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_delta",
+        "value": "-33",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_delta",
+        "value": "-1876",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_delta",
+        "value": "51122",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_end",
+        "value": "9439140725000",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_buffer_size",
+        "value": "33554432",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_bytes_written",
+        "value": "4104192",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_bytes_read",
+        "value": "4100096",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_chunks_written",
+        "value": "162",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_chunks_read",
+        "value": "161",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_patches_succeeded",
+        "value": "328",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_readaheads_succeeded",
+        "value": "153",
+        "severity": "info"
+      }
+    ],
+    "scope": "Display frames, not uniquely decoded camera buffers or photons. Initial832/835 captures excluded due probe crash.",
+    "kms_vblank_period_normalized_by_sequence": {
+      "n": 1049,
+      "median_ms": 8.333333,
+      "p95_ms": 8.654407,
+      "p99_ms": 8.657685,
+      "max_ms": 8.658574
+    },
+    "kms_trace_event_sequence_gaps": {
+      "count": 0,
+      "largest_sequence_step": 1,
+      "interpretation": "Missing logged events are not proof of stopped physical scanout or a missed camera frame."
+    }
+  },
+  "882": {
+    "display_frames": 839,
+    "presented_records": 837,
+    "out_of_order_completion_count": 0,
+    "software_display_frame_duration": {
+      "n": 837,
+      "median_ms": 7.27837,
+      "p95_ms": 7.515222,
+      "p99_ms": 7.592148,
+      "max_ms": 15.62974
+    },
+    "display_frame_completion_interval": {
+      "n": 836,
+      "median_ms": 8.653888,
+      "p95_ms": 16.986667,
+      "p99_ms": 16.989963,
+      "max_ms": 24.998723
+    },
+    "jank_counts": [
+      {
+        "jank_type": "Display HAL",
+        "present_type": "Late Present",
+        "gpu_composition": "0",
+        "n": "1"
+      },
+      {
+        "jank_type": "Dropped Frame",
+        "present_type": "Dropped Frame",
+        "gpu_composition": "0",
+        "n": "1"
+      },
+      {
+        "jank_type": "Non Animating",
+        "present_type": "Unspecified Present",
+        "gpu_composition": "0",
+        "n": "1"
+      },
+      {
+        "jank_type": "None",
+        "present_type": "On-time Present",
+        "gpu_composition": "0",
+        "n": "835"
+      },
+      {
+        "jank_type": "SurfaceFlinger CPU Deadline Missed",
+        "present_type": "Late Present",
+        "gpu_composition": "0",
+        "n": "1"
+      }
+    ],
+    "layer_counts": [
+      {
+        "layer_name": "[NULL]",
+        "n": "839"
+      },
+      {
+        "layer_name": "TX - VRI-StatusBar#74",
+        "n": "1"
+      },
+      {
+        "layer_name": "TX - VRI-com.example.vcamproducer/com.example.vcamproducer.SplitDemoActivity#2613",
+        "n": "728"
+      }
+    ],
+    "scheduler_rows": [
+      {
+        "n": "127324"
+      }
+    ],
+    "cpu_by_thread": [
+      {
+        "name": "swapper",
+        "cpu_s": "30.507104"
+      },
+      {
+        "name": "VCamRenderGL",
+        "cpu_s": "1.503513"
+      },
+      {
+        "name": "RenderThread",
+        "cpu_s": "0.791701"
+      },
+      {
+        "name": "surfaceflinger",
+        "cpu_s": "0.755782"
+      },
+      {
+        "name": "le.vcamproducer",
+        "cpu_s": "0.531043"
+      },
+      {
+        "name": "android.hardwar",
+        "cpu_s": "0.486672"
+      },
+      {
+        "name": "C3Dev-100-ReqQu",
+        "cpu_s": "0.455417"
+      },
+      {
+        "name": "binder:8700_1",
+        "cpu_s": "0.228628"
+      },
+      {
+        "name": "binder:8700_2",
+        "cpu_s": "0.207751"
+      },
+      {
+        "name": "binder:8781_5",
+        "cpu_s": "0.164664"
+      },
+      {
+        "name": "binder:8781_3",
+        "cpu_s": "0.130076"
+      },
+      {
+        "name": "binder:687_5",
+        "cpu_s": "0.123685"
+      },
+      {
+        "name": "binder:8781_4",
+        "cpu_s": "0.115333"
+      },
+      {
+        "name": "C3Dev-100-Statu",
+        "cpu_s": "0.114432"
+      },
+      {
+        "name": "binder:568_3",
+        "cpu_s": "0.088212"
+      }
+    ],
+    "event_counts": [
+      {
+        "name": "sched_switch",
+        "n": "127324"
+      },
+      {
+        "name": "sched_wakeup",
+        "n": "66909"
+      },
+      {
+        "name": "v3d_submit_cl",
+        "n": "4405"
+      },
+      {
+        "name": "v3d_rcl_irq",
+        "n": "2202"
+      },
+      {
+        "name": "drm_vblank_event",
+        "n": "1117"
+      },
+      {
+        "name": "drm_vblank_event_delivered",
+        "n": "798"
+      }
+    ],
+    "nonzero_stats": [
+      {
+        "name": "guess_trace_type_duration_ns",
+        "value": "173209",
+        "severity": "info"
+      },
+      {
+        "name": "parse_trace_duration_ns",
+        "value": "26783301",
+        "severity": "info"
+      },
+      {
+        "name": "clock_sync_cache_miss",
+        "value": "10",
+        "severity": "info"
+      },
+      {
+        "name": "frame_timeline_event_parser_errors",
+        "value": "1",
+        "severity": "info"
+      },
+      {
+        "name": "traced_chunks_discarded",
+        "value": "4",
+        "severity": "info"
+      },
+      {
+        "name": "traced_data_sources_registered",
+        "value": "54",
+        "severity": "info"
+      },
+      {
+        "name": "traced_data_sources_seen",
+        "value": "22",
+        "severity": "info"
+      },
+      {
+        "name": "traced_final_flush_succeeded",
+        "value": "1",
+        "severity": "info"
+      },
+      {
+        "name": "traced_flushes_requested",
+        "value": "1",
+        "severity": "info"
+      },
+      {
+        "name": "traced_flushes_succeeded",
+        "value": "1",
+        "severity": "info"
+      },
+      {
+        "name": "traced_producers_connected",
+        "value": "14",
+        "severity": "info"
+      },
+      {
+        "name": "traced_producers_seen",
+        "value": "92",
+        "severity": "info"
+      },
+      {
+        "name": "traced_total_buffers",
+        "value": "1",
+        "severity": "info"
+      },
+      {
+        "name": "traced_tracing_sessions",
+        "value": "1",
+        "severity": "info"
+      },
+      {
+        "name": "compact_sched_switch_skipped",
+        "value": "4",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_begin",
+        "value": "62",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_begin",
+        "value": "3384",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_begin",
+        "value": "9446234394000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_begin",
+        "value": "9446227646000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_begin",
+        "value": "38",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_begin",
+        "value": "2220",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_begin",
+        "value": "9446234417000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_begin",
+        "value": "9446227651000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_begin",
+        "value": "60",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_begin",
+        "value": "3520",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_begin",
+        "value": "9446234431000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_begin",
+        "value": "9446227047000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_begin",
+        "value": "7",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_begin",
+        "value": "420",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_begin",
+        "value": "9446234443000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_begin",
+        "value": "9446233844000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_end",
+        "value": "6",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_end",
+        "value": "324",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_end",
+        "value": "48152",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_end",
+        "value": "9455539669000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_delta",
+        "value": "-56",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_delta",
+        "value": "-3060",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_delta",
+        "value": "48152",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_end",
+        "value": "9455530707000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_end",
+        "value": "2",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_end",
+        "value": "80",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_end",
+        "value": "47119",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_end",
+        "value": "9455539702000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_delta",
+        "value": "-36",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_delta",
+        "value": "-2140",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_delta",
+        "value": "47119",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_end",
+        "value": "9455532545000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_end",
+        "value": "50381",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_end",
+        "value": "9455539718000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_delta",
+        "value": "-60",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_delta",
+        "value": "-3520",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_delta",
+        "value": "50381",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_end",
+        "value": "9455527958000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_end",
+        "value": "6",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_end",
+        "value": "324",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_end",
+        "value": "57107",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_end",
+        "value": "9455539734000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_delta",
+        "value": "-1",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_delta",
+        "value": "-96",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_delta",
+        "value": "57107",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_end",
+        "value": "9455523655000",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_buffer_size",
+        "value": "33554432",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_bytes_written",
+        "value": "4284416",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_bytes_read",
+        "value": "4280320",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_chunks_written",
+        "value": "206",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_chunks_read",
+        "value": "205",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_patches_succeeded",
+        "value": "415",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_readaheads_succeeded",
+        "value": "198",
+        "severity": "info"
+      }
+    ],
+    "scope": "Display frames, not uniquely decoded camera buffers or photons. Initial832/835 captures excluded due probe crash.",
+    "kms_vblank_period_normalized_by_sequence": {
+      "n": 1116,
+      "median_ms": 8.333704,
+      "p95_ms": 8.655537,
+      "p99_ms": 8.656963,
+      "max_ms": 8.659185
+    },
+    "kms_trace_event_sequence_gaps": {
+      "count": 1,
+      "largest_sequence_step": 2,
+      "interpretation": "Missing logged events are not proof of stopped physical scanout or a missed camera frame."
+    }
+  },
+  "883": {
+    "display_frames": 806,
+    "presented_records": 805,
+    "out_of_order_completion_count": 0,
+    "software_display_frame_duration": {
+      "n": 805,
+      "median_ms": 7.30624,
+      "p95_ms": 7.52561,
+      "p99_ms": 7.591666,
+      "max_ms": 23.840148
+    },
+    "display_frame_completion_interval": {
+      "n": 804,
+      "median_ms": 8.335213,
+      "p95_ms": 25.0015,
+      "p99_ms": 33.334869,
+      "max_ms": 83.333148
+    },
+    "jank_counts": [
+      {
+        "jank_type": "Display HAL",
+        "present_type": "Late Present",
+        "gpu_composition": "0",
+        "n": "2"
+      },
+      {
+        "jank_type": "Dropped Frame",
+        "present_type": "Dropped Frame",
+        "gpu_composition": "0",
+        "n": "1"
+      },
+      {
+        "jank_type": "None",
+        "present_type": "On-time Present",
+        "gpu_composition": "0",
+        "n": "800"
+      },
+      {
+        "jank_type": "SurfaceFlinger CPU Deadline Missed",
+        "present_type": "Late Present",
+        "gpu_composition": "0",
+        "n": "2"
+      },
+      {
+        "jank_type": "SurfaceFlinger Stuffing",
+        "present_type": "On-time Present",
+        "gpu_composition": "0",
+        "n": "1"
+      }
+    ],
+    "layer_counts": [
+      {
+        "layer_name": "[NULL]",
+        "n": "806"
+      },
+      {
+        "layer_name": "TX - VRI-com.example.vcamproducer/com.example.vcamproducer.SplitDemoActivity#2641",
+        "n": "805"
+      }
+    ],
+    "scheduler_rows": [
+      {
+        "n": "138373"
+      }
+    ],
+    "cpu_by_thread": [
+      {
+        "name": "swapper",
+        "cpu_s": "30.208978"
+      },
+      {
+        "name": "RenderThread",
+        "cpu_s": "0.852273"
+      },
+      {
+        "name": "surfaceflinger",
+        "cpu_s": "0.709160"
+      },
+      {
+        "name": "android.hardwar",
+        "cpu_s": "0.688922"
+      },
+      {
+        "name": "le.vcamproducer",
+        "cpu_s": "0.604401"
+      },
+      {
+        "name": "VCamRenderGL",
+        "cpu_s": "0.552534"
+      },
+      {
+        "name": "C3Dev-100-ReqQu",
+        "cpu_s": "0.514266"
+      },
+      {
+        "name": "binder:8700_2",
+        "cpu_s": "0.357489"
+      },
+      {
+        "name": "binder:8700_1",
+        "cpu_s": "0.299649"
+      },
+      {
+        "name": "binder:687_1C",
+        "cpu_s": "0.157490"
+      },
+      {
+        "name": "binder:8841_5",
+        "cpu_s": "0.148551"
+      },
+      {
+        "name": "binder:8841_1",
+        "cpu_s": "0.146862"
+      },
+      {
+        "name": "binder:8841_3",
+        "cpu_s": "0.130029"
+      },
+      {
+        "name": "PreviewSpacer-0",
+        "cpu_s": "0.112485"
+      },
+      {
+        "name": "binder:8841_6",
+        "cpu_s": "0.107525"
+      }
+    ],
+    "event_counts": [
+      {
+        "name": "sched_switch",
+        "n": "138373"
+      },
+      {
+        "name": "sched_wakeup",
+        "n": "73357"
+      },
+      {
+        "name": "v3d_submit_cl",
+        "n": "5480"
+      },
+      {
+        "name": "v3d_rcl_irq",
+        "n": "2740"
+      },
+      {
+        "name": "drm_vblank_event",
+        "n": "1012"
+      },
+      {
+        "name": "drm_vblank_event_delivered",
+        "n": "762"
+      }
+    ],
+    "nonzero_stats": [
+      {
+        "name": "guess_trace_type_duration_ns",
+        "value": "164706",
+        "severity": "info"
+      },
+      {
+        "name": "parse_trace_duration_ns",
+        "value": "28755372",
+        "severity": "info"
+      },
+      {
+        "name": "clock_sync_cache_miss",
+        "value": "10",
+        "severity": "info"
+      },
+      {
+        "name": "frame_timeline_event_parser_errors",
+        "value": "2",
+        "severity": "info"
+      },
+      {
+        "name": "traced_chunks_discarded",
+        "value": "5",
+        "severity": "info"
+      },
+      {
+        "name": "traced_data_sources_registered",
+        "value": "54",
+        "severity": "info"
+      },
+      {
+        "name": "traced_data_sources_seen",
+        "value": "25",
+        "severity": "info"
+      },
+      {
+        "name": "traced_final_flush_succeeded",
+        "value": "1",
+        "severity": "info"
+      },
+      {
+        "name": "traced_flushes_requested",
+        "value": "1",
+        "severity": "info"
+      },
+      {
+        "name": "traced_flushes_succeeded",
+        "value": "1",
+        "severity": "info"
+      },
+      {
+        "name": "traced_producers_connected",
+        "value": "14",
+        "severity": "info"
+      },
+      {
+        "name": "traced_producers_seen",
+        "value": "93",
+        "severity": "info"
+      },
+      {
+        "name": "traced_total_buffers",
+        "value": "1",
+        "severity": "info"
+      },
+      {
+        "name": "traced_tracing_sessions",
+        "value": "1",
+        "severity": "info"
+      },
+      {
+        "name": "compact_sched_switch_skipped",
+        "value": "4",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_begin",
+        "value": "91",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_begin",
+        "value": "5168",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_begin",
+        "value": "9462770569000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_begin",
+        "value": "9462761654000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_begin",
+        "value": "2",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_begin",
+        "value": "136",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_begin",
+        "value": "9462770595000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_begin",
+        "value": "9462770069000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_begin",
+        "value": "63",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_begin",
+        "value": "3604",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_begin",
+        "value": "9462770606000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_begin",
+        "value": "9462762003000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_begin",
+        "value": "54",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_begin",
+        "value": "3020",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_begin",
+        "value": "9462770617000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_begin",
+        "value": "9462761454000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_end",
+        "value": "5",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_end",
+        "value": "280",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_end",
+        "value": "59163",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_end",
+        "value": "9471965521000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_delta",
+        "value": "-86",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_delta",
+        "value": "-4888",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_delta",
+        "value": "59163",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_end",
+        "value": "9471964502000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_end",
+        "value": "45336",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_end",
+        "value": "9471965559000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_delta",
+        "value": "-2",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_delta",
+        "value": "-136",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_delta",
+        "value": "45336",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_end",
+        "value": "9471957159000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_end",
+        "value": "8",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_end",
+        "value": "460",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_end",
+        "value": "56443",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_end",
+        "value": "9471965578000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_delta",
+        "value": "-55",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_delta",
+        "value": "-3144",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_delta",
+        "value": "56443",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_end",
+        "value": "9471958949000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_end",
+        "value": "60786",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_now_ts_end",
+        "value": "9471965593000",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_entries_delta",
+        "value": "-54",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_bytes_delta",
+        "value": "-3020",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_read_events_delta",
+        "value": "60786",
+        "severity": "info"
+      },
+      {
+        "name": "ftrace_cpu_oldest_event_ts_end",
+        "value": "9471958335000",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_buffer_size",
+        "value": "33554432",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_bytes_written",
+        "value": "4698112",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_bytes_read",
+        "value": "4694016",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_chunks_written",
+        "value": "223",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_chunks_read",
+        "value": "222",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_patches_succeeded",
+        "value": "435",
+        "severity": "info"
+      },
+      {
+        "name": "traced_buf_readaheads_succeeded",
+        "value": "218",
+        "severity": "info"
+      }
+    ],
+    "scope": "Display frames, not uniquely decoded camera buffers or photons. Initial832/835 captures excluded due probe crash.",
+    "kms_vblank_period_normalized_by_sequence": {
+      "n": 1011,
+      "median_ms": 8.333223,
+      "p95_ms": 8.654907,
+      "p99_ms": 8.656555,
+      "max_ms": 8.658537
+    },
+    "kms_trace_event_sequence_gaps": {
+      "count": 82,
+      "largest_sequence_step": 3,
+      "interpretation": "Missing logged events are not proof of stopped physical scanout or a missed camera frame."
+    }
+  }
+}

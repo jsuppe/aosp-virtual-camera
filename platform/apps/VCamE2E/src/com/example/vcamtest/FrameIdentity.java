@@ -67,6 +67,30 @@ public final class FrameIdentity {
         throw new IllegalArgumentException("marker contrast/header/CRC failure");
     }
 
+    /** RGBA diagnostic: every RGB channel must independently carry the same valid marker. */
+    public static FrameIdentity decodeRgba(ByteBuffer pixels, int width, int height,
+            int rowStride, int pixelStride) {
+        if (pixelStride < 4) throw new IllegalArgumentException("invalid RGBA pixel stride");
+        FrameIdentity first = null;
+        for (int channel = 0; channel < 3; channel++) {
+            ByteBuffer view = pixels.duplicate();
+            view.position(pixels.position() + channel);
+            FrameIdentity id = decode(view, width, height, rowStride, pixelStride);
+            if (first == null) first = id;
+            else if (id.producer != first.producer || id.run != first.run ||
+                    id.generation != first.generation || id.sequence != first.sequence ||
+                    id.flipped != first.flipped)
+                throw new IllegalArgumentException("RGBA channel identity mismatch");
+        }
+        for (int row = 0; row < ROWS; row++) for (int col = 0; col < COLS; col++) {
+            int x = (2 * col + 1) * width / (2 * COLS);
+            int y = (2 * row + 1) * height / (2 * ROWS);
+            if ((pixels.get(pixels.position() + y * rowStride + x * pixelStride + 3) & 255) != 255)
+                throw new IllegalArgumentException("RGBA marker alpha corruption");
+        }
+        return first;
+    }
+
     private static long unsigned(byte[] b, int start, int length) {
         long value = 0;
         for (int i = start; i < start + length; i++) value = (value << 8) | (b[i] & 255);

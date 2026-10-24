@@ -46,6 +46,12 @@ public final class MainActivity extends Activity {
     private int command;
     private boolean stopping;
     private boolean probeOnly;
+    private int pixelFormat = ImageFormat.YUV_420_888;
+    private String onlyCamera = "";
+    private final java.util.ArrayList<String> imageSamples = new java.util.ArrayList<>();
+    private final java.util.ArrayList<String> resultSamples = new java.util.ArrayList<>();
+    private long droppedSamples;
+
 
     private static final class Slot {
         final String id;
@@ -94,7 +100,14 @@ public final class MainActivity extends Activity {
     private void control(Intent intent) {
         try {
             probeOnly=intent.getBooleanExtra("probe_only",probeOnly);
+            int format = intent.getBooleanExtra("rgba", pixelFormat == android.graphics.PixelFormat.RGBA_8888)
+                    ? android.graphics.PixelFormat.RGBA_8888 : ImageFormat.YUV_420_888;
+            String selected = intent.hasExtra("only_camera") ? intent.getStringExtra("only_camera") : onlyCamera;
+            if (format != pixelFormat || !onlyCamera.equals(selected)) for (Slot slot : slots) close(slot);
+            pixelFormat = format; onlyCamera = selected;
+
             for (Slot slot : slots) {
+                if (!onlyCamera.isEmpty() && !onlyCamera.equals(slot.id)) continue;
                 int width=intent.getIntExtra("width"+slot.id,slot.width),height=intent.getIntExtra("height"+slot.id,slot.height);
                 int fps=intent.getIntExtra("fps"+slot.id,slot.fps);
                 boolean rateChanged=fps!=slot.fps;
@@ -114,6 +127,10 @@ public final class MainActivity extends Activity {
                 }
             }
             command = intent.getIntExtra("command", command);
+            if (intent.getBooleanExtra("export", false)) {
+                exportSamples("images.csv", "camera,receipt_ns,image_timestamp_ns,producer,run,generation,sequence", imageSamples);
+                exportSamples("results.csv", "camera,callback_ns,frame,sensor_timestamp_ns", resultSamples);
+            }
         } catch (Exception e) { fail("control: " + e); }
         save();
     }
@@ -126,7 +143,7 @@ public final class MainActivity extends Activity {
                 for (Slot slot : slots) {
                     // Do NOT synthesize disconnect by closing on inventory removal.
                     // The harness must observe a genuine framework StateCallback.
-                    if (!probeOnly && inventory.contains(slot.id) && slot.attempt == null && failure.isEmpty()) open(slot);
+                    if (!probeOnly && (onlyCamera.isEmpty() || onlyCamera.equals(slot.id)) && inventory.contains(slot.id) && slot.attempt == null && failure.isEmpty()) open(slot);
                 }
             } catch (Exception e) { fail("inventory: " + e); }
             save();
@@ -137,13 +154,13 @@ public final class MainActivity extends Activity {
     private void open(Slot slot) throws Exception {
         CameraCharacteristics characteristics = manager.getCameraCharacteristics(slot.id);
         Size[] sizes = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-                .getOutputSizes(ImageFormat.YUV_420_888);
+                .getOutputSizes(pixelFormat);
         if (sizes == null || !Arrays.asList(sizes).contains(new Size(slot.width, slot.height))) {
-            throw new IllegalStateException(slot.id + " lacks requested advertised YUV profile " + slot.width + "x" + slot.height);
+            throw new IllegalStateException(slot.id + " lacks requested advertised output profile " + slot.width + "x" + slot.height);
         }
         Attempt attempt = new Attempt(++slot.openSerial);
         slot.attempt = attempt;
-        attempt.reader = ImageReader.newInstance(slot.width, slot.height, ImageFormat.YUV_420_888, 4);
+        attempt.reader = ImageReader.newInstance(slot.width, slot.height, pixelFormat, 4);
         attempt.reader.setOnImageAvailableListener(reader -> read(slot, attempt, reader), handler);
         try {
             manager.openCamera(slot.id, new CameraDevice.StateCallback() {
@@ -191,6 +208,9 @@ public final class MainActivity extends Activity {
                                                 TotalCaptureResult result) {
                                             if (slot.attempt == attempt) {
                                                 slot.completed++;
+                                                Long timestamp = result.get(android.hardware.camera2.CaptureResult.SENSOR_TIMESTAMP);
+                                                if (resultSamples.size() < 50000) resultSamples.add(slot.id + "," + System.nanoTime() + "," + result.getFrameNumber() + "," + (timestamp == null ? 0 : timestamp));
+                                                else droppedSamples++;
                                                 Long duration=result.get(android.hardware.camera2.CaptureResult.SENSOR_FRAME_DURATION);
                                                 if(duration!=null)slot.frameDuration=duration;
                                             }
@@ -210,11 +230,13 @@ public final class MainActivity extends Activity {
 
     private void read(Slot slot, Attempt attempt, ImageReader reader) {
         if (slot.attempt != attempt) return;
+        long receipt = System.nanoTime();
         try (Image image = reader.acquireNextImage()) {
             if (image == null) return;
             Image.Plane plane = image.getPlanes()[0];
-            FrameIdentity id = FrameIdentity.decode(plane.getBuffer(), image.getWidth(), image.getHeight(),
-                    plane.getRowStride(), plane.getPixelStride());
+            FrameIdentity id = pixelFormat == android.graphics.PixelFormat.RGBA_8888
+                    ? FrameIdentity.decodeRgba(plane.getBuffer(), image.getWidth(), image.getHeight(), plane.getRowStride(), plane.getPixelStride())
+                    : FrameIdentity.decode(plane.getBuffer(), image.getWidth(), image.getHeight(), plane.getRowStride(), plane.getPixelStride());
             if (id.producer != slot.producer || id.run != slot.expectedRun) {
                 throw new IllegalStateException("wrong producer/run " + id.producer + "/" + id.run
                         + " expected " + slot.producer + "/" + slot.expectedRun);
@@ -227,7 +249,17 @@ public final class MainActivity extends Activity {
             slot.sequence = id.sequence; slot.generation = id.generation;
             slot.timestamp = image.getTimestamp(); slot.flipped = id.flipped;
             slot.images++;
+            if (imageSamples.size() < 50000) imageSamples.add(slot.id + "," + receipt + "," + image.getTimestamp() + "," + id.producer + "," + id.run + "," + id.generation + "," + id.sequence);
+            else droppedSamples++;
         } catch (Exception e) { fail(slot.id + " pixels: " + e); }
+    }
+
+    private void exportSamples(String name, String header, java.util.List<String> rows) throws java.io.IOException {
+        try (java.io.BufferedWriter writer = new java.io.BufferedWriter(new java.io.OutputStreamWriter(
+                new FileOutputStream(new File(getFilesDir(), name)), StandardCharsets.UTF_8))) {
+            writer.write(header); writer.newLine();
+            for (String row : rows) { writer.write(row); writer.newLine(); }
+        }
     }
 
     private void close(Slot slot) {
@@ -247,7 +279,7 @@ public final class MainActivity extends Activity {
         FileOutputStream stream = null;
         try {
             JSONObject result = new JSONObject();
-            result.put("schema", 1); result.put("command", command);
+            result.put("schema", 1); result.put("pixel_format", pixelFormat); result.put("dropped_samples", droppedSamples); result.put("command", command);
             result.put("elapsed_ms", SystemClock.elapsedRealtime());
             result.put("failure", failure); result.put("inventory", new JSONArray(inventory));
             JSONObject cameras = new JSONObject();
