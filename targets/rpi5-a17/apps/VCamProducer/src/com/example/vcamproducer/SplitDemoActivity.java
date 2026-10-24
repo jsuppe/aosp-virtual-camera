@@ -35,6 +35,7 @@ public final class SplitDemoActivity extends Activity {
     private final long[] mTextureTimestamps = new long[2];
     private final int[] mTextureUpdates = new int[2];
     private String mCameraId;
+    private int mTargetFps;
 
     private final CameraManager.AvailabilityCallback mAvailability =
             new CameraManager.AvailabilityCallback() {
@@ -46,6 +47,10 @@ public final class SplitDemoActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         if (getActionBar() != null) getActionBar().hide();
+        mTargetFps = getIntent().getIntExtra("fps", 60) == 120 ? 120 : 60;
+        WindowManager.LayoutParams windowParams = getWindow().getAttributes();
+        windowParams.preferredRefreshRate = mTargetFps;
+        getWindow().setAttributes(windowParams);
         mCameraId = getIntent().getStringExtra("camera");
         if (mCameraId == null) mCameraId = "100";
         mManager = getSystemService(CameraManager.class);
@@ -61,7 +66,8 @@ public final class SplitDemoActivity extends Activity {
         root.setBackgroundColor(0xff10141d);
         LinearLayout toolbar = new LinearLayout(this);
         toolbar.setPadding(16, 8, 16, 8);
-        TextView title = label("VCam • split comparison\n1-second cycle • 60 frames • 0.017 → 1.000 seconds", 18);
+        TextView title = label("VCam • split comparison\n1-second cycle • " + mTargetFps
+                + " frames • " + (mTargetFps == 120 ? "0.008" : "0.017") + " → 1.000 seconds", 18);
         toolbar.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
         mFreeze = new Button(this);
         mFreeze.setText("Freeze comparison");
@@ -85,7 +91,8 @@ public final class SplitDemoActivity extends Activity {
         root.addView(mComparison, new LinearLayout.LayoutParams(-1, 0, 1));
         mStatus = label("Waiting for both surfaces…", 16);
         root.addView(mStatus);
-        root.addView(label("Clock = cycle seconds.milliseconds • FRAME = 01–60 • Strip = 60 steps. At 60fps each step is ≈16.7ms; not a precision latency meter.", 15));
+        root.addView(label("Clock = nominal cycle seconds • " + mTargetFps + " steps • ≈"
+                + (mTargetFps == 120 ? "8.33" : "16.7") + "ms per step at target rate; not a precision latency meter.", 15));
         setContentView(root);
         mDirect.setSurfaceTextureListener(listener(true));
         mPreview.setSurfaceTextureListener(listener(false));
@@ -124,6 +131,7 @@ public final class SplitDemoActivity extends Activity {
                 st.setDefaultBufferSize(640, 480);
                 if (direct) {
                     mDirectSurface = new Surface(st);
+                    mDirectSurface.setFrameRate(mTargetFps, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE);
                     if (mActive) VCamProducerService.sReferenceSurface = mDirectSurface;
                 }
                 maybeOpen();
@@ -215,6 +223,7 @@ public final class SplitDemoActivity extends Activity {
             SurfaceTexture st = mPreview.getSurfaceTexture();
             st.setDefaultBufferSize(640, 480);
             final Surface target = new Surface(st);
+            target.setFrameRate(mTargetFps, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE);
             mCameraSurface = target;
             camera.createCaptureSession(Collections.singletonList(target),
                     new CameraCaptureSession.StateCallback() {
@@ -224,7 +233,8 @@ public final class SplitDemoActivity extends Activity {
                     try {
                         CaptureRequest.Builder request = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
                         request.addTarget(target);
-                        request.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, new Range<>(60, 60));
+                        request.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, new Range<>(mTargetFps, mTargetFps));
+                        Log.i("VCamSplit", "REQUESTED_FPS " + mTargetFps);
                         session.setRepeatingRequest(request.build(), new CameraCaptureSession.CaptureCallback() {
                             @Override public void onCaptureCompleted(CameraCaptureSession s, CaptureRequest r, TotalCaptureResult result) {
                                 if (epoch != mEpoch || !mActive) return;

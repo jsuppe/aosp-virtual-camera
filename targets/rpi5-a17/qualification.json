@@ -142,5 +142,63 @@
     "build": "Both producer apps PASS (14 seconds)",
     "physical_check": "Installed and live; red then green source backgrounds verified on both panes in screenshots. Visible TAP number and tap-instructions removed at user request; internal timing sequence retained.",
     "scope": "UI-only cleanup of the interactive tap revision; no full image rebuild or new latency benchmark."
+  },
+  "vga120_revision": {
+    "producer_apk_sha256": "16c62fdb6548b8b97ed0b193bb15b192fa43bfedbce9cfa1e40f3a1ec5feab54",
+    "build": "VCamProducer and VCamProducer2 PASS (15seconds), 48Python testsPASS",
+    "integration": "twice/130 identical source hashes",
+    "display": "1920x1080 physical120.00001Hz; app render override120.00001 after window/surface frame-rate requests",
+    "camera": "640x480 RGBA, stream configured120fps, Camera2 request[120,120]",
+    "cadence": {
+      "measurement": "Logged counters and TextureView update callbacks, NOT decoded distinct Camera2 images or physical display presentation",
+      "warmup_seconds": 5,
+      "requested_window_seconds": 60,
+      "fixed_window_start_log_seconds": 6177.111,
+      "fixed_window_end_log_seconds": 6237.111,
+      "series": {
+        "producer_submissions": {
+          "samples": 238,
+          "counter_delta": 7110,
+          "observed_span_seconds": 59.512,
+          "counter_rate_per_second": 119.47170318591266,
+          "max_logged_batch_seconds": 0.426,
+          "batch_counter_delta": 30
+        },
+        "camera2_results": {
+          "samples": 238,
+          "counter_delta": 7110,
+          "observed_span_seconds": 59.62,
+          "counter_rate_per_second": 119.25528346192574,
+          "max_logged_batch_seconds": 0.475,
+          "batch_counter_delta": 30
+        },
+        "left_texture_update_callbacks": {
+          "samples": 59,
+          "counter_delta": 6960,
+          "observed_span_seconds": 58.308,
+          "counter_rate_per_second": 119.36612471701997,
+          "max_logged_batch_seconds": 1.3,
+          "batch_counter_delta": 120
+        },
+        "right_texture_update_callbacks": {
+          "samples": 60,
+          "counter_delta": 7080,
+          "observed_span_seconds": 59.675,
+          "counter_rate_per_second": 118.64264767490538,
+          "max_logged_batch_seconds": 1.434,
+          "batch_counter_delta": 120
+        }
+      },
+      "log_coverage_seconds": 84.50600000000031,
+      "full_requested_window_covered": true,
+      "fatal_or_gl_errors": false
+    },
+    "pixels": "Two composited screenshots decode matching120-cell cycle steps6/6 and51/51 on left/right. NOT a distinct-frame throughput benchmark.",
+    "limits": [
+      "Counter observation window includes two diagnostic screenshots; not an instrumentation-free soak.",
+      "No decoded distinct-frame Camera2 benchmark or120fps latency measurement.",
+      "No new HAL/APEX/system image deployment.",
+      "60fps remains default split launch; explicitfps120/testbutton selects120. Higher-resolution defaults unchanged."
+    ]
   }
 }

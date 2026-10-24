@@ -123,7 +123,7 @@ public class VCamProducerService extends Service {
             config.name = "VCamProducer";
             config.maxWidth = 3840;
             config.maxHeight = 1080;
-            config.maxFps = 60;
+            config.maxFps = 120;
             config.supportedFormats = new int[] { 1 /* RGBA_8888 */ };
             config.facing = 2;      // EXTERNAL
             config.orientation = 0;
@@ -139,9 +139,9 @@ public class VCamProducerService extends Service {
             else {
                 int id = 1;
                 for (int[] size : new int[][] {{640,480},{1280,720},{1920,1080},{3840,2160}}) {
-                    // Qualify the 60fps VGA demo independently; larger default
+                    // Qualify the 120fps VGA test independently; larger default
                     // modes retain their previous 30fps contract.
-                    modes.add(mode(id++, size[0], size[1], size[0] == 640 ? 60 : 30,
+                    modes.add(mode(id++, size[0], size[1], size[0] == 640 ? 120 : 30,
                             config.supportsJpeg));
                 }
             }

@@ -43,6 +43,11 @@ public final class MainActivity extends Activity {
         split.setText("Split-screen clock comparison");
         split.setOnClickListener(view -> startActivity(new Intent(this, SplitDemoActivity.class)));
         root.addView(split);
+        Button split120 = new Button(this);
+        split120.setText("120 fps split-screen test");
+        split120.setOnClickListener(view -> startActivity(
+                new Intent(this, SplitDemoActivity.class).putExtra("fps", 120)));
+        root.addView(split120);
         Button stop = new Button(this);
         stop.setText("Stop producer");
         stop.setOnClickListener(view -> {

@@ -11,11 +11,11 @@ Important entry points:
 - [DirectMirror.java](apps/VCamProducer/src/com/example/vcamproducer/DirectMirror.java): separate left EGL window using the same source uniforms/text texture.
 - [VsyncFrameClock.java](apps/VCamProducer/src/com/example/vcamproducer/VsyncFrameClock.java): latest-only Choreographer mailbox. EGL stays on one graphics owner.
 
-## Current60fps behavior
+## Selectable60/120fps tests
 
-The default640x480 RGBA mode advertises up to60fps and the split viewer explicitly requests `[60,60]`. The producer uses the negotiated stream rate, not a test-only hardcoded override. Larger default modes retain30fps. A60Hz vsync clock limits the current design to approximately60 generated frames/s; declared capabilities alone do not establish sustained delivery.
+The default640x480 RGBA mode advertises up to120fps. The normal split viewer requests `[60,60]`; the launcher also offers a **120 fps split-screen test**, equivalent to starting `SplitDemoActivity` with `--ei fps 120`. That test requests `[120,120]` and asks the window and output surfaces for120Hz. The producer uses the negotiated stream rate, not a test-only hardcoded override. Larger default modes retain30fps. The actual display/app vsync cadence limits generated frames; a120fps request on a60Hz clock cannot deliver120fps. Declared capabilities alone do not establish sustained fresh-frame delivery.
 
-The clock is a60-frame nominal one-second loop: frame01≈0.017, frame60=1.000, then repeat. It is frame-counter time, NOT a live monotonic stopwatch. Missed render deadlines can make a cycle last longer than one wall-clock second.
+The clock is a nominal one-second loop with60 or120 frames according to the negotiated rate. At120fps frame01≈0.008 and frame120=1.000, then repeat. It is frame-counter time, NOT a live monotonic stopwatch. Missed render deadlines can make a cycle last longer than one wall-clock second.
 
 ## What matching clocks mean
 
