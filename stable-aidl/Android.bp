@@ -1,0 +1,61 @@
+// Stable (VINTF) AIDL boundary between the platform VirtualCameraService and
+// the vendor virtual-camera HAL. Frozen at V1 (unfenced), V2 (adds
+// queueFrameFenced) and V3 (camera slots: multi-producer); the vendor APEX
+// and the platform can rev independently
+// against it. To freeze the next version: `m <name>-update-api` then
+// `m <name>-freeze-api` in the AOSP tree, and copy aidl_api/ back here.
+package {
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
+aidl_interface {
+    name: "android.hardware.virtualcamera.hal",
+    owner: "jsuppe",
+    vendor_available: true,
+    srcs: ["android/hardware/virtualcamera/hal/*.aidl"],
+    imports: ["android.hardware.common-V2"],
+    stability: "vintf",
+    backend: {
+        java: {
+            platform_apis: true,
+        },
+        cpp: {
+            enabled: false,
+        },
+        ndk: {
+            apex_available: [
+                "//apex_available:platform",
+                "com.android.hardware.camera.provider.virtual",
+            ],
+            min_sdk_version: "33",
+        },
+    },
+    versions_with_info: [
+        {
+            version: "1",
+            imports: ["android.hardware.common-V2"],
+        },
+        {
+            version: "2",
+            imports: ["android.hardware.common-V2"],
+        },
+        {
+            version: "3",
+            imports: ["android.hardware.common-V2"],
+        },
+        {
+            version: "4",
+            imports: ["android.hardware.common-V2"],
+        },
+        {
+            version: "5",
+            imports: ["android.hardware.common-V2"],
+        },
+        {
+            version: "6",
+            imports: ["android.hardware.common-V2"],
+        },
+
+    ],
+
+}

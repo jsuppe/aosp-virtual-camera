@@ -1,0 +1,327 @@
+{
+  "831": {
+    "active_modes": [
+      "id=0, hwcId=2, resolution=1920x1080, vsyncRate=120.00 Hz, dpi=81.42x81.40, group=1, vrrConfig=N/A, hdrOutputType=SDR"
+    ],
+    "comparison_layers": [
+      {
+        "role": "app_window",
+        "composition": "DEVICE"
+      },
+      {
+        "role": "camera_surface",
+        "composition": "DEVICE"
+      }
+    ],
+    "stream_usage": [
+      "0xb00, max HAL buffers: 4"
+    ],
+    "buffer_counts": [
+      "8, currently dequeued: 1, currently cached: 0"
+    ],
+    "dequeue_histogram": "DequeueBuffer latency histogram: (9314) samples\n        5     10     15     20     25     30     35     40     45    inf (max ms)\n     99.96   0.04   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00 (%)",
+    "scope": "One post-window dump; recording has ended before the839dump, so it does not prove recording-time composition."
+  },
+  "832": {
+    "active_modes": [
+      "id=0, hwcId=2, resolution=1920x1080, vsyncRate=120.00 Hz, dpi=81.42x81.40, group=1, vrrConfig=N/A, hdrOutputType=SDR"
+    ],
+    "comparison_layers": [
+      {
+        "role": "app_window",
+        "composition": "DEVICE"
+      },
+      {
+        "role": "camera_surface",
+        "composition": "DEVICE"
+      }
+    ],
+    "stream_usage": [
+      "0xb00, max HAL buffers: 4"
+    ],
+    "buffer_counts": [
+      "8, currently dequeued: 1, currently cached: 0"
+    ],
+    "dequeue_histogram": "DequeueBuffer latency histogram: (9320) samples\n        5     10     15     20     25     30     35     40     45    inf (max ms)\n     99.96   0.02   0.02   0.00   0.00   0.00   0.00   0.00   0.00   0.00 (%)",
+    "scope": "One post-window dump; recording has ended before the839dump, so it does not prove recording-time composition."
+  },
+  "833": {
+    "active_modes": [
+      "id=0, hwcId=2, resolution=1920x1080, vsyncRate=120.00 Hz, dpi=81.42x81.40, group=1, vrrConfig=N/A, hdrOutputType=SDR"
+    ],
+    "comparison_layers": [
+      {
+        "role": "app_window",
+        "composition": "DEVICE"
+      },
+      {
+        "role": "camera_surface",
+        "composition": "DEVICE"
+      }
+    ],
+    "stream_usage": [
+      "0xb00, max HAL buffers: 4"
+    ],
+    "buffer_counts": [
+      "8, currently dequeued: 1, currently cached: 0"
+    ],
+    "dequeue_histogram": "DequeueBuffer latency histogram: (8568) samples\n        5     10     15     20     25     30     35     40     45    inf (max ms)\n     99.98   0.00   0.01   0.01   0.00   0.00   0.00   0.00   0.00   0.00 (%)",
+    "scope": "One post-window dump; recording has ended before the839dump, so it does not prove recording-time composition."
+  },
+  "834": {
+    "active_modes": [
+      "id=0, hwcId=2, resolution=1920x1080, vsyncRate=120.00 Hz, dpi=81.42x81.40, group=1, vrrConfig=N/A, hdrOutputType=SDR"
+    ],
+    "comparison_layers": [
+      {
+        "role": "app_window",
+        "composition": "DEVICE"
+      },
+      {
+        "role": "camera_surface",
+        "composition": "DEVICE"
+      }
+    ],
+    "stream_usage": [
+      "0xb00, max HAL buffers: 4"
+    ],
+    "buffer_counts": [
+      "8, currently dequeued: 1, currently cached: 0"
+    ],
+    "dequeue_histogram": "DequeueBuffer latency histogram: (9336) samples\n        5     10     15     20     25     30     35     40     45    inf (max ms)\n     99.94   0.05   0.00   0.01   0.00   0.00   0.00   0.00   0.00   0.00 (%)",
+    "scope": "One post-window dump; recording has ended before the839dump, so it does not prove recording-time composition."
+  },
+  "835": {
+    "active_modes": [
+      "id=0, hwcId=2, resolution=1920x1080, vsyncRate=120.00 Hz, dpi=81.42x81.40, group=1, vrrConfig=N/A, hdrOutputType=SDR"
+    ],
+    "comparison_layers": [
+      {
+        "role": "app_window",
+        "composition": "DEVICE"
+      },
+      {
+        "role": "camera_surface",
+        "composition": "DEVICE"
+      }
+    ],
+    "stream_usage": [
+      "0xb00, max HAL buffers: 4"
+    ],
+    "buffer_counts": [
+      "8, currently dequeued: 0, currently cached: 0"
+    ],
+    "dequeue_histogram": "DequeueBuffer latency histogram: (8237) samples\n        5     10     15     20     25     30     35     40     45    inf (max ms)\n     99.98   0.01   0.01   0.00   0.00   0.00   0.00   0.00   0.00   0.00 (%)",
+    "scope": "One post-window dump; recording has ended before the839dump, so it does not prove recording-time composition."
+  },
+  "836": {
+    "active_modes": [
+      "id=0, hwcId=2, resolution=1920x1080, vsyncRate=120.00 Hz, dpi=81.42x81.40, group=1, vrrConfig=N/A, hdrOutputType=SDR"
+    ],
+    "comparison_layers": [
+      {
+        "role": "app_window",
+        "composition": "DEVICE"
+      },
+      {
+        "role": "camera_surface",
+        "composition": "DEVICE"
+      }
+    ],
+    "stream_usage": [
+      "0xb00, max HAL buffers: 4"
+    ],
+    "buffer_counts": [
+      "8, currently dequeued: 1, currently cached: 0"
+    ],
+    "dequeue_histogram": "DequeueBuffer latency histogram: (4663) samples\n        5     10     15     20     25     30     35     40     45    inf (max ms)\n     99.91   0.06   0.02   0.00   0.00   0.00   0.00   0.00   0.00   0.00 (%)",
+    "scope": "One post-window dump; recording has ended before the839dump, so it does not prove recording-time composition."
+  },
+  "837": {
+    "active_modes": [
+      "id=0, hwcId=2, resolution=1920x1080, vsyncRate=120.00 Hz, dpi=81.42x81.40, group=1, vrrConfig=N/A, hdrOutputType=SDR"
+    ],
+    "comparison_layers": [
+      {
+        "role": "app_window",
+        "composition": "DEVICE"
+      },
+      {
+        "role": "camera_surface",
+        "composition": "DEVICE"
+      }
+    ],
+    "stream_usage": [
+      "0xb00, max HAL buffers: 4"
+    ],
+    "buffer_counts": [
+      "8, currently dequeued: 1, currently cached: 0"
+    ],
+    "dequeue_histogram": "DequeueBuffer latency histogram: (9340) samples\n        5     10     15     20     25     30     35     40     45    inf (max ms)\n     99.97   0.02   0.00   0.01   0.00   0.00   0.00   0.00   0.00   0.00 (%)",
+    "scope": "One post-window dump; recording has ended before the839dump, so it does not prove recording-time composition."
+  },
+  "838": {
+    "active_modes": [
+      "id=0, hwcId=2, resolution=1920x1080, vsyncRate=120.00 Hz, dpi=81.42x81.40, group=1, vrrConfig=N/A, hdrOutputType=SDR"
+    ],
+    "comparison_layers": [
+      {
+        "role": "app_window",
+        "composition": "DEVICE"
+      }
+    ],
+    "stream_usage": [
+      "0x300, max HAL buffers: 4"
+    ],
+    "buffer_counts": [
+      "7, currently dequeued: 1, currently cached: 0"
+    ],
+    "dequeue_histogram": "DequeueBuffer latency histogram: (9305) samples\n        5     10     15     20     25     30     35     40     45    inf (max ms)\n     99.96   0.04   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00 (%)",
+    "scope": "One post-window dump; recording has ended before the839dump, so it does not prove recording-time composition."
+  },
+  "839": {
+    "active_modes": [
+      "id=0, hwcId=2, resolution=1920x1080, vsyncRate=120.00 Hz, dpi=81.42x81.40, group=1, vrrConfig=N/A, hdrOutputType=SDR"
+    ],
+    "comparison_layers": [
+      {
+        "role": "app_window",
+        "composition": "DEVICE"
+      },
+      {
+        "role": "camera_surface",
+        "composition": "DEVICE"
+      }
+    ],
+    "stream_usage": [
+      "0xb00, max HAL buffers: 4"
+    ],
+    "buffer_counts": [
+      "8, currently dequeued: 1, currently cached: 0"
+    ],
+    "dequeue_histogram": "DequeueBuffer latency histogram: (8861) samples\n        5     10     15     20     25     30     35     40     45    inf (max ms)\n     99.91   0.08   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.01 (%)",
+    "scope": "One post-window dump; recording has ended before the839dump, so it does not prove recording-time composition."
+  },
+  "840": {
+    "active_modes": [
+      "id=0, hwcId=2, resolution=1920x1080, vsyncRate=120.00 Hz, dpi=81.42x81.40, group=1, vrrConfig=N/A, hdrOutputType=SDR"
+    ],
+    "comparison_layers": [
+      {
+        "role": "app_window",
+        "composition": "DEVICE"
+      },
+      {
+        "role": "camera_surface",
+        "composition": "DEVICE"
+      }
+    ],
+    "stream_usage": [
+      "0xb00, max HAL buffers: 4"
+    ],
+    "buffer_counts": [
+      "8, currently dequeued: 1, currently cached: 0"
+    ],
+    "dequeue_histogram": "DequeueBuffer latency histogram: (9328) samples\n        5     10     15     20     25     30     35     40     45    inf (max ms)\n     99.94   0.03   0.02   0.01   0.00   0.00   0.00   0.00   0.00   0.00 (%)",
+    "scope": "One post-window dump; recording has ended before the839dump, so it does not prove recording-time composition."
+  },
+  "841": {
+    "active_modes": [
+      "id=0, hwcId=2, resolution=1920x1080, vsyncRate=120.00 Hz, dpi=81.42x81.40, group=1, vrrConfig=N/A, hdrOutputType=SDR"
+    ],
+    "comparison_layers": [
+      {
+        "role": "app_window",
+        "composition": "DEVICE"
+      },
+      {
+        "role": "camera_surface",
+        "composition": "DEVICE"
+      }
+    ],
+    "stream_usage": [
+      "0xb00, max HAL buffers: 4"
+    ],
+    "buffer_counts": [
+      "8, currently dequeued: 1, currently cached: 0"
+    ],
+    "dequeue_histogram": "DequeueBuffer latency histogram: (9319) samples\n        5     10     15     20     25     30     35     40     45    inf (max ms)\n     99.96   0.03   0.01   0.00   0.00   0.00   0.00   0.00   0.00   0.00 (%)",
+    "scope": "One post-window dump; recording has ended before the839dump, so it does not prove recording-time composition."
+  },
+  "842": {
+    "active_modes": [
+      "id=0, hwcId=2, resolution=1920x1080, vsyncRate=120.00 Hz, dpi=81.42x81.40, group=1, vrrConfig=N/A, hdrOutputType=SDR"
+    ],
+    "comparison_layers": [
+      {
+        "role": "app_window",
+        "composition": "DEVICE"
+      },
+      {
+        "role": "camera_surface",
+        "composition": "DEVICE"
+      }
+    ],
+    "stream_usage": [
+      "0xb00, max HAL buffers: 4"
+    ],
+    "buffer_counts": [
+      "8, currently dequeued: 1, currently cached: 0"
+    ],
+    "dequeue_histogram": "DequeueBuffer latency histogram: (9323) samples\n        5     10     15     20     25     30     35     40     45    inf (max ms)\n     99.95   0.05   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00 (%)",
+    "scope": "One post-window dump; recording has ended before the839dump, so it does not prove recording-time composition."
+  },
+  "881": {
+    "active_modes": [
+      "id=0, hwcId=2, resolution=1920x1080, vsyncRate=120.00 Hz, dpi=81.42x81.40, group=1, vrrConfig=N/A, hdrOutputType=SDR"
+    ],
+    "comparison_layers": [
+      {
+        "role": "app_window",
+        "composition": "DEVICE"
+      },
+      {
+        "role": "camera_surface",
+        "composition": "DEVICE"
+      }
+    ],
+    "stream_usage": [],
+    "buffer_counts": [],
+    "dequeue_histogram": null,
+    "scope": "One post-window dump; recording has ended before the839dump, so it does not prove recording-time composition."
+  },
+  "882": {
+    "active_modes": [
+      "id=0, hwcId=2, resolution=1920x1080, vsyncRate=120.00 Hz, dpi=81.42x81.40, group=1, vrrConfig=N/A, hdrOutputType=SDR"
+    ],
+    "comparison_layers": [
+      {
+        "role": "app_window",
+        "composition": "DEVICE"
+      },
+      {
+        "role": "camera_surface",
+        "composition": "DEVICE"
+      }
+    ],
+    "stream_usage": [],
+    "buffer_counts": [],
+    "dequeue_histogram": null,
+    "scope": "One post-window dump; recording has ended before the839dump, so it does not prove recording-time composition."
+  },
+  "883": {
+    "active_modes": [
+      "id=0, hwcId=2, resolution=1920x1080, vsyncRate=120.00 Hz, dpi=81.42x81.40, group=1, vrrConfig=N/A, hdrOutputType=SDR"
+    ],
+    "comparison_layers": [
+      {
+        "role": "app_window",
+        "composition": "DEVICE"
+      }
+    ],
+    "stream_usage": [],
+    "buffer_counts": [],
+    "dequeue_histogram": null,
+    "scope": "One post-window dump; recording has ended before the839dump, so it does not prove recording-time composition."
+  }
+}

@@ -2,7 +2,7 @@
  * Stream Configuration
  * @hide
  */
-package android.hardware.camera.virtual;
+package android.hardware.virtualcamera;
 
 /**
  * Configuration for a single camera stream.
@@ -16,4 +16,6 @@ parcelable StreamConfig {
     int fps;
     long usage;
     int useCase;
+    long configurationToken;
+    long connectionToken;
 }

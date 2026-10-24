@@ -1,0 +1,2 @@
+virtual_camera                            u:object_r:virtual_camera_user_service:s0
+virtual_camera_manager                    u:object_r:virtual_camera_manager_service:s0

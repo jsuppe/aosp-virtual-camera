@@ -1,0 +1,9 @@
+service camera-provider-virtual /vendor/bin/hw/android.hardware.camera.provider-virtual-service
+    class hal
+    user cameraserver
+    group audio camera input drmrpc system graphics
+    # No seclabel: vendor file_contexts labels this binary hal_camera_default_exec,
+    # so init auto-transitions us into hal_camera_default — the standard vendor
+    # camera-HAL domain with gralloc/GPU/binder permissions.
+    ioprio rt 4
+    task_profiles CameraServiceCapacity MaxPerformance

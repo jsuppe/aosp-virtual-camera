@@ -1,0 +1,5 @@
+22beaebbf8dbdb7cf0c67f9113751c17e37f73d95d1d376d4bd723fa4411ff31  /mnt/micron/aosp-a17-rpi5-vcam-20261022/external/minigbm/cros_gralloc/cros_gralloc_helpers.cc
+43be3b7bac50eb947d5ccdea33a154cfd3284163885fc012cbf7615cc0529ab6  /mnt/micron/aosp-a17-rpi5-vcam-20261022/external/minigbm/gbm_mesa_driver/gbm_mesa_internals.cpp
+41a032523bc902f879899ab808b03033be951ee30ac5ce02631ee88a58e32393  /mnt/micron/aosp-a17-rpi5-vcam-20261022/external/minigbm/gbm_mesa_driver/gbm_mesa_wrapper.c
+c0f9837da1c994e005d1128b70e6c059a97f02d0eec16b0765dfb2a5d1713c87  /mnt/micron/aosp-a17-rpi5-vcam-20261022/external/mesa3d/src/gallium/drivers/v3d/v3d_resource.c
+7266fd537aa3812b95564f114a6fd255eb56b24e54dc65ada058672e85df0f34  /mnt/micron/aosp-a17-rpi5-vcam-20261022/external/mesa3d/src/gallium/drivers/v3d/v3dx_draw.c

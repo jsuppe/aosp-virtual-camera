@@ -1,0 +1,28 @@
+{
+  "sha256": {
+    "hal": "c344bea5b6c76f5d4ecceb91b9bc7065e393388b35483de6270ad86cb02ce1b8",
+    "apex": "d655cf4080f7a2a8b64d4af65ba4bea460a210a2f9d1d8daf15e67b89209622c",
+    "services": "599ec9a797807daa769a7b6d45794749ba1f989c99364ae40c979d81d8b75f07",
+    "jni": "5cb0ccf7d2ba1968c1e59d907b2c06a42a7155c11e79f8d1c70f3d560b36b4f5",
+    "producer_apk": "0e1dfe3189416e11296c696e118ba193e2febe146a3af38fdb3b6f5364c6b27b"
+  },
+  "profile": 0,
+  "clear": false,
+  "deadline_frames": 1,
+  "printk": [
+    8,
+    4,
+    1,
+    7
+  ],
+  "ignore_loglevel": "Y",
+  "trace_instances": [
+    "bootreceiver",
+    "drm",
+    "wifi"
+  ],
+  "temporary_uid_override_absent": true,
+  "normal_mode": "1080p60 SurfaceView mirror+clock",
+  "visual_check": "Two advancing screenshots; partial static clock glyph artifact observed in second, not declared fixed",
+  "temporary_consumer_uninstalled": true
+}

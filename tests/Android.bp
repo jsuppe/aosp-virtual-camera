@@ -1,0 +1,108 @@
+package {
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
+cc_test {
+    name: "virtual-camera-relay-race-test",
+    compile_multilib: "64",
+    gtest: false,
+    srcs: ["VirtualCameraRelayRaceTest.cpp"],
+    cflags: ["-Wall", "-Wextra", "-Wno-unused-parameter", "-UNDEBUG"],
+    shared_libs: [
+        "android.hardware.common-V2-ndk", "libandroid_runtime", "libbinder_ndk",
+        "libcutils", "libgui", "liblog", "libnativehelper", "libui", "libutils", "libnativewindow",
+    ],
+    static_libs: ["android.hardware.virtualcamera.hal-V6-ndk", "libaidlcommonsupport"],
+}
+
+cc_test {
+    name: "virtual-camera-no-frame-test",
+    vendor: true,
+    compile_multilib: "64",
+    gtest: false,
+    srcs: ["VirtualCameraNoFrameTest.cpp"],
+    include_dirs: [
+        "hardware/interfaces/camera/common/1.0/default/include",
+        "hardware/interfaces/camera/provider/virtual/v2-shared-memory",
+        "hardware/interfaces/camera/provider/virtual/aidl",
+        "hardware/interfaces/camera/provider/virtual/core",
+    ],
+    cflags: ["-Wall", "-Wextra", "-Werror", "-UNDEBUG", "-DVCAM_COMPAT_A13=1", "-DVCAM_STABLE_AIDL=1"],
+    shared_libs: [
+        "android.hardware.camera.provider-V1-virtual-impl",
+        "android.hardware.camera.common-V1-ndk",
+        "android.hardware.camera.device-V1-ndk",
+        "android.hardware.virtualcamera.hal-V6-ndk",
+        "libcamera_metadata",
+        "android.hardware.common-V2-ndk",
+        "android.hardware.graphics.mapper@2.0",
+        "android.hardware.graphics.mapper@3.0",
+        "android.hardware.graphics.mapper@4.0",
+        "libbinder_ndk",
+        "libcutils",
+        "libhidlbase",
+        "libui",
+        "libutils",
+        "libnativewindow",
+        "libsync",
+    ],
+    static_libs: ["libaidlcommonsupport", "libarect"],
+}
+
+
+
+cc_test {
+    name: "virtual-camera-hal-lifetime-test",
+    vendor: true,
+    compile_multilib: "64",
+    gtest: false,
+    srcs: ["VirtualCameraHalLifetimeTest.cpp"],
+    include_dirs: [
+        "hardware/interfaces/camera/provider/virtual/aidl",
+        "hardware/interfaces/camera/provider/virtual/core",
+    ],
+    cflags: ["-Wall", "-Wextra", "-Werror", "-UNDEBUG", "-DVCAM_STABLE_AIDL=1"],
+    shared_libs: [
+        "android.hardware.camera.provider-V1-virtual-impl",
+        "android.hardware.virtualcamera.hal-V6-ndk",
+        "android.hardware.common-V2-ndk",
+        "libbinder_ndk",
+        "libcutils",
+        "libnativewindow",
+    ],
+    static_libs: ["libaidlcommonsupport", "libarect"],
+}
+
+cc_test {
+    name: "virtual-camera-destination-fence-test",
+    vendor: true,
+    compile_multilib: "64",
+    gtest: false,
+    srcs: ["VirtualCameraDestinationFenceTest.cpp"],
+    include_dirs: [
+        "hardware/interfaces/camera/common/1.0/default/include",
+        "hardware/interfaces/camera/provider/virtual/v2-shared-memory",
+        "hardware/interfaces/camera/provider/virtual/aidl",
+        "hardware/interfaces/camera/provider/virtual/core",
+    ],
+    cflags: ["-Wall", "-Wextra", "-Werror", "-UNDEBUG", "-DVCAM_COMPAT_A13=1", "-DVCAM_STABLE_AIDL=1"],
+    shared_libs: [
+        "android.hardware.camera.provider-V1-virtual-impl",
+        "android.hardware.camera.common-V1-ndk",
+        "android.hardware.camera.device-V1-ndk",
+        "android.hardware.virtualcamera.hal-V6-ndk",
+        "libcamera_metadata",
+        "android.hardware.common-V2-ndk",
+        "android.hardware.graphics.mapper@2.0",
+        "android.hardware.graphics.mapper@3.0",
+        "android.hardware.graphics.mapper@4.0",
+        "libbinder_ndk",
+        "libcutils",
+        "libhidlbase",
+        "libui",
+        "libutils",
+        "libnativewindow",
+        "libsync",
+    ],
+    static_libs: ["libaidlcommonsupport", "libarect"],
+}

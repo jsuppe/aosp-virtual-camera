@@ -1,0 +1,37 @@
+// Platform-side JNI frame pump for the stable-AIDL virtual camera boundary.
+// Loaded into system_server by VirtualCameraService (System.loadLibrary).
+package {
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
+cc_library_shared {
+    name: "libvirtualcamera_relay_jni",
+    system_ext_specific: true,
+
+    srcs: ["VirtualCameraRelayJni.cpp"],
+
+    shared_libs: [
+        // NativeHandle parcelling for the statically linked -V2-ndk lib;
+        // this one is already part of the system image.
+        "android.hardware.common-V2-ndk",
+        "libandroid_runtime",
+        "libbinder_ndk",
+        "libcutils",
+        "libgui",
+        "liblog",
+        "libnativehelper",
+        "libui",
+        "libutils",
+    ],
+
+    static_libs: [
+        // Static: a shared copy would install to /system/lib64, which the
+        // GSI artifact-path check forbids for a device product (only
+        // system_ext/product/vendor may add files). Static also means no
+        // extra .so to ship or push alongside this one.
+        "android.hardware.virtualcamera.hal-V6-ndk",
+        "libaidlcommonsupport",
+    ],
+
+    cflags: ["-Wall", "-Wno-unused-parameter"],
+}

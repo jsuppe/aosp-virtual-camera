@@ -1,0 +1,87 @@
+/*
+ * Stable control + frame-transport interface between the platform
+ * VirtualCameraService (system_server) and the vendor virtual-camera HAL.
+ *
+ * Direction of calls is system -> vendor (normal Treble direction); the HAL
+ * reaches back only through the registered IVirtualCameraHalCallback.
+ *
+ * Frames cross the boundary zero-copy: the platform side owns the
+ * BufferQueue (libgui is platform-only) and forwards each consumed graphics
+ * buffer as a NativeHandle + description; the HAL imports it via
+ * AHardwareBuffer_createFromHandle and keeps a reference until the next
+ * frame replaces it.
+ */
+package android.hardware.virtualcamera.hal;
+
+import android.hardware.virtualcamera.hal.IVirtualCameraHalCallback;
+import android.hardware.common.NativeHandle;
+import android.hardware.virtualcamera.hal.ProducerDescriptor;
+
+@VintfStability
+interface IVirtualCameraHal {
+    /** Register the platform callback (stream lifecycle notifications). */
+    void setCallback(in IVirtualCameraHalCallback callback);
+
+    /**
+     * Producer availability push: true when >=1 producer app is registered
+     * with VirtualCameraService. The HAL adds/removes the virtual camera
+     * device (cameraDeviceStatusChange) accordingly.
+     */
+    void setProducerAvailable(boolean available);
+
+    /**
+     * Deliver the newest producer frame. The handle refers to a gralloc
+     * buffer; ownership of the passed fds stays with the caller (the HAL
+     * clones via AHardwareBuffer_createFromHandle). RGBA_8888 assumed.
+     */
+    void queueFrame(in NativeHandle buffer, int width, int height,
+                    int stride, int format, long usage, long timestampNs);
+
+    /**
+     * V2: fenced delivery. Same buffer semantics as queueFrame(), plus:
+     *
+     *   acquireFence  - the producer's GPU-completion fence for this buffer
+     *                   (null when the buffer is already complete). The HAL
+     *                   waits on it (GPU-side where possible) before sampling.
+     *
+     *   return value  - the HAL's read-completion fence for the PREVIOUSLY
+     *                   queued buffer, which this call retires (the HAL keeps
+     *                   only the newest frame). The platform must attach it as
+     *                   the release fence when returning that buffer to its
+     *                   BufferQueue, so the producer's next render into it
+     *                   waits for the HAL's GPU read. null = safe to reuse now.
+     */
+    @nullable ParcelFileDescriptor queueFrameFenced(in NativeHandle buffer,
+            int width, int height, int stride, int format, long usage,
+            long timestampNs, in @nullable ParcelFileDescriptor acquireFence);
+
+    /**
+     * V3: multiple virtual cameras. Each registered producer occupies a
+     * *slot* 0..getMaxCameras()-1; slot s is Camera2 device id (100 + s).
+     * Slot 0 is the camera the V1/V2 methods address, so V2 platforms keep
+     * working unchanged against a V3 HAL and vice versa.
+     */
+    int getMaxCameras();
+
+    /** Per-slot presence (V3 form of setProducerAvailable). */
+    void setCameraPresent(int slot, boolean present);
+
+    /** Per-slot form of queueFrameFenced; identical semantics otherwise. */
+    @nullable ParcelFileDescriptor queueFrameForCamera(int slot, in NativeHandle buffer,
+            int width, int height, int stride, int format, long usage,
+            long timestampNs, in @nullable ParcelFileDescriptor acquireFence);
+
+    /** V4: configurationToken is issued by the HAL in the V4 configure callback.
+     * A positive token identifies exactly one configuration of one camera session.
+     * Stale/closed/zero/wrong-slot tokens are rejected BEFORE input acceptance;
+     * rejection returns no retirement fence and does not consume the current frame.
+     * V1-V3 frame entry points cannot feed a token-bound camera session.
+     */
+    @nullable ParcelFileDescriptor queueFrameForConfiguration(int slot, long configurationToken,
+            in NativeHandle buffer, int width, int height, int stride, int format, long usage,
+            long timestampNs, in @nullable ParcelFileDescriptor acquireFence);
+    /** V5: descriptor is immutable until generation-matched removal. Publishes only after validation. */
+    void registerProducer(int slot, in ProducerDescriptor descriptor, in IVirtualCameraHalCallback owner);
+    void removeProducer(int slot, long registration, in IVirtualCameraHalCallback owner);
+    void setConfigurationReady(int slot, long configurationToken, boolean ready);
+}

@@ -8,13 +8,19 @@
 
 #include <aidl/android/hardware/camera/provider/BnCameraProvider.h>
 #include <aidl/android/hardware/camera/provider/ICameraProviderCallback.h>
+#include <array>
+#include <atomic>
 #include <mutex>
 #include <memory>
+
+#include "VirtualCameraSlots.h"
 
 // Forward declarations (avoid pulling heavy core headers into service.cpp)
 namespace virtualcamera {
 class VirtualCameraFrameSource;
 class VirtualCameraFrameSourceV2;
+class AidlFrameSource;
+class AvailabilityBridge;
 }
 
 namespace aidl::android::hardware::camera::provider::implementation {
@@ -25,12 +31,26 @@ public:
     ~VirtualCameraProvider() override;
 
     // Access frame sources (used by VirtualCameraDevice to pass to sessions)
-    std::shared_ptr<virtualcamera::VirtualCameraFrameSource> getFrameSource() const {
+    std::shared_ptr<::virtualcamera::VirtualCameraFrameSource> getFrameSource() const {
         return mFrameSource;
     }
-    std::shared_ptr<virtualcamera::VirtualCameraFrameSourceV2> getFrameSourceV2() const {
+    std::shared_ptr<::virtualcamera::VirtualCameraFrameSourceV2> getFrameSourceV2() const {
         return mFrameSourceV2;
     }
+
+    std::shared_ptr<::virtualcamera::AidlFrameSource> getAidlSource() const {
+        return mAidlSource;
+    }
+
+    /**
+     * Dynamic device presence: called by the AvailabilityBridge when producer
+     * availability changes. Adds/removes the virtual camera from the system
+     * via ICameraProviderCallback.cameraDeviceStatusChange, so Camera2
+     * availability events track "a producer app is registered".
+     */
+    void setProducerPresent(bool present);   // == setSlotPresent(0, present)
+    /** V3: per-slot presence; slot s is device 100+s (VirtualCameraSlots.h). */
+    void setSlotPresent(int slot, bool present);
 
     // ICameraProvider interface
     ndk::ScopedAStatus setCallback(
@@ -58,8 +78,14 @@ public:
 private:
     std::mutex mLock;
     std::shared_ptr<ICameraProviderCallback> mCallback;
-    std::shared_ptr<virtualcamera::VirtualCameraFrameSource> mFrameSource;
-    std::shared_ptr<virtualcamera::VirtualCameraFrameSourceV2> mFrameSourceV2;
+    // Producer presence gates enumeration (relay builds start hidden;
+    // non-relay builds are always present).
+    std::atomic<bool> mProducerPresent{false};   // slot 0 (kept for the non-slot code paths)
+    std::array<std::atomic<bool>, ::virtualcamera::kMaxVirtualCameras> mSlotPresent;
+    std::shared_ptr<::virtualcamera::AvailabilityBridge> mAvailBridge;
+    std::shared_ptr<::virtualcamera::VirtualCameraFrameSource> mFrameSource;
+    std::shared_ptr<::virtualcamera::VirtualCameraFrameSourceV2> mFrameSourceV2;
+    std::shared_ptr<::virtualcamera::AidlFrameSource> mAidlSource;
 
     // Format: device@<major>.<minor>/<type>/<id>
     // Note: ID must be unique across all camera providers (0-2 used by internal/0)

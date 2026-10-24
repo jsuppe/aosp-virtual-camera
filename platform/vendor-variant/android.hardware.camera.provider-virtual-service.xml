@@ -1,0 +1,12 @@
+<manifest version="1.0" type="device">
+    <hal format="aidl">
+        <name>android.hardware.camera.provider</name>
+        <version>1</version>
+        <fqname>ICameraProvider/virtual_renderer/0</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>android.hardware.virtualcamera.hal</name>
+        <version>6</version>
+        <fqname>IVirtualCameraHal/default</fqname>
+    </hal>
+</manifest>

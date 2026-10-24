@@ -1,0 +1,446 @@
+{
+  "701": {
+    "trace_seconds": 5.013629999999466,
+    "gpu_job_service": {
+      "BCL": {
+        "n": 1172,
+        "median_ms": 0.22400000034394907,
+        "p95_ms": 0.3460000007180497,
+        "p99_ms": 0.367999999980384,
+        "max_ms": 0.4060000001118169
+      },
+      "RCL": {
+        "n": 1171,
+        "median_ms": 3.7160000001676963,
+        "p95_ms": 5.375999999159831,
+        "p99_ms": 5.441000000246277,
+        "max_ms": 5.578999999670486
+      }
+    },
+    "gpu_engine_busy_fraction": {
+      "BCL": 0.057213635630679306,
+      "RCL": 0.9895516821128164
+    },
+    "unmatched_initial_irqs": {
+      "RCL": 1
+    },
+    "unfinished_boundary_jobs": 1,
+    "runnable_to_cpu": {
+      "app_other": {
+        "n": 2246,
+        "median_ms": 0.003000000106112566,
+        "p95_ms": 0.08900000011635711,
+        "p99_ms": 0.1650000003792229,
+        "max_ms": 0.9529999997539562
+      },
+      "producer_render": {
+        "n": 1972,
+        "median_ms": 0.003000000106112566,
+        "p95_ms": 0.105000000075961,
+        "p99_ms": 0.2789999998640269,
+        "max_ms": 0.7089999999152496
+      },
+      "hal_binder": {
+        "n": 2800,
+        "median_ms": 0.003000000106112566,
+        "p95_ms": 0.06899999971210491,
+        "p99_ms": 0.1140000003942987,
+        "max_ms": 1.6529999993508682
+      }
+    },
+    "scheduled_cpu_seconds": {
+      "app_other": 0.25064100000508915,
+      "producer_render": 0.358937999997579,
+      "hal_binder": 0.3042100000202481
+    },
+    "event_counts": {
+      "sched_wakeup": 39039,
+      "sched_switch": 74603,
+      "v3d_submit_cl_ioctl": 1172,
+      "dma_fence_init": 8967,
+      "drm_sched_job_queue": 2344,
+      "drm_sched_job_add_dep": 4118,
+      "dma_fence_destroy": 8970,
+      "drm_sched_job_unschedulable": 489,
+      "drm_sched_job_run": 2344,
+      "v3d_submit_cl": 2344,
+      "dma_fence_signaled": 8967,
+      "v3d_bcl_irq": 1172,
+      "drm_sched_job_done": 2344,
+      "cpu_frequency": 1976,
+      "v3d_rcl_irq": 1172,
+      "dma_fence_wait_start": 2375,
+      "dma_fence_wait_end": 2375
+    }
+  },
+  "702": {
+    "trace_seconds": 5.013020000000324,
+    "gpu_job_service": {
+      "BCL": {
+        "n": 1224,
+        "median_ms": 0.23400000009132782,
+        "p95_ms": 0.3800000004048343,
+        "p99_ms": 0.41400000009161886,
+        "max_ms": 0.46300000030896626
+      },
+      "RCL": {
+        "n": 1222,
+        "median_ms": 3.2559999999648426,
+        "p95_ms": 3.5950000001321314,
+        "p99_ms": 4.293000000870961,
+        "max_ms": 4.719999999906577
+      }
+    },
+    "gpu_engine_busy_fraction": {
+      "BCL": 0.06263270443628313,
+      "RCL": 0.7904758010166933
+    },
+    "unmatched_initial_irqs": {},
+    "unfinished_boundary_jobs": 1,
+    "runnable_to_cpu": {
+      "hal_binder": {
+        "n": 4953,
+        "median_ms": 0.003000000106112566,
+        "p95_ms": 0.08799999977782136,
+        "p99_ms": 0.17800000023271423,
+        "max_ms": 2.3469999996450497
+      },
+      "app_other": {
+        "n": 2096,
+        "median_ms": 0.003000000106112566,
+        "p95_ms": 0.13499999931809725,
+        "p99_ms": 0.28500000007625204,
+        "max_ms": 8.154000000104134
+      },
+      "producer_render": {
+        "n": 2045,
+        "median_ms": 0.003000000106112566,
+        "p95_ms": 0.10699999984353781,
+        "p99_ms": 0.21399999968707561,
+        "max_ms": 0.6729999995513936
+      }
+    },
+    "scheduled_cpu_seconds": {
+      "hal_binder": 0.5322889999770268,
+      "app_other": 0.2842739999668993,
+      "producer_render": 0.4043189999738388
+    },
+    "event_counts": {
+      "sched_wakeup": 39812,
+      "sched_switch": 74543,
+      "v3d_submit_cl_ioctl": 1224,
+      "dma_fence_init": 9977,
+      "drm_sched_job_queue": 2448,
+      "drm_sched_job_add_dep": 4274,
+      "dma_fence_destroy": 9978,
+      "drm_sched_job_run": 2447,
+      "v3d_submit_cl": 2447,
+      "dma_fence_signaled": 9972,
+      "drm_sched_job_unschedulable": 742,
+      "v3d_bcl_irq": 1224,
+      "drm_sched_job_done": 2446,
+      "dma_fence_wait_start": 3010,
+      "dma_fence_wait_end": 3010,
+      "v3d_rcl_irq": 1222,
+      "cpu_frequency": 856
+    }
+  },
+  "703": {
+    "trace_seconds": 5.012818000000152,
+    "gpu_job_service": {
+      "BCL": {
+        "n": 1224,
+        "median_ms": 0.2030000005106558,
+        "p95_ms": 0.3839999999399879,
+        "p99_ms": 0.41000000055646524,
+        "max_ms": 0.4529999996520928
+      },
+      "RCL": {
+        "n": 1224,
+        "median_ms": 3.275000000030559,
+        "p95_ms": 3.600999999434862,
+        "p99_ms": 4.587000000356056,
+        "max_ms": 4.716999999800464
+      }
+    },
+    "gpu_engine_busy_fraction": {
+      "BCL": 0.06206129964833262,
+      "RCL": 0.7859082456259012
+    },
+    "unmatched_initial_irqs": {
+      "RCL": 1
+    },
+    "unfinished_boundary_jobs": 1,
+    "runnable_to_cpu": {
+      "app_other": {
+        "n": 2255,
+        "median_ms": 0.004000000444648322,
+        "p95_ms": 0.1160000001618755,
+        "p99_ms": 0.16899999991437653,
+        "max_ms": 0.3209999995306134
+      },
+      "producer_render": {
+        "n": 2118,
+        "median_ms": 0.003000000106112566,
+        "p95_ms": 0.10900000052060932,
+        "p99_ms": 0.25300000015704427,
+        "max_ms": 0.5430000001069857
+      },
+      "hal_binder": {
+        "n": 1990,
+        "median_ms": 0.003000000106112566,
+        "p95_ms": 0.09700000009615906,
+        "p99_ms": 0.27599999975791434,
+        "max_ms": 1.5899999998509884
+      }
+    },
+    "scheduled_cpu_seconds": {
+      "app_other": 0.28359499998714455,
+      "producer_render": 0.386190000028364,
+      "hal_binder": 0.2597270000132994
+    },
+    "event_counts": {
+      "sched_switch": 71894,
+      "sched_wakeup": 38659,
+      "dma_fence_init": 9809,
+      "dma_fence_signaled": 9810,
+      "dma_fence_wait_start": 2975,
+      "dma_fence_wait_end": 2975,
+      "dma_fence_destroy": 9805,
+      "v3d_rcl_irq": 1225,
+      "drm_sched_job_done": 2449,
+      "drm_sched_job_run": 2449,
+      "v3d_submit_cl": 2449,
+      "v3d_submit_cl_ioctl": 1224,
+      "drm_sched_job_queue": 2448,
+      "drm_sched_job_add_dep": 4274,
+      "v3d_bcl_irq": 1224,
+      "cpu_frequency": 856,
+      "drm_sched_job_unschedulable": 667
+    }
+  },
+  "704": {
+    "trace_seconds": 5.012638000000152,
+    "gpu_job_service": {
+      "BCL": {
+        "n": 1162,
+        "median_ms": 0.22700000045006163,
+        "p95_ms": 0.3079999996771221,
+        "p99_ms": 0.3730000007635681,
+        "max_ms": 0.42099999973288504
+      },
+      "RCL": {
+        "n": 1161,
+        "median_ms": 3.7679999995816615,
+        "p95_ms": 5.42200000018056,
+        "p99_ms": 5.513999999493535,
+        "max_ms": 5.704999999579741
+      }
+    },
+    "gpu_engine_busy_fraction": {
+      "BCL": 0.05423551431709062,
+      "RCL": 0.9838801445470406
+    },
+    "unmatched_initial_irqs": {
+      "RCL": 1
+    },
+    "unfinished_boundary_jobs": 1,
+    "runnable_to_cpu": {
+      "hal_binder": {
+        "n": 2637,
+        "median_ms": 0.003000000106112566,
+        "p95_ms": 0.07399999958579428,
+        "p99_ms": 0.12299999980314169,
+        "max_ms": 1.9730000003619352
+      },
+      "app_other": {
+        "n": 2020,
+        "median_ms": 0.003000000106112566,
+        "p95_ms": 0.105000000075961,
+        "p99_ms": 0.7459999997081468,
+        "max_ms": 1.83999999990192
+      },
+      "producer_render": {
+        "n": 2005,
+        "median_ms": 0.003000000106112566,
+        "p95_ms": 0.11700000050041126,
+        "p99_ms": 0.4090000002179295,
+        "max_ms": 0.9789999994609389
+      }
+    },
+    "scheduled_cpu_seconds": {
+      "hal_binder": 0.276006000025518,
+      "app_other": 0.24058800001239433,
+      "producer_render": 0.34656400001676957
+    },
+    "event_counts": {
+      "sched_wakeup": 38219,
+      "sched_switch": 72673,
+      "dma_fence_signaled": 8930,
+      "v3d_rcl_irq": 1162,
+      "drm_sched_job_done": 2324,
+      "dma_fence_destroy": 8929,
+      "drm_sched_job_run": 2324,
+      "dma_fence_init": 8929,
+      "v3d_submit_cl": 2324,
+      "v3d_submit_cl_ioctl": 1162,
+      "drm_sched_job_queue": 2324,
+      "drm_sched_job_add_dep": 4088,
+      "dma_fence_wait_start": 2025,
+      "dma_fence_wait_end": 2025,
+      "v3d_bcl_irq": 1162,
+      "drm_sched_job_unschedulable": 370,
+      "cpu_frequency": 1784
+    }
+  },
+  "705": {
+    "trace_seconds": 5.010780999999952,
+    "gpu_job_service": {
+      "RCL": {
+        "n": 1425,
+        "median_ms": 3.238999999666703,
+        "p95_ms": 5.153000000063912,
+        "p99_ms": 5.361999999877298,
+        "max_ms": 5.57200000002922
+      },
+      "BCL": {
+        "n": 1424,
+        "median_ms": 0.2279999998791027,
+        "p95_ms": 0.33799999982875306,
+        "p99_ms": 0.38700000004610047,
+        "max_ms": 0.42799999937415123
+      }
+    },
+    "gpu_engine_busy_fraction": {
+      "RCL": 0.9840928988907098,
+      "BCL": 0.0661108517791258
+    },
+    "unmatched_initial_irqs": {
+      "RCL": 1
+    },
+    "unfinished_boundary_jobs": 1,
+    "runnable_to_cpu": {
+      "hal_binder": {
+        "n": 5657,
+        "median_ms": 0.003000000106112566,
+        "p95_ms": 0.0870000003487803,
+        "p99_ms": 0.20500000027823262,
+        "max_ms": 1.6509999995832914
+      },
+      "app_other": {
+        "n": 2459,
+        "median_ms": 0.003000000106112566,
+        "p95_ms": 0.08100000013655517,
+        "p99_ms": 0.15500000063184416,
+        "max_ms": 0.9890000001178123
+      },
+      "producer_render": {
+        "n": 1930,
+        "median_ms": 0.003000000106112566,
+        "p95_ms": 0.07100000038917642,
+        "p99_ms": 0.15000000075815478,
+        "max_ms": 1.134000000092783
+      }
+    },
+    "scheduled_cpu_seconds": {
+      "hal_binder": 0.45561400004044117,
+      "app_other": 0.29816299999038165,
+      "producer_render": 0.30182399999102927
+    },
+    "event_counts": {
+      "sched_wakeup": 38548,
+      "sched_switch": 73094,
+      "dma_fence_signaled": 11100,
+      "v3d_rcl_irq": 1426,
+      "drm_sched_job_done": 2850,
+      "dma_fence_destroy": 11093,
+      "drm_sched_job_run": 2850,
+      "dma_fence_init": 11095,
+      "v3d_submit_cl": 2850,
+      "cpu_frequency": 1212,
+      "dma_fence_wait_start": 1497,
+      "dma_fence_wait_end": 1497,
+      "v3d_submit_cl_ioctl": 1424,
+      "drm_sched_job_queue": 2848,
+      "drm_sched_job_add_dep": 5183,
+      "v3d_bcl_irq": 1424,
+      "drm_sched_job_unschedulable": 431,
+      "dma_fence_enable_signal": 3
+    }
+  },
+  "706": {
+    "trace_seconds": 5.009697999999844,
+    "gpu_job_service": {
+      "BCL": {
+        "n": 1491,
+        "median_ms": 0.2480000002833549,
+        "p95_ms": 0.3600000000005821,
+        "p99_ms": 0.40300000000570435,
+        "max_ms": 0.450999999884516
+      },
+      "RCL": {
+        "n": 1491,
+        "median_ms": 3.236999999899126,
+        "p95_ms": 5.2460000006249174,
+        "p99_ms": 5.388999999922817,
+        "max_ms": 5.777000000307453
+      }
+    },
+    "gpu_engine_busy_fraction": {
+      "BCL": 0.07471408456169236,
+      "RCL": 0.9785420198977808
+    },
+    "unmatched_initial_irqs": {
+      "RCL": 1
+    },
+    "unfinished_boundary_jobs": 1,
+    "runnable_to_cpu": {
+      "app_other": {
+        "n": 2619,
+        "median_ms": 0.003000000106112566,
+        "p95_ms": 0.08200000047509093,
+        "p99_ms": 0.1940000001923181,
+        "max_ms": 1.5229999999064603
+      },
+      "producer_render": {
+        "n": 1961,
+        "median_ms": 0.003000000106112566,
+        "p95_ms": 0.0869999994392856,
+        "p99_ms": 0.2609999992273515,
+        "max_ms": 0.7380000006378395
+      },
+      "hal_binder": {
+        "n": 4929,
+        "median_ms": 0.003000000106112566,
+        "p95_ms": 0.09299999965151073,
+        "p99_ms": 0.2209999993283418,
+        "max_ms": 1.878000000033353
+      }
+    },
+    "scheduled_cpu_seconds": {
+      "app_other": 0.31831000002421206,
+      "producer_render": 0.31059800000093674,
+      "hal_binder": 0.4115769999634722
+    },
+    "event_counts": {
+      "sched_wakeup": 39474,
+      "sched_switch": 74446,
+      "cpu_frequency": 1144,
+      "v3d_rcl_irq": 1492,
+      "dma_fence_signaled": 11498,
+      "drm_sched_job_done": 2983,
+      "dma_fence_destroy": 11497,
+      "drm_sched_job_run": 2983,
+      "dma_fence_init": 11495,
+      "v3d_submit_cl": 2983,
+      "v3d_submit_cl_ioctl": 1491,
+      "drm_sched_job_queue": 2982,
+      "drm_sched_job_add_dep": 5460,
+      "v3d_bcl_irq": 1491,
+      "drm_sched_job_unschedulable": 462,
+      "dma_fence_wait_start": 1692,
+      "dma_fence_wait_end": 1692,
+      "dma_fence_enable_signal": 34
+    }
+  }
+}

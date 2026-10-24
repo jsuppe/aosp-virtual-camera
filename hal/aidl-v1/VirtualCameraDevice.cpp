@@ -7,6 +7,9 @@
 #define LOG_TAG "VirtualCameraDevice"
 
 #include "VirtualCameraDevice.h"
+#include "MetadataBuilder.h"
+
+#include <vector>
 #include "VirtualCameraSession.h"
 
 #include <log/log.h>
@@ -17,12 +20,16 @@ namespace aidl::android::hardware::camera::provider::implementation {
 using aidl::android::hardware::camera::common::Status;
 
 VirtualCameraDevice::VirtualCameraDevice(
-        const std::string& cameraId,
-        std::shared_ptr<virtualcamera::VirtualCameraFrameSource> frameSource,
-        std::shared_ptr<virtualcamera::VirtualCameraFrameSourceV2> frameSourceV2)
-    : mCameraId(cameraId), mFrameSource(frameSource), mFrameSourceV2(frameSourceV2) {
+        const std::string& cameraId, int slot,
+        std::shared_ptr<::virtualcamera::VirtualCameraFrameSource> frameSource,
+        std::shared_ptr<::virtualcamera::VirtualCameraFrameSourceV2> frameSourceV2,
+        std::shared_ptr<::virtualcamera::AidlFrameSource> aidlSource,
+        std::shared_ptr<const ::virtualcamera::ProducerCapabilities> capabilities)
+    : mCameraId(cameraId), mSlot(slot), mFrameSource(frameSource), mFrameSourceV2(frameSourceV2),
+      mAidlSource(aidlSource) {
     ALOGI("VirtualCameraDevice created: %s", cameraId.c_str());
-    mCharacteristics.metadata = virtualcamera::MetadataBuilder::buildCameraCharacteristics();
+    mCapabilities = std::move(capabilities);
+    mCharacteristics.metadata = ::virtualcamera::MetadataBuilder::buildCameraCharacteristics(mCapabilities.get());
 }
 
 ndk::ScopedAStatus VirtualCameraDevice::getCameraCharacteristics(
@@ -50,11 +57,20 @@ ndk::ScopedAStatus VirtualCameraDevice::getResourceCost(
 }
 
 ndk::ScopedAStatus VirtualCameraDevice::isStreamCombinationSupported(
-        const StreamConfiguration& /*streams*/,
+        const StreamConfiguration& streams,
         bool* _aidl_return) {
-    // Accept any reasonable stream config for now
     if (_aidl_return) {
-        *_aidl_return = true;
+        *_aidl_return = ::virtualcamera::MetadataBuilder::isStreamCombinationSupported(
+                [&] {
+                    std::vector<::virtualcamera::MetadataBuilder::StreamDesc> v;
+                    for (const auto& s : streams.streams) {
+                        v.push_back({static_cast<int>(s.format), s.width, s.height,
+                                     static_cast<int64_t>(s.useCase),
+                                     s.streamType == ::aidl::android::hardware::camera::device::StreamType::INPUT,
+                                     static_cast<int>(s.rotation)});
+                    }
+                    return v;
+                }(), mCapabilities.get());
     }
     return ndk::ScopedAStatus::ok();
 }
@@ -71,7 +87,7 @@ ndk::ScopedAStatus VirtualCameraDevice::open(
     }
 
     *_aidl_return = ndk::SharedRefBase::make<VirtualCameraSession>(
-        callback, mFrameSource, mFrameSourceV2);
+        callback, mSlot, mFrameSource, mFrameSourceV2, mAidlSource, nullptr, mCapabilities);
     ALOGI("Camera session created successfully");
     return ndk::ScopedAStatus::ok();
 }

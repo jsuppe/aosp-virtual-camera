@@ -17,3 +17,7 @@ sample-renderer/app/src/main/cpp/glm/
 
 # Compiled shaders (regenerated from source)
 sample-renderer/app/src/main/cpp/shaders/*.spv
+
+# Python tooling caches
+__pycache__/
+*.pyc

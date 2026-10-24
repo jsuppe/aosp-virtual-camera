@@ -2,7 +2,7 @@
  * Virtual Camera Configuration
  * @hide
  */
-package android.hardware.camera.virtual;
+package android.hardware.virtualcamera;
 
 /**
  * Configuration for registering a virtual camera.
@@ -18,4 +18,7 @@ parcelable VirtualCameraConfig {
     int orientation = 0;
     boolean supportsJpeg = true;
     @nullable String uniqueId;
+    /** Empty legacy declarations are adapted to exactly maxWidth/maxHeight/maxFps. */
+    android.hardware.virtualcamera.ProducerMode[] modes;
+    int maxOutputStreams = 3;
 }

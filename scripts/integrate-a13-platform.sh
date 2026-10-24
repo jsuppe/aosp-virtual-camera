@@ -1,0 +1,249 @@
+#!/bin/bash
+#
+# integrate-a13-platform.sh — Integrate the platform-AIDL virtual camera into
+# an Android 13 AOSP tree (Cuttlefish).
+#
+# Idempotent: safe to re-run after repo changes.
+#
+# What it does:
+#  1. HAL sources (core + v1 adapter) -> hardware/interfaces/camera/provider/virtual/
+#     with the Android.bp/rc/VINTF variant selected by MODE (see below)
+#  2. Platform AIDL lib -> .../virtual/platform-aidl/
+#  3. VirtualCameraService java lib -> .../virtual/platform-service/
+#  4. Test apps -> .../virtual/apps/{VCamProducer,VCamViewer}
+#  5. frameworks/base: services static_libs += virtual-camera-service,
+#     SystemServer registers VirtualCameraService.Lifecycle
+#  6. sepolicy -> device/google/cuttlefish/shared/sepolicy/{system_ext/private,vendor}/
+#  7. PRODUCT_PACKAGES += apps (device/google/cuttlefish/shared/device.mk)
+#
+# Usage: ./integrate-a13-platform.sh <aosp_root> [apex|system_ext]
+#
+#   apex        (default) the shipping architecture: vendor APEX HAL in the
+#               hal_camera_default domain + frozen android.hardware.virtualcamera.hal
+#               boundary. Real SELinux policy (device runs enforcing).
+#   system_ext  iteration-1 prototype: HAL on /system_ext owning the relay
+#               BufferQueues (VCAM_AIDL_SOURCE). Prototype-grade policy; run
+#               the VM permissive.
+#
+# Switching modes is supported: each mode removes the other's policy entries.
+
+set -e
+
+AOSP_ROOT="${1:?Usage: $0 <aosp_root> [apex|system_ext]}"
+MODE="${2:-apex}"
+case "$MODE" in apex|system_ext) ;; *) echo "unknown mode: $MODE (apex|system_ext)"; exit 1;; esac
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"   # repo root
+HAL_DEST="$AOSP_ROOT/hardware/interfaces/camera/provider/virtual"
+SEPOLICY_DEST="$AOSP_ROOT/device/google/cuttlefish/shared/sepolicy/system_ext/private"
+VENDOR_SEPOLICY_DEST="$AOSP_ROOT/device/google/cuttlefish/shared/sepolicy/vendor"
+DEVICE_MK="$AOSP_ROOT/device/google/cuttlefish/shared/device.mk"
+echo "mode: $MODE"
+
+[ -f "$AOSP_ROOT/build/envsetup.sh" ] || { echo "not an AOSP tree: $AOSP_ROOT"; exit 1; }
+
+echo "=== [0/7] Stable AIDL boundary + platform JNI + APEX (vendor packaging) ==="
+mkdir -p "$HAL_DEST"
+# Keep legacy frame-source headers inside the camera integration subtree.
+mkdir -p "$HAL_DEST/v2-shared-memory"
+cp "$SCRIPT_DIR"/v2-shared-memory/*.h "$HAL_DEST/v2-shared-memory/"
+rm -rf "$HAL_DEST/stable-aidl" "$HAL_DEST/platform-jni" "$HAL_DEST/apex"
+cp -r "$SCRIPT_DIR/stable-aidl"   "$HAL_DEST/stable-aidl"
+cp -r "$SCRIPT_DIR/platform-jni"  "$HAL_DEST/platform-jni"
+cp -r "$SCRIPT_DIR/apex"          "$HAL_DEST/apex"
+
+echo "=== [1/7] HAL sources ($MODE variant) ==="
+mkdir -p "$HAL_DEST/core" "$HAL_DEST/aidl"
+cp "$SCRIPT_DIR"/hal/core/*.cpp "$SCRIPT_DIR"/hal/core/*.h "$HAL_DEST/core/"
+cp "$SCRIPT_DIR"/hal/aidl-v1/*.cpp "$SCRIPT_DIR"/hal/aidl-v1/*.h "$HAL_DEST/aidl/"
+if [ "$MODE" = apex ]; then
+    VV="$SCRIPT_DIR/platform/vendor-variant"
+    cp "$VV/core.Android.bp"    "$HAL_DEST/core/Android.bp"
+    cp "$VV/aidl-v1.Android.bp" "$HAL_DEST/aidl/Android.bp"
+    cp "$VV/android.hardware.camera.provider-virtual-service.rc"  "$HAL_DEST/aidl/"
+    cp "$VV/android.hardware.camera.provider-virtual-service.xml" "$HAL_DEST/aidl/"
+else
+    cp "$SCRIPT_DIR/platform/bp/core.Android.bp"      "$HAL_DEST/core/Android.bp"
+    cp "$SCRIPT_DIR/platform/bp/aidl-v1.Android.bp"   "$HAL_DEST/aidl/Android.bp"
+    cp "$SCRIPT_DIR/platform/rc/android.hardware.camera.provider-virtual-service.rc"   "$HAL_DEST/aidl/"
+    cp "$SCRIPT_DIR/platform/vintf/android.hardware.camera.provider-virtual-service.xml" "$HAL_DEST/aidl/"
+fi
+# top-level bp: nothing to build directly
+cat > "$HAL_DEST/Android.bp" << "EOF"
+// Virtual camera HAL — see core/ and aidl/ (A13 platform build)
+EOF
+
+echo "=== [2/7] Platform AIDL lib ==="
+rm -rf "$HAL_DEST/platform-aidl"
+cp -r "$SCRIPT_DIR/platform/aidl-lib" "$HAL_DEST/platform-aidl"
+AIDL_DEST="$HAL_DEST/platform-aidl/android/hardware/virtualcamera"
+mkdir -p "$AIDL_DEST"
+cp "$SCRIPT_DIR"/aidl/*.aidl "$AIDL_DEST/"
+
+echo "=== [3/7] VirtualCameraService java lib ==="
+SVC_DEST="$HAL_DEST/platform-service"
+mkdir -p "$SVC_DEST/java/com/android/server/camera/virtual"
+cp "$SCRIPT_DIR"/service/VirtualCameraService.java "$SCRIPT_DIR"/service/VirtualCamera.java \
+   "$SCRIPT_DIR"/service/VirtualCameraNative.java \
+   "$SCRIPT_DIR"/service/LifecycleSlot.java \
+   "$SCRIPT_DIR"/service/ProducerCapabilities.java \
+   "$SVC_DEST/java/com/android/server/camera/virtual/"
+cp "$SCRIPT_DIR/platform/services/Android.bp" "$SVC_DEST/Android.bp"
+
+echo "=== [4/7] Test apps ==="
+rm -rf "$HAL_DEST/apps"
+mkdir -p "$HAL_DEST/apps"
+cp -r "$SCRIPT_DIR/platform/apps/VCamProducer" "$HAL_DEST/apps/"
+cp -r "$SCRIPT_DIR/platform/apps/VCamViewer" "$HAL_DEST/apps/"
+cp -r "$SCRIPT_DIR/platform/apps/VCamE2E" "$HAL_DEST/apps/"
+# VCamProducer2 (second package, same sources) is defined in VCamProducer/Android.bp
+
+echo "=== [5/7] frameworks/base hooks ==="
+python3 - "$AOSP_ROOT" << "PYEOF"
+import sys, pathlib
+root = pathlib.Path(sys.argv[1])
+
+# 5a. services/Android.bp: static_libs += virtual-camera-service
+bp = root / "frameworks/base/services/Android.bp"
+t = bp.read_text()
+if "virtual-camera-service" not in t:
+    anchor = "\"services.core\","
+    assert anchor in t, "services.core anchor not found in services/Android.bp"
+    t = t.replace(anchor, anchor + "\n        \"virtual-camera-service\",", 1)
+    bp.write_text(t)
+    print("patched services/Android.bp")
+else:
+    print("services/Android.bp already patched")
+
+# 5b. SystemServer.java: start VirtualCameraService after CameraServiceProxy
+ss = root / "frameworks/base/services/java/com/android/server/SystemServer.java"
+t = ss.read_text()
+if "VirtualCameraService" not in t:
+    anchor = """                t.traceBegin("StartCameraServiceProxy");
+                mSystemServiceManager.startService(CameraServiceProxy.class);
+                t.traceEnd();"""
+    assert anchor in t, "CameraServiceProxy anchor not found in SystemServer.java"
+    addition = anchor + """
+
+                t.traceBegin("StartVirtualCameraService");
+                try {
+                    mSystemServiceManager.startService(
+                            com.android.server.camera.virtual.VirtualCameraService
+                                    .Lifecycle.class);
+                } catch (Throwable e) {
+                    reportWtf("starting VirtualCameraService", e);
+                }
+                t.traceEnd();"""
+    t = t.replace(anchor, addition, 1)
+    ss.write_text(t)
+    print("patched SystemServer.java")
+else:
+    print("SystemServer.java already patched")
+PYEOF
+
+echo "=== [6/7] sepolicy ($MODE) ==="
+SEP="$SCRIPT_DIR/platform/sepolicy"
+VENDOR_SC="$VENDOR_SEPOLICY_DEST/service_contexts"
+VENDOR_FC="$VENDOR_SEPOLICY_DEST/file_contexts"
+
+# helper: append each non-empty line of $1 to $2 unless its first field is present
+append_contexts() {
+    touch "$2"
+    while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        key=$(echo "$line" | awk '{print $1}')
+        grep -q "^$key " "$2" || echo "$line" >> "$2"
+    done < "$1"
+}
+# helper: delete lines whose first field is in $1 from $2
+remove_contexts() {
+    [ -f "$2" ] || return 0
+    while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        key=$(echo "$line" | awk '{print $1}')
+        sed -i "\#^$key #d" "$2"
+    done < "$1"
+}
+
+# Both modes: VirtualCameraService's two system_server binder names.
+cp "$SEP/virtual_camera_service.te" "$SEPOLICY_DEST/"
+append_contexts "$SEP/system_ext_service_contexts" "$SEPOLICY_DEST/service_contexts"
+
+BOARD_CFG="$AOSP_ROOT/device/google/cuttlefish/shared/BoardConfig.mk"
+SEPOLICY_PUBLIC_DEST="$AOSP_ROOT/device/google/cuttlefish/shared/sepolicy/system_ext/public"
+if [ "$MODE" = apex ]; then
+    # The boundary as a HAL attribute: declared in system_ext PUBLIC policy
+    # (visible to vendor policy), client bound in system_ext private, server
+    # bound in vendor. Cuttlefish ships the public dir line commented out.
+    sed -i 's|^# SYSTEM_EXT_PUBLIC_SEPOLICY_DIRS += device/google/cuttlefish/shared/sepolicy/system_ext/public|SYSTEM_EXT_PUBLIC_SEPOLICY_DIRS += device/google/cuttlefish/shared/sepolicy/system_ext/public|' "$BOARD_CFG"
+    mkdir -p "$SEPOLICY_PUBLIC_DEST"
+    cp "$SEP/system_ext_public/hal_virtualcamera.te" "$SEPOLICY_PUBLIC_DEST/"
+    cp "$SEP/system_ext_private/virtual_camera_client.te" "$SEPOLICY_DEST/"
+    # Vendor side: service label + hal_server_domain binding, provider name
+    # labeled hal_camera_service (registerable by hal_camera_default).
+    cp "$SEP/vendor/hal_camera_virtual.te" "$VENDOR_SEPOLICY_DEST/"
+    append_contexts "$SEP/vendor/service_contexts" "$VENDOR_SC"
+    # Loose vendor binary (non-APEX vendor build) gets the same domain as the APEX one.
+    grep -q 'provider-virtual-service u:object_r:hal_camera_default_exec' "$VENDOR_FC" || \
+        echo '/vendor/bin/hw/android\.hardware\.camera\.provider-virtual-service u:object_r:hal_camera_default_exec:s0' >> "$VENDOR_FC"
+    # Drop the system_ext-relay prototype's HAL domain + provider label if present:
+    # a second label for the same service name would shadow the vendor one.
+    rm -f "$SEPOLICY_DEST/virtual_camera_hal.te"
+    sed -i '\#virtual_renderer#d' "$SEPOLICY_DEST/service_contexts"
+    sed -i '\#virtual_camera_hal_exec#d' "$SEPOLICY_DEST/file_contexts" 2>/dev/null || true
+else
+    cp "$SEP/virtual_camera_hal.te" "$SEPOLICY_DEST/"
+    append_contexts "$SEP/service_contexts" "$SEPOLICY_DEST/service_contexts"
+    grep -q "virtual_camera_hal_exec" "$SEPOLICY_DEST/file_contexts" 2>/dev/null || \
+        cat "$SEP/file_contexts_fragment" >> "$SEPOLICY_DEST/file_contexts"
+    # Remove the vendor-side entries (provider is system_ext in this mode)
+    # and the HAL-attribute files (no frozen boundary in the relay prototype).
+    rm -f "$VENDOR_SEPOLICY_DEST/hal_camera_virtual.te"
+    rm -f "$SEPOLICY_PUBLIC_DEST/hal_virtualcamera.te" "$SEPOLICY_DEST/virtual_camera_client.te"
+    remove_contexts "$SEP/vendor/service_contexts" "$VENDOR_SC"
+fi
+
+echo "=== [6b] device framework compatibility matrix (frozen AIDL package must be in an FCM) ==="
+CONFIG_DIR="$AOSP_ROOT/device/google/cuttlefish/shared/config"
+cp "$SCRIPT_DIR/platform/vintf/device_framework_matrix_virtualcamera.xml" "$CONFIG_DIR/"
+grep -q "device_framework_matrix_virtualcamera.xml" "$DEVICE_MK" || cat >> "$DEVICE_MK" << "EOF"
+
+# Virtual camera: frozen AIDL boundary android.hardware.virtualcamera.hal (V1-V2)
+DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE += \
+    device/google/cuttlefish/shared/config/device_framework_matrix_virtualcamera.xml
+EOF
+
+echo "=== [7/7] PRODUCT_PACKAGES ==="
+grep -q "VCamProducer" "$DEVICE_MK" || cat >> "$DEVICE_MK" << "EOF"
+
+# Virtual camera platform-AIDL test apps
+PRODUCT_PACKAGES += VCamProducer VCamViewer
+EOF
+grep -q "VCamProducer2" "$DEVICE_MK" || echo "PRODUCT_PACKAGES += VCamProducer2" >> "$DEVICE_MK"
+# The HAL itself: EXACTLY ONE of the loose vendor binary (system_ext / loose
+# vendor builds) or the APEX. Listing both starts two HAL processes; listing
+# neither means `m` never rebuilds the HAL and the image ships whatever stale
+# file happens to sit in the staging dir (found the hard way — README §9.20).
+LOOSE_LINE="PRODUCT_PACKAGES += android.hardware.camera.provider-virtual-service"
+APEX_LINE="PRODUCT_PACKAGES += com.android.hardware.camera.provider.virtual"
+# apex mode also needs: the VINTF fragment on /vendor (A13 libvintf ignores
+# /apex/*/etc/vintf) and the platform-side JNI pump + its stable-AIDL lib.
+APEX_EXTRA_LINE="PRODUCT_PACKAGES += android.hardware.camera.provider-virtual-service.vintf libvirtualcamera_relay_jni"
+sed -i "\#^$LOOSE_LINE\$#d; \#^$APEX_LINE\$#d; \#^$APEX_EXTRA_LINE\$#d" "$DEVICE_MK"
+if [ "$MODE" = apex ]; then
+    echo "$APEX_LINE" >> "$DEVICE_MK"
+    echo "$APEX_EXTRA_LINE" >> "$DEVICE_MK"
+    # Stale loose-install leftovers in the staging dir would still be packed
+    # into vendor.img: remove them (or run `m installclean` before the image build).
+    OUT_VENDOR="$AOSP_ROOT/out/target/product/vsoc_x86_64/vendor"
+    rm -f "$OUT_VENDOR/bin/hw/android.hardware.camera.provider-virtual-service" \
+          "$OUT_VENDOR/etc/init/android.hardware.camera.provider-virtual-service.rc" \
+          "$OUT_VENDOR/etc/vintf/manifest/android.hardware.camera.provider-virtual-service.xml" 2>/dev/null
+else
+    echo "$LOOSE_LINE" >> "$DEVICE_MK"
+fi
+
+echo ""
+echo "=== Integration complete ==="
+echo "Build: cd $AOSP_ROOT && source build/envsetup.sh && lunch aosp_cf_x86_64_phone-userdebug && m"
+[ "$MODE" = apex ] && echo "Incremental after policy/HAL edits: m com.android.hardware.camera.provider.virtual selinux_policy"
+echo "Full images (reproducible): m installclean && m   # installclean drops stale staged files"

@@ -1,0 +1,143 @@
+/*
+ * Virtual Camera HAL - A13 VENDOR build (no platform relay)
+ *
+ * Vendor variant so the HAL process gets the vendor gralloc (minigbm)
+ * namespace and can import/map buffers ("Driver is uninitialized" fix).
+ * The platform-AIDL relay (VCAM_AIDL_SOURCE) is compiled out: it depends on
+ * libgui/libbinder/framework parcelables, which vendor modules cannot link.
+ * Producer apps feed frames via the v1/v2 unix-socket sources instead.
+ */
+
+package {
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
+cc_library_shared {
+    name: "android.hardware.camera.provider-V1-virtual-impl",
+    defaults: ["hidl_defaults"],
+    vendor: true,
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.hardware.camera.provider.virtual",
+    ],
+
+    srcs: [
+        "VirtualCameraProvider.cpp",
+        "VirtualCameraDevice.cpp",
+        "VirtualCameraSession.cpp",
+        "VirtualCameraStableHal.cpp",
+    ],
+
+    shared_libs: [
+        "android.hardware.camera.common-V1-ndk",
+        "android.hardware.camera.device-V1-ndk",
+        "android.hardware.camera.provider-V1-ndk",
+        "android.hardware.virtualcamera.hal-V6-ndk",
+        "android.hardware.graphics.mapper@2.0",
+        "android.hardware.graphics.mapper@3.0",
+        "android.hardware.graphics.mapper@4.0",
+        "android.hidl.allocator@1.0",
+        "android.hidl.memory@1.0",
+        "libbinder_ndk",
+        "libcamera_metadata",
+        "libcutils",
+        "libfmq",
+        "libgralloctypes",
+        "libhardware",
+        "libhidlbase",
+        "liblog",
+        "libjpeg",   // JpegEncoder (VNDK; not bundled in the APEX)
+        "libui",
+        "libutils",
+        "libbase",
+        "libnativewindow",
+        "libsync",
+        "libEGL",
+        "libGLESv2",
+    ],
+
+    static_libs: [
+        "android.hardware.camera.common@1.0-helper",
+        "libaidlcommonsupport",
+        "libarect",
+        "virtual-camera-core",
+    ],
+
+    include_dirs: [
+        "hardware/interfaces/camera/common/1.0/default/include",
+        "hardware/interfaces/camera/provider/virtual/v2-shared-memory",
+        "hardware/interfaces/camera/provider/virtual/core",
+    ],
+
+    local_include_dirs: ["."],
+
+    cflags: [
+        "-Wall", "-DVCAM_COMPAT_A13=1", "-DVCAM_STABLE_AIDL=1", "-DVCAM_GPU_COMPOSITOR=1",
+        "-Wno-unused-parameter",
+    ],
+
+    export_include_dirs: ["."],
+}
+
+cc_binary {
+    name: "android.hardware.camera.provider-virtual-service",
+    defaults: ["hidl_defaults"],
+    vendor: true,
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.hardware.camera.provider.virtual",
+    ],
+    relative_install_path: "hw",
+
+    // No init_rc / vintf_fragments here: the APEX ships the .rc, and the
+    // VINTF fragment is installed by the prebuilt_etc below (A13 libvintf
+    // ignores /apex). Declaring them on the binary too defines a second
+    // install rule for the same /vendor path -> "overriding commands".
+
+    srcs: ["service.cpp"],
+
+    include_dirs: [
+        "hardware/interfaces/camera/provider/virtual/core",
+        "hardware/interfaces/camera/provider/virtual/v2-shared-memory",
+        "hardware/interfaces/camera/common/1.0/default/include",
+    ],
+
+    shared_libs: [
+        "android.hardware.camera.common-V1-ndk",
+        "android.hardware.camera.device-V1-ndk",
+        "android.hardware.camera.provider-V1-ndk",
+        "android.hardware.camera.provider-V1-virtual-impl",
+        "android.hardware.virtualcamera.hal-V6-ndk",
+        "libbinder_ndk",
+        "libhidlbase",
+        "liblog",
+        "libjpeg",   // JpegEncoder (VNDK; not bundled in the APEX)
+        "libnativewindow",
+        "libutils",
+        "libbase",
+    ],
+
+    static_libs: [
+        "android.hardware.camera.common@1.0-helper",
+        "libarect",
+    ],
+
+    cflags: ["-DVCAM_COMPAT_A13=1", "-DVCAM_STABLE_AIDL=1"],
+}
+
+filegroup {
+    name: "android.hardware.camera.provider-virtual-service.xml",
+    srcs: ["android.hardware.camera.provider-virtual-service.xml"],
+}
+
+// VINTF fragment on the vendor image. Android 13's libvintf does NOT read
+// /apex/*/etc/vintf (that arrived in 14), so the copy inside the APEX is not
+// enough for servicemanager to accept the registration ("Could not find ...
+// in the VINTF manifest" -> EX_ILLEGAL_ARGUMENT). PRODUCT_PACKAGES lists this.
+prebuilt_etc {
+    name: "android.hardware.camera.provider-virtual-service.vintf",
+    src: "android.hardware.camera.provider-virtual-service.xml",
+    filename: "android.hardware.camera.provider-virtual-service.xml",
+    vendor: true,
+    sub_dir: "vintf/manifest",
+}

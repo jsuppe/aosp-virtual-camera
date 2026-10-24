@@ -32,3 +32,46 @@ Virtual camera HAL for AOSP that lets renderer apps provide frames to consumer a
 - HAL includes v2 headers via `include_dirs` (not relative paths — soong doesn't allow `..`)
 - v2 socket path: `/data/local/tmp/virtual_camera_v2.sock`
 - v1 socket path: `/data/local/tmp/virtual_camera.sock`
+
+## A13 Platform-AIDL Mode (branch a13-platform-aidl)
+
+Producer apps register via platform AIDL instead of the Unix socket:
+
+- **AIDL package:** `android.hardware.virtualcamera` (renamed — `virtual` is a C++ keyword, cpp backend)
+- **Flow:** producer app → `IVirtualCameraService.registerCamera()` (system_server) →
+  consumer opens camera 100 → HAL creates BufferQueue, sends Surface via
+  `IVirtualCameraManager.notifyStreamsConfigured()` → service relays to producer
+  `IVirtualCameraCallback.onStreamsConfigured()` → producer draws → HAL converts
+  RGBA→YUV into camera output buffers (`AidlFrameSource`, `VCAM_AIDL_SOURCE` builds only)
+- **Why relay design:** A13 has no NDK-AIDL HardwareBuffer/Surface; HAL moved to
+  system_ext (coredomain) so it can use libgui — mirrors AOSP V virtual camera
+- **A13 tree:** /mnt/micron/aosp-a13, target `aosp_cf_x86_64_phone-userdebug`
+- **Integrate:** `scripts/integrate-a13-platform.sh /mnt/micron/aosp-a13 [apex|system_ext]`
+  (default `apex` = shipping vendor-APEX HAL + real SELinux policy: HAL attribute
+  `hal_virtualcamera` in `platform/sepolicy/system_ext_public/`, client binding in
+  `system_ext_private/`, server + service type in `vendor/`; `system_ext` = iteration-1
+  relay prototype)
+- **Validate:** boot cuttlefish → `scripts/test-a13-platform.sh` (starts VCamProducer
+  service, launches VCamViewer, checks frame counters at all 3 stages)
+- **Boundary version:** `android.hardware.virtualcamera.hal` is frozen at V3 (V2 fenced
+  `queueFrameFenced`; V3 camera *slots*: `setCameraPresent(slot)`, `queueFrameForCamera`,
+  per-slot callbacks; slot s = Camera2 id 100+s, up to 4). HAL links `-V3-ndk`, the JNI pump links it statically (nothing
+  may land under /system for a device product), VINTF fragment says version 2. Freeze
+  flow: edit `.aidl` → `m <iface>-update-api` → `m <iface>-freeze-api` in the tree →
+  copy `stable-aidl/aidl_api/` + `Android.bp` back.
+- **Reproducible images:** integrate (apex mode) then `m installclean && m`; boot with an
+  empty `~/cuttlefish/instances` (no overlay). The integrate script owns PRODUCT_PACKAGES
+  (APEX + vintf prebuilt + JNI pump, never the loose binary) and the device FCM fragment.
+  A13 libvintf ignores /apex vintf fragments — the prebuilt on /vendor is required.
+- **Conformance:** `VtsAidlHalCameraProvider_TargetTest` passes 37/37 against
+  `virtual_renderer/0` (build it, push to /data/local/tmp, run with
+  `--gtest_filter='*virtual_renderer*'` with a producer registered). Keep it green.
+- **Consumers:** RGBA preview = GPU zero-conversion; YUV_420_888 = GPU packed-plane
+  shaders + row copy (no YUV render targets on gfxstream); BLOB = libjpeg CPU encode.
+  Viewer modes: `--ez yuv true`, `--ez jpeg true`, `--es camera 101`. `vendor.vcam.yuv.cpu=1`
+  forces the CPU converter for A/B measurement. Second producer: package
+  `com.example.vcamproducer2` (same sources, `--ei tint 1` for a red tint).
+- **Prototype caveats:** the `system_ext` mode runs `setenforce 0` (prototype-grade
+  policy); the default `apex` mode runs enforcing with zero denials;
+  single static camera id 100 fed by first registered producer; fallback to test
+  pattern when no producer registered

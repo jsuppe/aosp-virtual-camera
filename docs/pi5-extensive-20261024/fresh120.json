@@ -1,0 +1,252 @@
+{
+  "891": {
+    "window_seconds": 30,
+    "decoded_distinct_fps": 59.03333333333333,
+    "duplicate_count": 0,
+    "regressions": 0,
+    "temporary_uid_override_hz": 0,
+    "status": {
+      "schema": 1,
+      "pixel_format": 1,
+      "dropped_samples": 0,
+      "command": 0,
+      "elapsed_ms": 10068419,
+      "failure": "",
+      "inventory": [
+        "100"
+      ],
+      "cameras": {
+        "100": {
+          "width": 1920,
+          "height": 1080,
+          "requested_fps": 120,
+          "advertised_yuv": [
+            {
+              "width": 640,
+              "height": 480,
+              "min_duration_ns": 8333334
+            },
+            {
+              "width": 1280,
+              "height": 720,
+              "min_duration_ns": 33333334
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "min_duration_ns": 8333334
+            },
+            {
+              "width": 3840,
+              "height": 2160,
+              "min_duration_ns": 33333334
+            }
+          ],
+          "advertised_fps": [
+            [
+              15,
+              15
+            ],
+            [
+              15,
+              30
+            ],
+            [
+              15,
+              60
+            ],
+            [
+              15,
+              120
+            ],
+            [
+              30,
+              30
+            ],
+            [
+              30,
+              60
+            ],
+            [
+              30,
+              120
+            ],
+            [
+              60,
+              60
+            ],
+            [
+              120,
+              120
+            ]
+          ],
+          "jpeg": true,
+          "expected_run": 891,
+          "producer": 1,
+          "images": 2161,
+          "completed": 2161,
+          "frame_duration_ns": 8333334,
+          "capture_failures": 2229,
+          "buffer_lost": 0,
+          "opens": 1,
+          "disconnects": 0,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 2203,
+          "generation": 2,
+          "minimum_generation": 1,
+          "flipped": false,
+          "timestamp": 10068396548187,
+          "active": true
+        },
+        "101": {
+          "width": 640,
+          "height": 480,
+          "requested_fps": 30,
+          "expected_run": 0,
+          "producer": 2,
+          "images": 0,
+          "completed": 0,
+          "frame_duration_ns": 0,
+          "capture_failures": 0,
+          "buffer_lost": 0,
+          "opens": 0,
+          "disconnects": 0,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 0,
+          "generation": 0,
+          "minimum_generation": 1,
+          "flipped": false,
+          "timestamp": 0,
+          "active": false
+        }
+      }
+    }
+  },
+  "892": {
+    "window_seconds": 30,
+    "decoded_distinct_fps": 59.9,
+    "duplicate_count": 0,
+    "regressions": 0,
+    "temporary_uid_override_hz": 120,
+    "status": {
+      "schema": 1,
+      "pixel_format": 1,
+      "dropped_samples": 0,
+      "command": 0,
+      "elapsed_ms": 10110472,
+      "failure": "",
+      "inventory": [
+        "100"
+      ],
+      "cameras": {
+        "100": {
+          "width": 1920,
+          "height": 1080,
+          "requested_fps": 120,
+          "advertised_yuv": [
+            {
+              "width": 640,
+              "height": 480,
+              "min_duration_ns": 8333334
+            },
+            {
+              "width": 1280,
+              "height": 720,
+              "min_duration_ns": 33333334
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "min_duration_ns": 8333334
+            },
+            {
+              "width": 3840,
+              "height": 2160,
+              "min_duration_ns": 33333334
+            }
+          ],
+          "advertised_fps": [
+            [
+              15,
+              15
+            ],
+            [
+              15,
+              30
+            ],
+            [
+              15,
+              60
+            ],
+            [
+              15,
+              120
+            ],
+            [
+              30,
+              30
+            ],
+            [
+              30,
+              60
+            ],
+            [
+              30,
+              120
+            ],
+            [
+              60,
+              60
+            ],
+            [
+              120,
+              120
+            ]
+          ],
+          "jpeg": true,
+          "expected_run": 892,
+          "producer": 1,
+          "images": 2189,
+          "completed": 2189,
+          "frame_duration_ns": 8333334,
+          "capture_failures": 2204,
+          "buffer_lost": 0,
+          "opens": 1,
+          "disconnects": 0,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 2199,
+          "generation": 2,
+          "minimum_generation": 1,
+          "flipped": false,
+          "timestamp": 10110453523941,
+          "active": true
+        },
+        "101": {
+          "width": 640,
+          "height": 480,
+          "requested_fps": 30,
+          "expected_run": 0,
+          "producer": 2,
+          "images": 0,
+          "completed": 0,
+          "frame_duration_ns": 0,
+          "capture_failures": 0,
+          "buffer_lost": 0,
+          "opens": 0,
+          "disconnects": 0,
+          "device_errors": 0,
+          "last_device_error": 0,
+          "sequence": 0,
+          "generation": 0,
+          "minimum_generation": 1,
+          "flipped": false,
+          "timestamp": 0,
+          "active": false
+        }
+      }
+    }
+  }
+}

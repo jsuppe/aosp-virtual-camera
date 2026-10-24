@@ -1,0 +1,19 @@
+package {
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
+java_library {
+    name: "vcam-frame-identity",
+    srcs: ["src/com/example/vcamtest/FrameIdentity.java"],
+    sdk_version: "current",
+    installable: false,
+}
+
+// Data-installed diagnostic consumer: public SDK, no platform certificate/shared UID.
+android_app {
+    name: "VCamE2E",
+    srcs: ["src/com/example/vcame2e/MainActivity.java"],
+    static_libs: ["vcam-frame-identity"],
+    sdk_version: "current",
+    optimize: { enabled: false },
+}

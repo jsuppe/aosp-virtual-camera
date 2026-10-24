@@ -5,17 +5,24 @@
 #define LOG_TAG "VirtualCameraService"
 
 #include "VirtualCameraProvider.h"
+#include "VirtualCameraStableHal.h"
 
 #include <android-base/logging.h>
 #include <android/binder_manager.h>
 #include <android/binder_process.h>
 
 using aidl::android::hardware::camera::provider::implementation::VirtualCameraProvider;
+#ifdef VCAM_STABLE_AIDL
+using aidl::android::hardware::camera::provider::implementation::VirtualCameraStableHal;
+#endif
 
 int main() {
     LOG(INFO) << "Virtual Camera Provider starting (AIDL V1)...";
 
-    ABinderProcess_setThreadPoolMaxThreadCount(0);
+    // A few binder threads: capture requests and platform frame pushes
+    // (queueFrame) arrive concurrently.
+    ABinderProcess_setThreadPoolMaxThreadCount(4);
+    ABinderProcess_startThreadPool();
 
     auto provider = ndk::SharedRefBase::make<VirtualCameraProvider>();
     const std::string instance =
@@ -31,6 +38,12 @@ int main() {
         return -1;
     }
 
+#ifdef VCAM_STABLE_AIDL
+    if (!VirtualCameraStableHal::init(provider.get())) {
+        LOG(ERROR) << "Failed to register IVirtualCameraHal";
+        // Non-fatal: camera stays hidden (no producer availability signal).
+    }
+#endif
     LOG(INFO) << "Virtual Camera Provider service started successfully (AIDL V1)";
     ABinderProcess_joinThreadPool();
 

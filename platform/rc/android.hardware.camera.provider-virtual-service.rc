@@ -1,0 +1,6 @@
+service camera-provider-virtual /system_ext/bin/hw/android.hardware.camera.provider-virtual-service
+    class hal
+    user cameraserver
+    group audio camera input drmrpc system graphics
+    ioprio rt 4
+    task_profiles CameraServiceCapacity MaxPerformance

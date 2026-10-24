@@ -2,10 +2,10 @@
  * Virtual Camera Callback - AIDL Interface
  * @hide
  */
-package android.hardware.camera.virtual;
+package android.hardware.virtualcamera;
 
 import android.view.Surface;
-import android.hardware.camera.virtual.StreamConfig;
+import android.hardware.virtualcamera.StreamConfig;
 
 /**
  * Callback interface for renderer apps.

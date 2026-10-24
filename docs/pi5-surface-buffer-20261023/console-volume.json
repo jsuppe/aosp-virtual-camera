@@ -1,0 +1,50 @@
+{
+  "601": {
+    "trace_start_s": 6249.810289,
+    "trace_end_s": 6254.822637,
+    "serial_kernel_lines": 2,
+    "serial_kernel_bytes": 224,
+    "lines": [
+      "[ 6253.434381][  T382] logd: logdr: UID=2000 GID=2000 PID=4612 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns",
+      "[ 6253.434381][  T382] logd: logdr: UID=2000 GID=2000 PID=4612 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns"
+    ]
+  },
+  "602": {
+    "trace_start_s": 6279.398059,
+    "trace_end_s": 6284.409979,
+    "serial_kernel_lines": 0,
+    "serial_kernel_bytes": 0,
+    "lines": []
+  },
+  "603": {
+    "trace_start_s": 6308.910131,
+    "trace_end_s": 6313.923887,
+    "serial_kernel_lines": 2,
+    "serial_kernel_bytes": 224,
+    "lines": [
+      "[ 6310.013552][  T382] logd: logdr: UID=2000 GID=2000 PID=4775 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns",
+      "[ 6310.013552][  T382] logd: logdr: UID=2000 GID=2000 PID=4775 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns"
+    ]
+  },
+  "604": {
+    "trace_start_s": 6338.558669,
+    "trace_end_s": 6343.568489,
+    "serial_kernel_lines": 0,
+    "serial_kernel_bytes": 0,
+    "lines": []
+  },
+  "605": {
+    "trace_start_s": 6368.21819,
+    "trace_end_s": 6373.228438,
+    "serial_kernel_lines": 0,
+    "serial_kernel_bytes": 0,
+    "lines": []
+  },
+  "606": {
+    "trace_start_s": 6397.70636,
+    "trace_end_s": 6402.716412,
+    "serial_kernel_lines": 0,
+    "serial_kernel_bytes": 0,
+    "lines": []
+  }
+}
