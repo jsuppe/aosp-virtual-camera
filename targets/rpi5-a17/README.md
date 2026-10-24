@@ -13,9 +13,29 @@ Important entry points:
 
 ## Selectable60/120fps tests
 
-The default640x480 RGBA mode advertises up to120fps. The normal split viewer requests `[60,60]`; the launcher also offers a **120 fps split-screen test**, equivalent to starting `SplitDemoActivity` with `--ei fps 120`. That test requests `[120,120]` and asks the window and output surfaces for120Hz. The producer uses the negotiated stream rate, not a test-only hardcoded override. Larger default modes retain30fps. The actual display/app vsync cadence limits generated frames; a120fps request on a60Hz clock cannot deliver120fps. Declared capabilities alone do not establish sustained fresh-frame delivery.
+The default640x480 RGBA mode advertises up to120fps. The normal split viewer requests `[60,60]`; the launcher also offers a **120 fps split-screen test**, equivalent to starting `SplitDemoActivity` with `--ei fps 120`. That test requests `[120,120]` and asks the window and output surfaces for120Hz. The producer uses the negotiated stream rate, not a test-only hardcoded override. The720p and4K default modes retain30fps;1080p now also has an experimental120fps ceiling. The actual display/app vsync cadence limits generated frames; a120fps request on a60Hz clock cannot deliver120fps. Declared capabilities alone do not establish sustained fresh-frame delivery.
 
 The clock is a nominal one-second loop with60 or120 frames according to the negotiated rate. At120fps frame01≈0.008 and frame120=1.000, then repeat. It is frame-counter time, NOT a live monotonic stopwatch. Missed render deadlines can make a cycle last longer than one wall-clock second.
+
+### 1080p split test
+
+The launcher also offers **1080p /120fps split-screen test**, equivalent to
+`SplitDemoActivity --ei fps 120 --ei width 1920`.
+Both the producer-direct buffer and the real Camera2 output use1920×1080,
+with16:9 layout. The1080p mode now advertises up to120 for this experiment;
+VGA60 remains the default launch and720p/4K default modes remain30fps.
+Use `--ei fps 60 --ei width 1920` for an explicit1080p60 request.
+The split toolbar provides **Resolution** (VGA/1080p) and **Frame rate**
+(30/60/120fps target) menus. Changing a setting reopens the preview; the
+registered producer remains alive. Settings survive activity recreation.
+The producer explicitly retains60fps endpoint modes alongside120fps modes;
+raising only the maximum would otherwise remove `[60,60]` from the advertised
+range list. The viewer validates advertised rates before submitting requests
+and does not automatically reopen forever after a camera error.
+Negotiation is not performance qualification: the first1080p120 physical run
+did not sustain120 submissions or camera results/s. See the qualification record.
+Each pane is scaled to fit half the monitor;1080p refers to its source/output
+buffer, not1920 display pixels across each pane on a1920-wide monitor.
 
 ## What matching clocks mean
 

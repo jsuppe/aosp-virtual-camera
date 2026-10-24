@@ -139,11 +139,17 @@ public class VCamProducerService extends Service {
             else {
                 int id = 1;
                 for (int[] size : new int[][] {{640,480},{1280,720},{1920,1080},{3840,2160}}) {
-                    // Qualify the 120fps VGA test independently; larger default
-                    // modes retain their previous 30fps contract.
-                    modes.add(mode(id++, size[0], size[1], size[0] == 640 ? 120 : 30,
+                    // VGA/1080p high-rate tests advertise the negotiation ceiling,
+                    // not a claim of sustained throughput. Other modes stay at30.
+                    modes.add(mode(id++, size[0], size[1],
+                            size[0] == 640 || size[0] == 1920 ? 120 : 30,
                             config.supportsJpeg));
                 }
+                // Capability metadata enumerates endpoint/default FPS ranges,
+                // not every integer inside min..max. Preserve explicit60 modes
+                // when adding120, so [60,60] remains advertised and admissible.
+                modes.add(mode(id++, 640, 480, 60, config.supportsJpeg));
+                modes.add(mode(id++, 1920, 1080, 60, config.supportsJpeg));
             }
             config.modes = modes.toArray(new ProducerMode[0]);
             if(mProfile.equals("legacy-1080p30")){config.modes=null;config.maxWidth=1920;config.maxHeight=1080;config.maxFps=30;}

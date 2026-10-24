@@ -30,12 +30,13 @@ public final class SplitDemoActivity extends Activity {
     private ImageView mFrozen;
     private Button mFreeze;
     private Bitmap mFrozenBitmap;
-    private boolean mActive, mWatching, mOpening, mCopyPending;
+    private boolean mActive, mWatching, mOpening, mCopyPending, mCameraFault;
     private long mEpoch, mResults;
     private final long[] mTextureTimestamps = new long[2];
     private final int[] mTextureUpdates = new int[2];
     private String mCameraId;
     private int mTargetFps;
+    private int mStreamWidth, mStreamHeight;
 
     private final CameraManager.AvailabilityCallback mAvailability =
             new CameraManager.AvailabilityCallback() {
@@ -47,7 +48,14 @@ public final class SplitDemoActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         if (getActionBar() != null) getActionBar().hide();
-        mTargetFps = getIntent().getIntExtra("fps", 60) == 120 ? 120 : 60;
+        int requestedFps = state == null ? getIntent().getIntExtra("fps", 60)
+                : state.getInt("selected_fps", 60);
+        mTargetFps = requestedFps == 30 || requestedFps == 120 ? requestedFps : 60;
+        int requestedWidth = state == null ? getIntent().getIntExtra("width", 640)
+                : state.getInt("selected_width", 640);
+        mStreamWidth = requestedWidth == 1920 ? 1920 : 640;
+        mStreamHeight = mStreamWidth == 1920 ? 1080 : 480;
+        getIntent().putExtra("width", mStreamWidth).putExtra("fps", mTargetFps);
         WindowManager.LayoutParams windowParams = getWindow().getAttributes();
         windowParams.preferredRefreshRate = mTargetFps;
         getWindow().setAttributes(windowParams);
@@ -66,9 +74,36 @@ public final class SplitDemoActivity extends Activity {
         root.setBackgroundColor(0xff10141d);
         LinearLayout toolbar = new LinearLayout(this);
         toolbar.setPadding(16, 8, 16, 8);
-        TextView title = label("VCam • split comparison\n1-second cycle • " + mTargetFps
-                + " frames • " + (mTargetFps == 120 ? "0.008" : "0.017") + " → 1.000 seconds", 18);
+        TextView title = label("VCam • split comparison • " + mStreamWidth + "×" + mStreamHeight
+                + "\n1-second cycle • " + mTargetFps
+                + " frames • " + String.format(java.util.Locale.ROOT, "%.3f", 1.0 / mTargetFps)
+                + " → 1.000 seconds", 18);
         toolbar.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+        Button resolution = new Button(this);
+        resolution.setText(mStreamWidth == 1920 ? "Resolution: 1080p" : "Resolution: VGA");
+        resolution.setOnClickListener(v -> {
+            PopupMenu menu = new PopupMenu(this, resolution);
+            menu.getMenu().add(0, 640, 0, "640×480 (VGA)");
+            menu.getMenu().add(0, 1920, 1, "1920×1080 (1080p)");
+            menu.setOnMenuItemClickListener(item -> {
+                switchMode(item.getItemId(), mTargetFps);
+                return true;
+            });
+            menu.show();
+        });
+        toolbar.addView(resolution);
+        Button rate = new Button(this);
+        rate.setText("Frame rate: " + mTargetFps);
+        rate.setOnClickListener(v -> {
+            PopupMenu menu = new PopupMenu(this, rate);
+            for (int fps : new int[] {30, 60, 120}) menu.getMenu().add(0, fps, fps, fps + " fps target");
+            menu.setOnMenuItemClickListener(item -> {
+                switchMode(mStreamWidth, item.getItemId());
+                return true;
+            });
+            menu.show();
+        });
+        toolbar.addView(rate);
         mFreeze = new Button(this);
         mFreeze.setText("Freeze comparison");
         mFreeze.setOnClickListener(v -> toggleFreeze());
@@ -92,7 +127,8 @@ public final class SplitDemoActivity extends Activity {
         mStatus = label("Waiting for both surfaces…", 16);
         root.addView(mStatus);
         root.addView(label("Clock = nominal cycle seconds • " + mTargetFps + " steps • ≈"
-                + (mTargetFps == 120 ? "8.33" : "16.7") + "ms per step at target rate; not a precision latency meter.", 15));
+                + String.format(java.util.Locale.ROOT, "%.2f", 1000.0 / mTargetFps)
+                + "ms per step at target rate; not a precision latency meter.", 15));
         setContentView(root);
         mDirect.setSurfaceTextureListener(listener(true));
         mPreview.setSurfaceTextureListener(listener(false));
@@ -105,6 +141,22 @@ public final class SplitDemoActivity extends Activity {
         return v;
     }
 
+    private void switchMode(int width, int fps) {
+        if (!mActive || (width == mStreamWidth && fps == mTargetFps)) return;
+        // Recreate only the preview/activity. Keep the registered producer alive;
+        // Camera2 renegotiates the stream and the graphics owner retires old EGL.
+        Intent intent = new Intent(getIntent());
+        intent.putExtra("width", width).putExtra("fps", fps);
+        setIntent(intent);
+        recreate();
+    }
+
+    @Override protected void onSaveInstanceState(Bundle state) {
+        state.putInt("selected_width", getIntent().getIntExtra("width", mStreamWidth));
+        state.putInt("selected_fps", getIntent().getIntExtra("fps", mTargetFps));
+        super.onSaveInstanceState(state);
+    }
+
     private TextureView pane(LinearLayout row, String heading) {
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
@@ -113,8 +165,9 @@ public final class SplitDemoActivity extends Activity {
         TextureView texture = new TextureView(this) {
             @Override protected void onMeasure(int w, int h) {
                 int width = MeasureSpec.getSize(w), height = MeasureSpec.getSize(h);
-                if (width * 3 > height * 4) width = height * 4 / 3;
-                else height = width * 3 / 4;
+                if ((long) width * mStreamHeight > (long) height * mStreamWidth)
+                    width = height * mStreamWidth / mStreamHeight;
+                else height = width * mStreamHeight / mStreamWidth;
                 setMeasuredDimension(width, height);
             }
         };
@@ -128,7 +181,7 @@ public final class SplitDemoActivity extends Activity {
         return new TextureView.SurfaceTextureListener() {
             @Override public void onSurfaceTextureAvailable(SurfaceTexture st, int w, int h) {
                 mTextureTimestamps[direct ? 0 : 1] = 0;
-                st.setDefaultBufferSize(640, 480);
+                st.setDefaultBufferSize(mStreamWidth, mStreamHeight);
                 if (direct) {
                     mDirectSurface = new Surface(st);
                     mDirectSurface.setFrameRate(mTargetFps, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE);
@@ -189,7 +242,7 @@ public final class SplitDemoActivity extends Activity {
     }
 
     private void maybeOpen() {
-        if (!mActive || !mWatching || mOpening || mCamera != null ||
+        if (!mActive || !mWatching || mOpening || mCameraFault || mCamera != null ||
                 mDirectSurface == null || !mPreview.isAvailable()) return;
         mOpening = true;
         final long epoch = mEpoch;
@@ -208,7 +261,11 @@ public final class SplitDemoActivity extends Activity {
                 }
                 @Override public void onError(CameraDevice camera, int error) {
                     camera.close();
-                    if (epoch == mEpoch) { closeCamera(); mStatus.setText("Camera error " + error); }
+                    if (epoch == mEpoch) {
+                        mCameraFault = true; // do not loop on an invalid configuration
+                        Log.e("VCamSplit", "Camera error " + error);
+                        closeCamera(); mStatus.setText("Camera error " + error + " • select a mode to retry");
+                    }
                 }
             }, mUi);
         } catch (Exception error) {
@@ -221,7 +278,7 @@ public final class SplitDemoActivity extends Activity {
     private void createSession(CameraDevice camera, long epoch) {
         try {
             SurfaceTexture st = mPreview.getSurfaceTexture();
-            st.setDefaultBufferSize(640, 480);
+            st.setDefaultBufferSize(mStreamWidth, mStreamHeight);
             final Surface target = new Surface(st);
             target.setFrameRate(mTargetFps, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE);
             mCameraSurface = target;
@@ -231,9 +288,14 @@ public final class SplitDemoActivity extends Activity {
                     if (!mActive || epoch != mEpoch) { session.close(); return; }
                     mSession = session;
                     try {
+                        Range<Integer> selectedRate = new Range<>(mTargetFps, mTargetFps);
+                        Range<Integer>[] advertised = mManager.getCameraCharacteristics(mCameraId)
+                                .get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
+                        if (advertised == null || !java.util.Arrays.asList(advertised).contains(selectedRate))
+                            throw new IllegalArgumentException("Target rate is not advertised: " + selectedRate);
                         CaptureRequest.Builder request = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
                         request.addTarget(target);
-                        request.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, new Range<>(mTargetFps, mTargetFps));
+                        request.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, selectedRate);
                         Log.i("VCamSplit", "REQUESTED_FPS " + mTargetFps);
                         session.setRepeatingRequest(request.build(), new CameraCaptureSession.CaptureCallback() {
                             @Override public void onCaptureCompleted(CameraCaptureSession s, CaptureRequest r, TotalCaptureResult result) {
@@ -245,6 +307,7 @@ public final class SplitDemoActivity extends Activity {
                             }
                         }, mUi);
                     } catch (Exception error) {
+                        mCameraFault = true;
                         mStatus.setText("Preview failed: " + error.getMessage());
                         Log.e("VCamSplit", "Preview failed", error);
                         closeCamera();
@@ -252,7 +315,10 @@ public final class SplitDemoActivity extends Activity {
                 }
                 @Override public void onConfigureFailed(CameraCaptureSession session) {
                     session.close();
-                    if (epoch == mEpoch) { closeCamera(); mStatus.setText("Camera session configuration failed"); }
+                    if (epoch == mEpoch) {
+                        mCameraFault = true;
+                        closeCamera(); mStatus.setText("Camera session configuration failed • select a mode to retry");
+                    }
                 }
             }, mUi);
         } catch (Exception error) {

@@ -51,5 +51,18 @@ int main() {
     std::reverse(disjoint.modes.begin(),disjoint.modes.end());
     assert(disjoint.defaultRange()==std::make_pair(30,60));
     assert(c.defaultRange()==std::make_pair(30,30));
+    // Regression: raising a mode ceiling60->120 does not implicitly advertise
+    // [60,60]. Runtime selectors must retain an explicit60 endpoint mode.
+    auto high=c;
+    high.modes={{1,640,480,15,120,{1,34,35},false},
+                {2,1920,1080,15,120,{1,34,35},false},
+                {3,1280,720,15,30,{1,34,35},false}};
+    assert(high.select({{1,1920,1080}},120,120));
+    assert(!high.select({{1,1920,1080}},60,60));
+    high.modes.push_back({4,640,480,15,60,{1,34,35},false});
+    high.modes.push_back({5,1920,1080,15,60,{1,34,35},false});
+    for (auto size : {ProducerCapabilities::Output{1,640,480}, {1,1920,1080}})
+        for (int rate : {30,60,120}) assert(high.select({size},rate,rate));
+    assert(!high.select({{1,1280,720}},60,60));
     std::puts("PASS: explicit profiles, adaptive disjoint rates, FPS/size/format/combination isolation and malformed descriptor rejection");
 }

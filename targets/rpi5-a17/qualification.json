@@ -200,5 +200,63 @@
       "No new HAL/APEX/system image deployment.",
       "60fps remains default split launch; explicitfps120/testbutton selects120. Higher-resolution defaults unchanged."
     ]
+  },
+  "hd1080_initial_revision": {
+    "apk_sha256": "03674112bd23e2f8e0a6091787b722f18aa3f07ded86c2dbd03039415f0ff0cf",
+    "buffers": "Producer, direct mirror and Camera2 output1920x1080RGBA, correct16:9 layout; physical screenshots verified",
+    "cadence": {
+      "measurement": "Logged counters and TextureView update callbacks, NOT decoded distinct Camera2 images or physical display presentation",
+      "warmup_seconds": 5,
+      "requested_window_seconds": 60,
+      "fixed_window_start_log_seconds": 6437.861,
+      "fixed_window_end_log_seconds": 6497.861,
+      "series": {
+        "producer_submissions": {
+          "samples": 149,
+          "counter_delta": 4440,
+          "observed_span_seconds": 59.555,
+          "counter_rate_per_second": 74.55293426244612,
+          "max_logged_batch_seconds": 0.557,
+          "batch_counter_delta": 30
+        },
+        "camera2_results": {
+          "samples": 19,
+          "counter_delta": 540,
+          "observed_span_seconds": 57.935,
+          "counter_rate_per_second": 9.320790541123754,
+          "max_logged_batch_seconds": 3.748,
+          "batch_counter_delta": 30
+        },
+        "left_texture_update_callbacks": {
+          "samples": 37,
+          "counter_delta": 4320,
+          "observed_span_seconds": 57.992,
+          "counter_rate_per_second": 74.49303352186485,
+          "max_logged_batch_seconds": 1.841,
+          "batch_counter_delta": 120
+        },
+        "right_texture_update_callbacks": {
+          "samples": 5,
+          "counter_delta": 480,
+          "observed_span_seconds": 52.125,
+          "counter_rate_per_second": 9.20863309352518,
+          "max_logged_batch_seconds": 13.275,
+          "batch_counter_delta": 120
+        }
+      },
+      "log_coverage_seconds": 106.32899999999972,
+      "full_requested_window_covered": true,
+      "fatal_or_gl_errors": true
+    },
+    "startup_finding": "Initial30fps generation had EGL_BAD_NATIVE_WINDOW with0frames; replacement120fps generation recovered and continued. Raw error retained, not counted as clean startup."
+  },
+  "runtime_controls_revision": {
+    "apk_sha256": "01c3f39608ebd335d2c697dba1c2d178d2dbca1307baf9ebc2e36dac0730d80f",
+    "build": "Both producer APKs builtPASS;48Python testsPASS and hostcapability regressionPASS",
+    "controls": "In-app Resolution(VGA/1080p) and Frame rate(30/60/120target) menus; preview recreation without unregistering producer",
+    "regression": "First controls build froze on120->60:60endpoint disappeared from advertised ranges, HAL rejected60request and preview autoreopened repeatedly. Corrected descriptor adds explicit60modes for both sizes. Viewer checks advertised ranges and stops error reopen loops. No HAL/APEX change.",
+    "physical_test": "Same app PID exercised all6size/rate combinations via actual toolbar menu input; all negotiated configurations observed, no camera/GL/fatal errors in corrected app log. Screenshots confirm final1080p60bothpanes active.",
+    "final_mode": "1080p60target",
+    "limits": "Short switch smoke test; not6separate sustainedfreshpixelFPS/latencybenchmarks. Initial1080p120 performance remained source~74.6submissions/s andCamera2results~9.3/s, distinct from successful1080p60switching."
   }
 }
