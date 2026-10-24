@@ -18,6 +18,8 @@ public:
                    NoSource, SourceFenceTimeout, StaleSource, NoFilledOutput };
     struct Row {
         int64_t start=0, total=0, token=0, producer=0;
+        int64_t acquired=0, deadline=0, fenceSignal=0, fenceObserved=0;
+        int fenceStatus=-2;
         uint64_t sequence=0;
         int frame=0, fps=0, width=0, height=0, failure=None;
         std::array<int64_t, PhaseCount> ns{};
@@ -51,7 +53,11 @@ public:
             mark(phase); mRow.failure=failure;
         }
         void source(uint64_t sequence,int64_t timestamp) {
-            if (mOwner) { mRow.sequence=sequence; mRow.producer=timestamp; }
+            if (mOwner) { mRow.sequence=sequence; mRow.producer=timestamp; mRow.acquired=now(); }
+        }
+        void fence(int64_t deadline,int64_t signal,int status) {
+            if(mOwner) { mRow.deadline=deadline; mRow.fenceSignal=signal;
+                mRow.fenceStatus=status; mRow.fenceObserved=now(); }
         }
         void finish() {
             if (!mOwner) return;
@@ -74,15 +80,17 @@ public:
         if (fd<0) return false;
         FILE* f=fdopen(fd,"w");
         if (!f) { close(fd); return false; }
-        fprintf(f,"# schema=1 run=%d session=%lld dropped=%zu\n",mRun,
+        fprintf(f,"# schema=2 run=%d session=%lld dropped=%zu\n",mRun,
                 (long long)mSession,mDropped);
-        fprintf(f,"start_ns,frame,fps,width,height,token,source_sequence,producer_ns,failure,import_ns,destination_wait_ns,pace_ns,source_wait_ns,source_fence_wait_ns,output_ns,callback_ns,cleanup_ns,total_ns\n");
+        fprintf(f,"start_ns,frame,fps,width,height,token,source_sequence,producer_ns,failure,import_ns,destination_wait_ns,pace_ns,source_wait_ns,source_fence_wait_ns,output_ns,callback_ns,cleanup_ns,total_ns,source_acquired_ns,deadline_ns,fence_signal_ns,fence_observed_ns,fence_status\n");
         for (const auto& r:mRows) {
             fprintf(f,"%lld,%d,%d,%d,%d,%lld,%llu,%lld,%d",(long long)r.start,
                     r.frame,r.fps,r.width,r.height,(long long)r.token,
                     (unsigned long long)r.sequence,(long long)r.producer,r.failure);
             for (auto ns:r.ns) fprintf(f,",%lld",(long long)ns);
-            fprintf(f,",%lld\n",(long long)r.total);
+            fprintf(f,",%lld,%lld,%lld,%lld,%lld,%d\n",(long long)r.total,
+                    (long long)r.acquired,(long long)r.deadline,(long long)r.fenceSignal,
+                    (long long)r.fenceObserved,r.fenceStatus);
         }
         bool good=!ferror(f); if (fclose(f)!=0) good=false;
         mWritten=good;

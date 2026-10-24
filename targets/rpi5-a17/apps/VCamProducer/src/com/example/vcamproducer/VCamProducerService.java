@@ -37,7 +37,7 @@ public class VCamProducerService extends Service {
     private static final String TAG = "VCamProducer";
     static volatile Surface sReferenceSurface; // owned by the split activity
     private static volatile int sProfileRun;
-    private static volatile boolean sMirrorEnabled=true, sClockEnabled=true;
+    private static volatile boolean sMirrorEnabled=true, sClockEnabled=true, sMinimalScene;
     // Immutable handoff: UI requests a change; only the EGL owner paints it.
     private static final class TapState {
         final long sequence, requestedNs;
@@ -276,6 +276,13 @@ public class VCamProducerService extends Service {
                 "  gl_Position = vec4(aPos, 0.0, 1.0);\n" +
                 "}\n";
         // uBall/uBallR are in uv space; aspect corrects the disc to a circle.
+        // Diagnostic solid field with a 16-bit per-frame stripe; no Canvas/texture uploads.
+        private static final String MINIMAL_FRAG =
+                "precision highp float; varying vec2 vUv; uniform float uProfileFrame;"
+                +"void main(){vec3 c=vec3(.08,.18,.3);"
+                +"if(vUv.y<.04){float b=floor(vUv.x*16.);"
+                +"float bit=mod(floor(uProfileFrame/pow(2.,b)),2.);c=vec3(bit);}"
+                +"gl_FragColor=vec4(c,1.);}";
         private static final String FRAG =
                 "precision highp float;\n" +
                 "varying vec2 vUv;\n" +
@@ -358,6 +365,7 @@ public class VCamProducerService extends Service {
                     mWidth + "x" + mHeight + "@" + mFps);
             ClockTexture clockTexture = new ClockTexture();
             final int profileRun=sProfileRun;
+            final boolean minimalScene=sMinimalScene && profileRun>0;
             FrameTrace trace=new FrameTrace(new java.io.File(getFilesDir(),"vcam-profile"),
                     "producer-"+profileRun+"-"+request.generation,
                     "frame,vsync_ns,start_ns,overlay_end_ns,draw_end_ns,swap_end_ns,mirror_end_ns,fps",
@@ -399,7 +407,7 @@ public class VCamProducerService extends Service {
 
                 int prog = GLES20.glCreateProgram();
                 GLES20.glAttachShader(prog, compile(GLES20.GL_VERTEX_SHADER, VERT));
-                GLES20.glAttachShader(prog, compile(GLES20.GL_FRAGMENT_SHADER, FRAG));
+                GLES20.glAttachShader(prog, compile(GLES20.GL_FRAGMENT_SHADER, minimalScene ? MINIMAL_FRAG : FRAG));
                 GLES20.glLinkProgram(prog);
                 int[] linked = new int[1];
                 GLES20.glGetProgramiv(prog, GLES20.GL_LINK_STATUS, linked, 0);
@@ -424,6 +432,7 @@ public class VCamProducerService extends Service {
                 Log.i(TAG, "GEOMETRY GPU-owned vertex buffer=" + vertexBuffer);
                 int uClockMs = GLES20.glGetUniformLocation(prog, "uClockMs");
                 GLES20.glUniform1i(GLES20.glGetUniformLocation(prog, "uClockTexture"), 0);
+                int uProfileFrame=GLES20.glGetUniformLocation(prog,"uProfileFrame");
                 int uTime = GLES20.glGetUniformLocation(prog, "uTime");
                 int uBall = GLES20.glGetUniformLocation(prog, "uBall");
                 int uBallR = GLES20.glGetUniformLocation(prog, "uBallR");
@@ -472,10 +481,11 @@ public class VCamProducerService extends Service {
                     TapState tap = sTap; // one snapshot for the camera and direct draws
                     if (tap == null) GLES20.glUniform4f(uTapBackground, 0, 0, 0, 0);
                     else GLES20.glUniform4f(uTapBackground, tap.red, tap.green, tap.blue, 1);
-                    boolean drawClock=sReferenceSurface!=null && sClockEnabled;
+                    boolean drawClock=sReferenceSurface!=null && sClockEnabled && !minimalScene;
                     GLES20.glUniform1f(uClockMs, drawClock ? cycleMs : -1f);
                     if (drawClock) clockTexture.update(cycleFrame, mFps, cycleMs);
                     long overlayEnd=profileRun>0?System.nanoTime():0;
+                    GLES20.glUniform1f(uProfileFrame,mFrames%65536);
                     GLES20.glUniform1f(uTime, t);
                     GLES20.glUniform2f(uBall, bx, by);
                     GLES20.glUniform1f(uBallR, 0.08f);
@@ -590,6 +600,7 @@ public class VCamProducerService extends Service {
             sProfileRun=intent.getIntExtra("profile_run",0);
             sMirrorEnabled=intent.getBooleanExtra("mirror",true);
             sClockEnabled=intent.getBooleanExtra("clock",true);
+            sMinimalScene=intent.getBooleanExtra("minimal_scene",false);
         }
         if (intent != null && intent.hasExtra("e2e")) {
             if (intent.getBooleanExtra("e2e", false)) {

@@ -75,6 +75,9 @@ VirtualCameraSession::VirtualCameraSession(
     mForceCpuYuv = ::android::base::GetBoolProperty("vendor.vcam.yuv.cpu", false);
     mProfile.enable(::android::base::GetIntProperty<int>("vendor.vcam.profile",0),
                     mSlot,mSessionIdentity);
+    if(mProfile.enabled() && ::android::base::GetBoolProperty("ro.debuggable",false))
+        mProfileDeadlineFrames=std::clamp(::android::base::GetIntProperty<int>(
+                "vendor.vcam.profile.deadline",1),1,2);
     ALOGI("VirtualCameraSession created (slot %d; AIDL V1 adapter, v1 + v2 frame sources)%s",
           mSlot, mForceCpuYuv ? " [vendor.vcam.yuv.cpu=1: CPU YUV converter forced]" : "");
 }
@@ -618,7 +621,7 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
     // Startup is NOT the steady-state latency objective; neither budget is
     // a producer-health/removal timeout or product-approved acceptance bound.
     // Polling is cancellable <=2ms (apart from actual driver calls).
-    auto sourceBudget = std::chrono::nanoseconds(frameDurationNs);
+    auto sourceBudget = std::chrono::nanoseconds(frameDurationNs * mProfileDeadlineFrames);
     if (mStartupWaitPending) {
         sourceBudget = std::max(sourceBudget, std::chrono::duration_cast<std::chrono::nanoseconds>(
                 std::chrono::milliseconds(200)));
@@ -626,6 +629,21 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
     }
     const auto deadline = std::chrono::steady_clock::now() +
             sourceBudget;
+    // Diagnostic-only query after the readiness decision; never substitutes for a fence wait.
+    auto recordFence = [&]() {
+        if(!mProfile.enabled())return;
+        int status=-2; int64_t signal=0;
+        if(sourceFence.get()<0) status=1;
+        else if(auto* info=sync_file_info(sourceFence.get())) {
+            status=info->status;
+            auto* fences=sync_get_fence_info(info);
+            for(uint32_t i=0;i<info->num_fences;i++)
+                signal=std::max(signal,static_cast<int64_t>(fences[i].timestamp_ns));
+            sync_file_info_free(info);
+        }
+        profile.fence(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                deadline.time_since_epoch()).count(),signal,status);
+    };
     uint64_t sequence = 0;
     while (hal && !cancelled()) {
         src = hal->acquireLatest(mSlot, &producerTs, &acquireFence,
@@ -648,6 +666,7 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
     while (sourceFence.get() >= 0 && sync_wait(sourceFence.get(), 0) != 0) {
         if (cancelled() || !hal->isFrameCurrent(mSlot, src, sequence, mConfigurationToken) ||
                 std::chrono::steady_clock::now() >= deadline) {
+            recordFence();
             return failUntouched(cancelled()?Profile::Cancelled:
                     (!hal->isFrameCurrent(mSlot,src,sequence,mConfigurationToken)?
                      Profile::StaleSource:Profile::SourceFenceTimeout),Profile::SourceFenceWait);
@@ -660,6 +679,7 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
         return failUntouched(cancelled()?Profile::Cancelled:Profile::StaleSource,
                              Profile::SourceFenceWait);
     profile.mark(Profile::SourceFenceWait);
+    recordFence();
     // Source fence completed on the CPU; downstream renderers need no wait.
     sourceFence.set(-1);
     acquireFence = -1;

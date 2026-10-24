@@ -1,7 +1,8 @@
 # Opt-in Pi5 frame-stage profiling
 
-Diagnostic support is disabled by default. No frame/fence/readiness policy is
-changed. The HAL and app keep bounded in-memory samples (16,384 rows per trace)
+Diagnostic support is disabled by default. Normal frame/fence/readiness policy is
+unchanged. A separate [debug-only deadline experiment](deadline-experiment) permits
+an explicit bounded two-frame wait budget while profiling on a debuggable build. The HAL and app keep bounded in-memory samples (16,384 rows per trace)
 and write CSV only after closing the measured stream. A nonzero dropped count
 invalidates a full-window claim; retain it rather than silently truncating data.
 
@@ -68,3 +69,16 @@ This debug deployment uses the board's existing permissive baseline; it is NOT
 an Enforcing/security qualification or an APEX activation test. Remove the bind
 overlay, verify the original library hash and restart the HAL after profiling.
 Do not publish a successful staged-update claim based on this debug run.
+
+## Schema2 fence snapshots
+
+Native schema2 appends source_acquired_ns, deadline_ns, fence_signal_ns,
+fence_observed_ns and fence_status. Signal timestamps come from sync_file_info;
+unsignaled fences have no inferred completion time. The snapshot is taken after
+the readiness decision and is diagnostic-only. Its ioctl/allocation overhead is
+included in the measured path. See the deadline experiment report for timing
+interpretation and snapshot races.
+
+App extra minimal_scene=true selects a solid shader with a16-bit changing stripe
+only when profile_run is positive. For a minimal workload also disable mirror
+and clock. This stripe alone is not a full end-to-end correctness oracle.

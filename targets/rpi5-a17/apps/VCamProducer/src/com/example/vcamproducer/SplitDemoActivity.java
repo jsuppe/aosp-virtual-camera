@@ -229,6 +229,7 @@ public final class SplitDemoActivity extends Activity {
         VCamProducerService.sReferenceSurface = mDirectSurface;
         startForegroundService(new Intent(this, VCamProducerService.class)
                 .putExtra("profile_run",getIntent().getIntExtra("profile_run",0))
+                .putExtra("minimal_scene",getIntent().getBooleanExtra("minimal_scene",false))
                 .putExtra("mirror",getIntent().getBooleanExtra("mirror",true))
                 .putExtra("clock",getIntent().getBooleanExtra("clock",true)));
         watch();
