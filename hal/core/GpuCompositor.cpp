@@ -491,7 +491,7 @@ bool GpuCompositor::compositeToYcbcr(AHardwareBuffer* src, int srcAcquireFence,
 bool GpuCompositor::composite(AHardwareBuffer* src, int srcAcquireFence,
                               buffer_handle_t dst,
                               int width, int height, int stride, int dstFormat,
-                              uint64_t dstUsage, int* outFence) {
+                              uint64_t dstUsage, int* outFence, bool clearBeforeOverwrite) {
     if (outFence) *outFence = -1;
     if (dstFormat != kFmtRGBA8888 && dstFormat != kFmtRGBX8888) {
         return false;  // YUV etc. -> CPU fallback
@@ -559,6 +559,13 @@ bool GpuCompositor::composite(AHardwareBuffer* src, int srcAcquireFence,
     if (fboOk) {
         static const GLfloat quad[] = { -1, -1, 1, -1, -1, 1, 1, 1 };
         glViewport(0, 0, width, height);
+        // Debug/profile experiment: a full-coverage replacement does not
+        // need the destination's previous pixels. A fast clear lets tiled GPUs
+        // skip loading those pixels. Default remains unchanged until qualified.
+        if (clearBeforeOverwrite) {
+            glClearColor(0.f, 0.f, 0.f, 0.f);
+            glClear(GL_COLOR_BUFFER_BIT);
+        }
         glUseProgram(mProg);
         glEnableVertexAttribArray(mAttrPos);
         glVertexAttribPointer(mAttrPos, 2, GL_FLOAT, GL_FALSE, 0, quad);

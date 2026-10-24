@@ -183,6 +183,7 @@ private:
     bool mHaveSettings = false;   // first request after configure must carry settings
     bool mForceCpuYuv = false;    // vendor.vcam.yuv.cpu=1: measurement baseline
     int mProfileDeadlineFrames=1;
+    bool mProfileClearOutput=false;
     ::virtualcamera::FrameProfile mProfile; // vendor.vcam.profile=RUN,0=off
 
     // Fill-path statistics (logged periodically)

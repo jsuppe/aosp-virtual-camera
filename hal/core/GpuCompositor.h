@@ -57,7 +57,7 @@ public:
      */
     bool composite(AHardwareBuffer* src, int srcAcquireFence, buffer_handle_t dst,
                    int width, int height, int stride, int dstFormat,
-                   uint64_t dstUsage, int* outFence);
+                   uint64_t dstUsage, int* outFence, bool clearBeforeOverwrite = false);
 
     /**
      * YUV 4:2:0 output with the color conversion on the GPU.

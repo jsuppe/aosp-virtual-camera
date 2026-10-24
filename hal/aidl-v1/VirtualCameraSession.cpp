@@ -79,6 +79,10 @@ VirtualCameraSession::VirtualCameraSession(
     if(mProfile.enabled() && ::android::base::GetBoolProperty("ro.debuggable",false))
         mProfileDeadlineFrames=std::clamp(::android::base::GetIntProperty<int>(
                 "vendor.vcam.profile.deadline",1),1,2);
+    mProfileClearOutput = mProfile.enabled() &&
+            ::android::base::GetBoolProperty("ro.debuggable", false) &&
+            ::android::base::GetBoolProperty("vendor.vcam.profile.clear", false);
+    if (mProfile.enabled()) ALOGI("PROFILE_CLEAR_OUTPUT enabled=%d", mProfileClearOutput);
     ALOGI("VirtualCameraSession created (slot %d; AIDL V1 adapter, v1 + v2 frame sources)%s",
           mSlot, mForceCpuYuv ? " [vendor.vcam.yuv.cpu=1: CPU YUV converter forced]" : "");
 }
@@ -792,7 +796,7 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
                                     /*stride*/ width, dstFormat,
                                     AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
                                     AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT,
-                                    &doneFence);
+                                    &doneFence, mProfileClearOutput);
                             if (filled) mStats.gpuRgba++;
                         }
 #endif

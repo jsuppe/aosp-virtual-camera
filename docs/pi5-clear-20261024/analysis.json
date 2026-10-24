@@ -1,0 +1,296 @@
+{
+  "701": {
+    "preview": "SurfaceView",
+    "mirror_and_clock": false,
+    "fps_target": 120,
+    "window_seconds": 10,
+    "window_start_ns": 6937142409812,
+    "producer_submissions_per_second": 120.0,
+    "camera2_success_results_per_second": 107.7,
+    "camera2_failed_results_per_second": 12.3,
+    "producer_timestamp_to_result_callback": {
+      "n": 1077,
+      "median_ms": 8.887314,
+      "p95_ms": 11.006185,
+      "p99_ms": 11.877722,
+      "max_ms": 12.221185
+    },
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 1200,
+        "median_ms": 0.0370555,
+        "p95_ms": 0.059704,
+        "p99_ms": 0.132019,
+        "max_ms": 0.302352
+      },
+      "draw": {
+        "n": 1200,
+        "median_ms": 0.193537,
+        "p95_ms": 0.396648,
+        "p99_ms": 0.540944,
+        "max_ms": 0.872759
+      },
+      "swap": {
+        "n": 1200,
+        "median_ms": 1.467259,
+        "p95_ms": 3.5905,
+        "p99_ms": 4.993518,
+        "max_ms": 6.238537
+      },
+      "mirror": {
+        "n": 1200,
+        "median_ms": 0.002731,
+        "p95_ms": 0.004778,
+        "p99_ms": 0.005981,
+        "max_ms": 0.01337
+      }
+    }
+  },
+  "702": {
+    "preview": "SurfaceView",
+    "mirror_and_clock": false,
+    "fps_target": 120,
+    "window_seconds": 10,
+    "window_start_ns": 6966686374202,
+    "producer_submissions_per_second": 120.0,
+    "camera2_success_results_per_second": 120.0,
+    "camera2_failed_results_per_second": 0.0,
+    "producer_timestamp_to_result_callback": {
+      "n": 1200,
+      "median_ms": 5.0563145,
+      "p95_ms": 6.136149,
+      "p99_ms": 8.450963,
+      "max_ms": 8.682518
+    },
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 1200,
+        "median_ms": 0.023713,
+        "p95_ms": 0.048945,
+        "p99_ms": 0.056538,
+        "max_ms": 0.098611
+      },
+      "draw": {
+        "n": 1200,
+        "median_ms": 0.1346575,
+        "p95_ms": 0.300556,
+        "p99_ms": 0.406426,
+        "max_ms": 0.542093
+      },
+      "swap": {
+        "n": 1200,
+        "median_ms": 0.547509,
+        "p95_ms": 0.693575,
+        "p99_ms": 0.842444,
+        "max_ms": 1.262463
+      },
+      "mirror": {
+        "n": 1200,
+        "median_ms": 0.001648,
+        "p95_ms": 0.00363,
+        "p99_ms": 0.004574,
+        "max_ms": 0.007426
+      }
+    }
+  },
+  "703": {
+    "preview": "SurfaceView",
+    "mirror_and_clock": false,
+    "fps_target": 120,
+    "window_seconds": 10,
+    "window_start_ns": 6996367523647,
+    "producer_submissions_per_second": 120.0,
+    "camera2_success_results_per_second": 120.0,
+    "camera2_failed_results_per_second": 0.0,
+    "producer_timestamp_to_result_callback": {
+      "n": 1200,
+      "median_ms": 7.2692505,
+      "p95_ms": 8.786055,
+      "p99_ms": 9.017426,
+      "max_ms": 9.413944
+    },
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 1200,
+        "median_ms": 0.054621,
+        "p95_ms": 0.060537,
+        "p99_ms": 0.177593,
+        "max_ms": 0.403981
+      },
+      "draw": {
+        "n": 1200,
+        "median_ms": 0.2846485,
+        "p95_ms": 0.426686,
+        "p99_ms": 0.527297,
+        "max_ms": 0.777111
+      },
+      "swap": {
+        "n": 1200,
+        "median_ms": 0.700287,
+        "p95_ms": 1.357093,
+        "p99_ms": 1.928278,
+        "max_ms": 2.077797
+      },
+      "mirror": {
+        "n": 1200,
+        "median_ms": 0.003435,
+        "p95_ms": 0.005482,
+        "p99_ms": 0.007222,
+        "max_ms": 0.047537
+      }
+    }
+  },
+  "704": {
+    "preview": "SurfaceView",
+    "mirror_and_clock": false,
+    "fps_target": 120,
+    "window_seconds": 10,
+    "window_start_ns": 7026091944889,
+    "producer_submissions_per_second": 120.0,
+    "camera2_success_results_per_second": 94.6,
+    "camera2_failed_results_per_second": 25.4,
+    "producer_timestamp_to_result_callback": {
+      "n": 946,
+      "median_ms": 7.3382965,
+      "p95_ms": 9.905889,
+      "p99_ms": 10.325648,
+      "max_ms": 11.480241
+    },
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 1200,
+        "median_ms": 0.0452035,
+        "p95_ms": 0.059389,
+        "p99_ms": 0.116537,
+        "max_ms": 0.283463
+      },
+      "draw": {
+        "n": 1200,
+        "median_ms": 0.237611,
+        "p95_ms": 0.324815,
+        "p99_ms": 0.442871,
+        "max_ms": 0.710815
+      },
+      "swap": {
+        "n": 1200,
+        "median_ms": 0.7120745,
+        "p95_ms": 2.42013,
+        "p99_ms": 3.5575,
+        "max_ms": 5.230759
+      },
+      "mirror": {
+        "n": 1200,
+        "median_ms": 0.002685,
+        "p95_ms": 0.004722,
+        "p99_ms": 0.005889,
+        "max_ms": 0.019148
+      }
+    }
+  },
+  "705": {
+    "preview": "TextureView",
+    "mirror_and_clock": false,
+    "fps_target": 120,
+    "window_seconds": 10,
+    "window_start_ns": 7055733404390,
+    "producer_submissions_per_second": 120.0,
+    "camera2_success_results_per_second": 88.2,
+    "camera2_failed_results_per_second": 31.9,
+    "producer_timestamp_to_result_callback": {
+      "n": 882,
+      "median_ms": 10.7402595,
+      "p95_ms": 16.962982,
+      "p99_ms": 17.206296,
+      "max_ms": 18.799352
+    },
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 1200,
+        "median_ms": 0.037324,
+        "p95_ms": 0.051185,
+        "p99_ms": 0.123,
+        "max_ms": 0.197222
+      },
+      "draw": {
+        "n": 1200,
+        "median_ms": 0.194667,
+        "p95_ms": 0.284241,
+        "p99_ms": 0.388166,
+        "max_ms": 1.398629
+      },
+      "swap": {
+        "n": 1200,
+        "median_ms": 2.0464075,
+        "p95_ms": 5.795889,
+        "p99_ms": 7.695148,
+        "max_ms": 13.298796
+      },
+      "mirror": {
+        "n": 1200,
+        "median_ms": 0.002667,
+        "p95_ms": 0.004519,
+        "p99_ms": 0.005833,
+        "max_ms": 0.197037
+      }
+    }
+  },
+  "706": {
+    "preview": "TextureView",
+    "mirror_and_clock": false,
+    "fps_target": 120,
+    "window_seconds": 10,
+    "window_start_ns": 7085456570446,
+    "producer_submissions_per_second": 120.0,
+    "camera2_success_results_per_second": 96.5,
+    "camera2_failed_results_per_second": 22.9,
+    "producer_timestamp_to_result_callback": {
+      "n": 965,
+      "median_ms": 13.081,
+      "p95_ms": 20.909888,
+      "p99_ms": 24.928333,
+      "max_ms": 25.681778
+    },
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 1200,
+        "median_ms": 0.040778,
+        "p95_ms": 0.053296,
+        "p99_ms": 0.150018,
+        "max_ms": 0.307963
+      },
+      "draw": {
+        "n": 1200,
+        "median_ms": 0.212537,
+        "p95_ms": 0.334445,
+        "p99_ms": 0.491667,
+        "max_ms": 1.473056
+      },
+      "swap": {
+        "n": 1200,
+        "median_ms": 1.6352135,
+        "p95_ms": 9.016037,
+        "p99_ms": 9.470778,
+        "max_ms": 12.215444
+      },
+      "mirror": {
+        "n": 1200,
+        "median_ms": 0.002685,
+        "p95_ms": 0.004426,
+        "p99_ms": 0.005148,
+        "max_ms": 0.006944
+      }
+    }
+  }
+}
