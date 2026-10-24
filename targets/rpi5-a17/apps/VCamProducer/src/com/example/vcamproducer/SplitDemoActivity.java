@@ -21,6 +21,8 @@ import java.util.Collections;
 public final class SplitDemoActivity extends Activity {
     private final Handler mUi = new Handler(Looper.getMainLooper());
     private TextureView mDirect, mPreview;
+    private SurfaceView mSurfacePreview;
+    private boolean mUseSurfaceView, mSurfaceReady;
     private Surface mDirectSurface, mCameraSurface;
     private CameraManager mManager;
     private CameraDevice mCamera;
@@ -60,6 +62,9 @@ public final class SplitDemoActivity extends Activity {
         mStreamWidth = requestedWidth == 1920 ? 1920 : 640;
         mStreamHeight = mStreamWidth == 1920 ? 1080 : 480;
         getIntent().putExtra("width", mStreamWidth).putExtra("fps", mTargetFps);
+        mUseSurfaceView=state==null ? getIntent().getBooleanExtra("surface_preview",true)
+                : state.getBoolean("selected_surface_preview",true);
+        getIntent().putExtra("surface_preview",mUseSurfaceView);
         int profileRun=getIntent().getIntExtra("profile_run",0);
         mProfiling=profileRun>0;
         mCaptureTrace=new FrameTrace(new java.io.File(getFilesDir(),"vcam-profile"),
@@ -113,6 +118,13 @@ public final class SplitDemoActivity extends Activity {
             menu.show();
         });
         toolbar.addView(rate);
+        Button previewKind=new Button(this);
+        previewKind.setText(mUseSurfaceView ? "Preview: Surface" : "Preview: Texture");
+        previewKind.setOnClickListener(v -> {
+            getIntent().putExtra("surface_preview",!mUseSurfaceView);
+            recreate();
+        });
+        toolbar.addView(previewKind);
         mFreeze = new Button(this);
         mFreeze.setText("Freeze comparison");
         mFreeze.setOnClickListener(v -> toggleFreeze());
@@ -126,7 +138,9 @@ public final class SplitDemoActivity extends Activity {
             if (!mActive || mCopyPending || mFrozen.getVisibility() == View.VISIBLE) return;
             VCamProducerService.changeBackground();
         });
-        mPreview = pane(row, "RIGHT • VIRTUAL CAMERA " + mCameraId + "\nProducer → HAL → Camera2");
+        String cameraHeading="RIGHT • VIRTUAL CAMERA " + mCameraId + "\nProducer → HAL → Camera2";
+        if(mUseSurfaceView) createSurfacePane(row,cameraHeading);
+        else mPreview = pane(row,cameraHeading);
         mComparison.addView(row, new FrameLayout.LayoutParams(-1, -1));
         mFrozen = new ImageView(this);
         mFrozen.setScaleType(ImageView.ScaleType.FIT_XY);
@@ -140,7 +154,7 @@ public final class SplitDemoActivity extends Activity {
                 + "ms per step at target rate; not a precision latency meter.", 15));
         setContentView(root);
         mDirect.setSurfaceTextureListener(listener(true));
-        mPreview.setSurfaceTextureListener(listener(false));
+        if(mPreview!=null) mPreview.setSurfaceTextureListener(listener(false));
     }
 
     private TextView label(String text, int size) {
@@ -163,6 +177,7 @@ public final class SplitDemoActivity extends Activity {
     @Override protected void onSaveInstanceState(Bundle state) {
         state.putInt("selected_width", getIntent().getIntExtra("width", mStreamWidth));
         state.putInt("selected_fps", getIntent().getIntExtra("fps", mTargetFps));
+        state.putBoolean("selected_surface_preview",getIntent().getBooleanExtra("surface_preview",true));
         super.onSaveInstanceState(state);
     }
 
@@ -184,6 +199,49 @@ public final class SplitDemoActivity extends Activity {
         column.addView(holder, new LinearLayout.LayoutParams(-1, 0, 1));
         row.addView(column, new LinearLayout.LayoutParams(0, -1, 1));
         return texture;
+    }
+
+    private void createSurfacePane(LinearLayout row,String heading) {
+        LinearLayout column=new LinearLayout(this);
+        column.setOrientation(LinearLayout.VERTICAL);
+        column.addView(label(heading,18));
+        FrameLayout holder=new FrameLayout(this);
+        mSurfacePreview=new SurfaceView(this) {
+            @Override protected void onMeasure(int w,int h) {
+                int width=MeasureSpec.getSize(w),height=MeasureSpec.getSize(h);
+                if((long)width*mStreamHeight>(long)height*mStreamWidth)
+                    width=height*mStreamWidth/mStreamHeight;
+                else height=width*mStreamHeight/mStreamWidth;
+                setMeasuredDimension(width,height);
+            }
+        };
+        holder.addView(mSurfacePreview,new FrameLayout.LayoutParams(-1,-1,Gravity.CENTER));
+        column.addView(holder,new LinearLayout.LayoutParams(-1,0,1));
+        row.addView(column,new LinearLayout.LayoutParams(0,-1,1));
+        SurfaceHolder surfaceHolder=mSurfacePreview.getHolder();
+        surfaceHolder.setFormat(android.graphics.PixelFormat.RGBA_8888);
+        surfaceHolder.setFixedSize(mStreamWidth,mStreamHeight);
+        surfaceHolder.addCallback(new SurfaceHolder.Callback() {
+            @Override public void surfaceCreated(SurfaceHolder h) {}
+            @Override public void surfaceChanged(SurfaceHolder h,int format,int w,int height) {
+                boolean ready=h.getSurface().isValid() && w==mStreamWidth && height==mStreamHeight;
+                if(mSurfaceReady && !ready) closeCamera();
+                mSurfaceReady=ready;
+                if(ready) {
+                    h.getSurface().setFrameRate(mTargetFps,Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE);
+                    Log.i("VCamSplit","SURFACE_PREVIEW_READY "+w+"x"+height);
+                    maybeOpen();
+                }
+            }
+            @Override public void surfaceDestroyed(SurfaceHolder h) {
+                mSurfaceReady=false;
+                closeCamera();
+            }
+        });
+    }
+
+    private boolean cameraPreviewReady() {
+        return mUseSurfaceView ? mSurfaceReady : mPreview!=null && mPreview.isAvailable();
     }
 
     private TextureView.SurfaceTextureListener listener(boolean direct) {
@@ -256,7 +314,7 @@ public final class SplitDemoActivity extends Activity {
 
     private void maybeOpen() {
         if (!mActive || !mWatching || mOpening || mCameraFault || mCamera != null ||
-                mDirectSurface == null || !mPreview.isAvailable()) return;
+                mDirectSurface == null || !cameraPreviewReady()) return;
         mOpening = true;
         final long epoch = mEpoch;
         mStatus.setText("Opening virtual camera " + mCameraId + "…");
@@ -290,9 +348,15 @@ public final class SplitDemoActivity extends Activity {
 
     private void createSession(CameraDevice camera, long epoch) {
         try {
-            SurfaceTexture st = mPreview.getSurfaceTexture();
-            st.setDefaultBufferSize(mStreamWidth, mStreamHeight);
-            final Surface target = new Surface(st);
+            final Surface target;
+            if(mUseSurfaceView) {
+                if(!mSurfaceReady) return;
+                target=mSurfacePreview.getHolder().getSurface(); // borrowed; holder owns lifetime
+            } else {
+                SurfaceTexture st=mPreview.getSurfaceTexture();
+                st.setDefaultBufferSize(mStreamWidth,mStreamHeight);
+                target=new Surface(st);
+            }
             target.setFrameRate(mTargetFps, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE);
             mCameraSurface = target;
             camera.createCaptureSession(Collections.singletonList(target),
@@ -359,7 +423,7 @@ public final class SplitDemoActivity extends Activity {
         mOpening = false;
         if (mSession != null) { mSession.close(); mSession = null; }
         if (mCamera != null) { mCamera.close(); mCamera = null; }
-        if (mCameraSurface != null) { mCameraSurface.release(); mCameraSurface = null; }
+        if (mCameraSurface != null) { if(!mUseSurfaceView) mCameraSurface.release(); mCameraSurface = null; }
         mResults = 0;
     }
 
@@ -371,7 +435,8 @@ public final class SplitDemoActivity extends Activity {
             mFreeze.setText("Freeze comparison");
             return;
         }
-        if (mCopyPending || !mDirect.isAvailable() || !mPreview.isAvailable()) return;
+        if (mCopyPending || !mDirect.isAvailable() || !cameraPreviewReady()) return;
+        if(mUseSurfaceView) { freezeCompositedDisplay(); return; }
         int[] pos = new int[2];
         mComparison.getLocationInWindow(pos);
         Rect area = new Rect(pos[0], pos[1], pos[0] + mComparison.getWidth(), pos[1] + mComparison.getHeight());
@@ -392,6 +457,48 @@ public final class SplitDemoActivity extends Activity {
                 Log.w("VCamSplit", "Snapshot not displayed, status=" + result);
             }
         }, mUi);
+    }
+
+    private void freezeCompositedDisplay() {
+        final long epoch=mEpoch;
+        final int[] pos=new int[2];
+        mComparison.getLocationOnScreen(pos);
+        final int width=mComparison.getWidth(),height=mComparison.getHeight();
+        mCopyPending=true;
+        // One compositor capture includes the separate SurfaceView layer. Window
+        // PixelCopy alone would omit it; two separate copies would not be simultaneous.
+        android.window.ScreenCapture.capture(
+                new android.window.ScreenCapture.ScreenCaptureParams.Builder(getDisplay().getDisplayId()).build(),
+                getMainExecutor(),
+                new android.os.OutcomeReceiver<android.window.ScreenCapture.ScreenCaptureResult,Exception>() {
+            @Override public void onResult(android.window.ScreenCapture.ScreenCaptureResult result) {
+                Bitmap full=null,hardware=null,cropped=null;
+                try(android.hardware.HardwareBuffer buffer=result.getHardwareBuffer()) {
+                    hardware=Bitmap.wrapHardwareBuffer(buffer,result.getColorSpace());
+                    if(hardware==null) throw new IllegalStateException("Capture bitmap unavailable");
+                    full=hardware.copy(Bitmap.Config.ARGB_8888,false);
+                    if(full==null) throw new IllegalStateException("Capture copy unavailable");
+                    cropped=Bitmap.createBitmap(full,pos[0],pos[1],width,height);
+                    mCopyPending=false;
+                    if(mActive && epoch==mEpoch) {
+                        mFrozenBitmap=cropped;
+                        mFrozen.setImageBitmap(cropped);
+                        mFrozen.setVisibility(View.VISIBLE);
+                        mFreeze.setText("Resume live");
+                        Log.i("VCamSplit","Comparison frozen from one compositor snapshot");
+                    } else cropped.recycle();
+                } catch(Exception error) { onError(error); }
+                finally {
+                    if(hardware!=null) hardware.recycle();
+                    if(full!=null && full!=cropped) full.recycle();
+                }
+            }
+            @Override public void onError(Exception error) {
+                mCopyPending=false;
+                mStatus.setText("Could not freeze comparison");
+                Log.e("VCamSplit","Compositor snapshot failed",error);
+            }
+        });
     }
 
     @Override protected void onPause() {
