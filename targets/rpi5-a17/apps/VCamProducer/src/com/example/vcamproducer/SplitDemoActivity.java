@@ -37,6 +37,10 @@ public final class SplitDemoActivity extends Activity {
     private String mCameraId;
     private int mTargetFps;
     private int mStreamWidth, mStreamHeight;
+    private FrameTrace mCaptureTrace;
+    private boolean mProfiling;
+    private static final CaptureResult.Key<Long> PRODUCER_TIMESTAMP = new CaptureResult.Key<>(
+            "com.virtualcamera.producerTimestampNs",Long.class);
 
     private final CameraManager.AvailabilityCallback mAvailability =
             new CameraManager.AvailabilityCallback() {
@@ -56,6 +60,11 @@ public final class SplitDemoActivity extends Activity {
         mStreamWidth = requestedWidth == 1920 ? 1920 : 640;
         mStreamHeight = mStreamWidth == 1920 ? 1080 : 480;
         getIntent().putExtra("width", mStreamWidth).putExtra("fps", mTargetFps);
+        int profileRun=getIntent().getIntExtra("profile_run",0);
+        mProfiling=profileRun>0;
+        mCaptureTrace=new FrameTrace(new java.io.File(getFilesDir(),"vcam-profile"),
+                "camera-"+profileRun+"-"+System.nanoTime(),
+                "callback_ns,frame,status,sensor_ns,producer_ns,duration_ns,target_fps,epoch",profileRun>0);
         WindowManager.LayoutParams windowParams = getWindow().getAttributes();
         windowParams.preferredRefreshRate = mTargetFps;
         getWindow().setAttributes(windowParams);
@@ -218,7 +227,10 @@ public final class SplitDemoActivity extends Activity {
         super.onResume();
         mActive = true;
         VCamProducerService.sReferenceSurface = mDirectSurface;
-        startForegroundService(new Intent(this, VCamProducerService.class));
+        startForegroundService(new Intent(this, VCamProducerService.class)
+                .putExtra("profile_run",getIntent().getIntExtra("profile_run",0))
+                .putExtra("mirror",getIntent().getBooleanExtra("mirror",true))
+                .putExtra("clock",getIntent().getBooleanExtra("clock",true)));
         watch();
     }
 
@@ -299,11 +311,24 @@ public final class SplitDemoActivity extends Activity {
                         Log.i("VCamSplit", "REQUESTED_FPS " + mTargetFps);
                         session.setRepeatingRequest(request.build(), new CameraCaptureSession.CaptureCallback() {
                             @Override public void onCaptureCompleted(CameraCaptureSession s, CaptureRequest r, TotalCaptureResult result) {
+                                long received=mProfiling?System.nanoTime():0;
                                 if (epoch != mEpoch || !mActive) return;
+                                if (mProfiling) {
+                                Long sensor=result.get(CaptureResult.SENSOR_TIMESTAMP);
+                                Long duration=result.get(CaptureResult.SENSOR_FRAME_DURATION);
+                                Long producer=result.get(PRODUCER_TIMESTAMP);
+                                mCaptureTrace.add(received,result.getFrameNumber(),0,
+                                        sensor==null?0:sensor,producer==null?0:producer,
+                                        duration==null?0:duration,mTargetFps,epoch);
+                                }
                                 if (++mResults % 30 == 0) {
                                     mStatus.setText("Live • camera " + mCameraId + " • " + mResults + " Camera2 results • Freeze to compare clock digits");
                                     Log.i("VCamSplit", "CAMERA2_RESULTS " + mResults + " camera=" + mCameraId);
                                 }
+                            }
+                            @Override public void onCaptureFailed(CameraCaptureSession s,CaptureRequest r,CaptureFailure failure) {
+                                if(mProfiling && epoch==mEpoch && mActive) mCaptureTrace.add(System.nanoTime(),
+                                        failure.getFrameNumber(),failure.getReason()+1,0,0,0,mTargetFps,epoch);
                             }
                         }, mUi);
                     } catch (Exception error) {
@@ -374,6 +399,7 @@ public final class SplitDemoActivity extends Activity {
         if (VCamProducerService.sReferenceSurface == mDirectSurface)
             VCamProducerService.sReferenceSurface = null;
         closeCamera();
+        try { mCaptureTrace.close(); } catch(java.io.IOException e) { Log.e("VCamSplit","Profile export",e); }
         mFrozen.setVisibility(View.GONE);
         mFrozen.setImageDrawable(null);
         mFrozenBitmap = null;

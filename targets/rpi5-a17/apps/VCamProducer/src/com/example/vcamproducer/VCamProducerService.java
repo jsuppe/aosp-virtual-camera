@@ -36,6 +36,8 @@ import com.example.vcamtest.FrameIdentity;
 public class VCamProducerService extends Service {
     private static final String TAG = "VCamProducer";
     static volatile Surface sReferenceSurface; // owned by the split activity
+    private static volatile int sProfileRun;
+    private static volatile boolean sMirrorEnabled=true, sClockEnabled=true;
     // Immutable handoff: UI requests a change; only the EGL owner paints it.
     private static final class TapState {
         final long sequence, requestedNs;
@@ -355,6 +357,11 @@ public class VCamProducerService extends Service {
             Log.i(TAG, "GL generation " + request.generation + " started " +
                     mWidth + "x" + mHeight + "@" + mFps);
             ClockTexture clockTexture = new ClockTexture();
+            final int profileRun=sProfileRun;
+            FrameTrace trace=new FrameTrace(new java.io.File(getFilesDir(),"vcam-profile"),
+                    "producer-"+profileRun+"-"+request.generation,
+                    "frame,vsync_ns,start_ns,overlay_end_ns,draw_end_ns,swap_end_ns,mirror_end_ns,fps",
+                    profileRun>0);
             DirectMirror mirror = new DirectMirror();
             VsyncFrameClock clock = null;
             EGLDisplay dpy = EGL14.EGL_NO_DISPLAY;
@@ -452,19 +459,23 @@ public class VCamProducerService extends Service {
                     if (nextFrameNs == 0) nextFrameNs = frameTimeNs;
                     nextFrameNs += Math.max(1L,
                             (frameTimeNs - nextFrameNs) / frameIntervalNs + 1L) * frameIntervalNs;
+                    long profileStart=profileRun>0?System.nanoTime():0;
                     if (animationStartNs == 0) animationStartNs = frameTimeNs;
                     float t = (frameTimeNs - animationStartNs) / 1000000000f;
                     double angle = t * (2 * Math.PI / 4.0);
                     float bx = 0.5f + 0.4f * (float) Math.cos(angle);
                     float by = 0.5f + 0.3f * (float) Math.sin(angle);
+                    GLES20.glUseProgram(prog);
                     GLES20.glViewport(0, 0, mWidth, mHeight);
                     int cycleFrame = (int) (mFrames % mFps) + 1;
                     int cycleMs = (cycleFrame * 1000 + mFps / 2) / mFps;
                     TapState tap = sTap; // one snapshot for the camera and direct draws
                     if (tap == null) GLES20.glUniform4f(uTapBackground, 0, 0, 0, 0);
                     else GLES20.glUniform4f(uTapBackground, tap.red, tap.green, tap.blue, 1);
-                    GLES20.glUniform1f(uClockMs, sReferenceSurface == null ? -1f : cycleMs);
-                    if (sReferenceSurface != null) clockTexture.update(cycleFrame, mFps, cycleMs);
+                    boolean drawClock=sReferenceSurface!=null && sClockEnabled;
+                    GLES20.glUniform1f(uClockMs, drawClock ? cycleMs : -1f);
+                    if (drawClock) clockTexture.update(cycleFrame, mFps, cycleMs);
+                    long overlayEnd=profileRun>0?System.nanoTime():0;
                     GLES20.glUniform1f(uTime, t);
                     GLES20.glUniform2f(uBall, bx, by);
                     GLES20.glUniform1f(uBallR, 0.08f);
@@ -474,11 +485,13 @@ public class VCamProducerService extends Service {
                     if (drawError != GLES20.GL_NO_ERROR)
                         throw new IllegalStateException("GL draw error=" + drawError);
                     if (marker != null) drawMarker(marker, request.generation, mWidth, mHeight);
+                    long drawEnd=profileRun>0?System.nanoTime():0;
                     if (!mRequests.isCurrent(request)) break;
                     if (!EGL14.eglSwapBuffers(dpy, win)) {
                         Log.w(TAG, "eglSwapBuffers failed (surface gone?)");
                         break;
                     }
+                    long swapEnd=profileRun>0?System.nanoTime():0;
                     if (tap != null && tap.sequence != lastTapSequence) {
                         lastTapSequence = tap.sequence;
                         Log.i(TAG, "TAP_ENQUEUED sequence=" + tap.sequence
@@ -486,9 +499,11 @@ public class VCamProducerService extends Service {
                                 + (System.nanoTime() - tap.requestedNs) / 1000000.0);
                         // Swap return is NOT camera receipt or physical display presentation.
                     }
-                    if (marker == null && mRequests.isCurrent(request)) {
+                    if (marker == null && sMirrorEnabled && mRequests.isCurrent(request)) {
                         mirror.draw(dpy, cfgs[0], ctx, win);
                     }
+                    if (profileRun>0) trace.add(mFrames,frameTimeNs,profileStart,overlayEnd,
+                            drawEnd,swapEnd,System.nanoTime(),mFps);
                     mFrames++;
                     if (mFrames % 30 == 0) Log.i(TAG, "PRODUCED " + mFrames + " frames (GL)");
 
@@ -513,6 +528,7 @@ public class VCamProducerService extends Service {
                 }
                 EGL14.eglReleaseThread();
                 config.release();
+                try { trace.close(); } catch(java.io.IOException e) { Log.e(TAG,"Profile export",e); }
                 Log.i(TAG, "GL generation " + request.generation + " finished after " + mFrames + " frames");
             }
         }
@@ -570,6 +586,11 @@ public class VCamProducerService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent!=null) {
+            sProfileRun=intent.getIntExtra("profile_run",0);
+            sMirrorEnabled=intent.getBooleanExtra("mirror",true);
+            sClockEnabled=intent.getBooleanExtra("clock",true);
+        }
         if (intent != null && intent.hasExtra("e2e")) {
             if (intent.getBooleanExtra("e2e", false)) {
                 int producer = intent.getIntExtra("producer", getPackageName().endsWith("2") ? 2 : 1);

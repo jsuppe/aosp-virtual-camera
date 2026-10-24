@@ -73,6 +73,8 @@ VirtualCameraSession::VirtualCameraSession(
     }
 #endif
     mForceCpuYuv = ::android::base::GetBoolProperty("vendor.vcam.yuv.cpu", false);
+    mProfile.enable(::android::base::GetIntProperty<int>("vendor.vcam.profile",0),
+                    mSlot,mSessionIdentity);
     ALOGI("VirtualCameraSession created (slot %d; AIDL V1 adapter, v1 + v2 frame sources)%s",
           mSlot, mForceCpuYuv ? " [vendor.vcam.yuv.cpu=1: CPU YUV converter forced]" : "");
 }
@@ -108,6 +110,8 @@ ndk::ScopedAStatus VirtualCameraSession::close() {
     if (hal) hal->notifyCameraClosed(mSlot, mSessionIdentity, mConfigurationToken);
 #endif
     mClosed = true;
+    if (!mProfile.write("/data/vendor/vcam-profile"))
+        ALOGE("Could not export opt-in frame profile");
     return ndk::ScopedAStatus::ok();
 }
 
@@ -505,6 +509,9 @@ int64_t VirtualCameraSession::paceFrame(uint64_t cancelEpoch) {
 
 CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& request,
                                                        uint64_t cancelEpoch) {
+    using Profile=::virtualcamera::FrameProfile;
+    Profile::Scope profile(mProfile,request.frameNumber,mTargetFps,
+                           mSourceMode.width,mSourceMode.height,mConfigurationToken);
     // Reserve the dependencies required to return UNTOUCHED output buffers on
     // error before any wait, import, shutter or target write. Never replace a
     // failed dup with the no-fence sentinel. The request is not accepted if we
@@ -516,6 +523,8 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
             int fd = ::dup(fence.fds[0].get());
             if (fd < 0) {
                 ALOGE("Cannot preserve destination acquire fence for request %d", request.frameNumber);
+                profile.fail(Profile::FenceDup,Profile::Import);
+                profile.finish();
                 close();
                 return CameraStatus::INTERNAL_ERROR;
             }
@@ -527,13 +536,18 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
     // image contents. Accepted failed requests must still cache newly supplied
     // buffers, since the framework may refer to them by ID on its next request.
     for (const auto& buffer : request.outputBuffers) {
-        if (importBuffer(buffer) == nullptr) return CameraStatus::ILLEGAL_ARGUMENT;
+        if (importBuffer(buffer) == nullptr) {
+            profile.fail(Profile::InvalidImport,Profile::Import);
+            return CameraStatus::ILLEGAL_ARGUMENT;
+        }
     }
+    profile.mark(Profile::Import);
 
     auto cancelled = [&] { return mClosed || mCancelEpoch.load() != cancelEpoch; };
     // This helper returns only UNTOUCHED buffers. A no-source capture is a
     // whole-request failure, not ERROR_DEVICE and not a successful blank frame.
-    auto failUntouched = [&]() {
+    auto failUntouched = [&](Profile::Failure reason,Profile::Phase phase) {
+        profile.fail(reason,phase);
         std::vector<NotifyMsg> messages(1);
         messages[0].set<NotifyMsg::Tag::error>(ErrorMsg{
             .frameNumber = request.frameNumber, .errorStreamId = -1,
@@ -557,6 +571,7 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
         std::vector<CaptureResult> results;
         results.push_back(std::move(result));
         mCallback->processCaptureResult(results);
+        profile.mark(Profile::Callback);
         return CameraStatus::OK;
     };
 
@@ -565,13 +580,16 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
     for (size_t i = 0; i < pendingFences.size(); ++i) {
         int fd = pendingFences[i].get();
         if (cancelled() || (fd >= 0 && sync_wait(fd, 100) != 0)) {
-            return failUntouched();
+            return failUntouched(cancelled()?Profile::Cancelled:Profile::DestinationTimeout,
+                                 Profile::DestinationWait);
         }
         pendingFences[i].set(-1);
     }
+    profile.mark(Profile::DestinationWait);
 
     int64_t timestamp = paceFrame(cancelEpoch);
-    if (cancelled()) return failUntouched();
+    if (cancelled()) return failUntouched(Profile::Cancelled,Profile::Pace);
+    profile.mark(Profile::Pace);
     const int64_t frameDurationNs = (1000000000LL + mTargetFps - 1) / mTargetFps;
     int64_t producerTs = 0;
     AHardwareBuffer* src = nullptr;
@@ -579,7 +597,8 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
 #ifdef VCAM_STABLE_AIDL
     auto* hal = mStableSource ? mStableSource.get() : VirtualCameraStableHal::get();
     // A single reservation pins a single submission for the entire capture.
-    if (!hal || mConfigurationToken <= 0) return failUntouched();
+    if (!hal || mConfigurationToken <= 0)
+        return failUntouched(Profile::StaleSource,Profile::SourceWait);
     // Destruction records ALL output read dependencies before waking enqueue.
     struct CaptureSource {
         VirtualCameraStableHal* hal;
@@ -619,27 +638,35 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
     }
     source.buffer = src;
     sourceFence.set(acquireFence);
-    if (!src || cancelled()) return failUntouched();
+    profile.source(sequence,producerTs);
+    if (!src || cancelled()) return failUntouched(
+            cancelled()?Profile::Cancelled:Profile::NoSource,Profile::SourceWait);
+    profile.mark(Profile::SourceWait);
     // Consume submission identity, even if its fence or conversion later
     // fails. Timestamps may repeat and gralloc buffers may be reused.
     mLastSourceSequence = sequence;
     while (sourceFence.get() >= 0 && sync_wait(sourceFence.get(), 0) != 0) {
         if (cancelled() || !hal->isFrameCurrent(mSlot, src, sequence, mConfigurationToken) ||
                 std::chrono::steady_clock::now() >= deadline) {
-            return failUntouched();
+            return failUntouched(cancelled()?Profile::Cancelled:
+                    (!hal->isFrameCurrent(mSlot,src,sequence,mConfigurationToken)?
+                     Profile::StaleSource:Profile::SourceFenceTimeout),Profile::SourceFenceWait);
         }
         std::unique_lock<std::mutex> wait(mWaitLock);
         mWaitCv.wait_until(wait, std::min(deadline, std::chrono::steady_clock::now() +
                 std::chrono::milliseconds(2)), cancelled);
     }
-    if (cancelled() || !hal->isFrameCurrent(mSlot, src, sequence, mConfigurationToken)) return failUntouched();
+    if (cancelled() || !hal->isFrameCurrent(mSlot, src, sequence, mConfigurationToken))
+        return failUntouched(cancelled()?Profile::Cancelled:Profile::StaleSource,
+                             Profile::SourceFenceWait);
+    profile.mark(Profile::SourceFenceWait);
     // Source fence completed on the CPU; downstream renderers need no wait.
     sourceFence.set(-1);
     acquireFence = -1;
 #else
     // Legacy socket/platform-relay sources do not expose capture freshness.
     // Fail closed instead of silently using their cached/synthetic fallback.
-    return failUntouched();
+    return failUntouched(Profile::NoSource,Profile::SourceWait);
 #endif
 
     // Process each output buffer
@@ -788,6 +815,8 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
     // outputs and report ERROR_BUFFER only for the failed streams.
     const bool anyFilled = std::any_of(outputBuffers.begin(), outputBuffers.end(),
             [](const StreamBuffer& b) { return b.status == BufferStatus::OK; });
+    if (!anyFilled) profile.fail(Profile::NoFilledOutput,Profile::Output);
+    else profile.mark(Profile::Output);
     std::vector<NotifyMsg> notifications;
     if (anyFilled) {
         NotifyMsg shutter;
@@ -829,6 +858,7 @@ CameraStatus VirtualCameraSession::processSingleRequest(const CaptureRequest& re
     std::vector<CaptureResult> results;
     results.push_back(std::move(captureResult));
     mCallback->processCaptureResult(results);
+    profile.mark(Profile::Callback);
 
     return CameraStatus::OK;
 }

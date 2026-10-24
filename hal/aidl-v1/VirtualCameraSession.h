@@ -10,6 +10,7 @@
 #pragma once
 
 #include "ProducerCapabilities.h"
+#include "FrameProfile.h"
 #include <aidl/android/hardware/camera/common/Status.h>
 #include <aidl/android/hardware/camera/device/BnCameraDeviceSession.h>
 #include <aidl/android/hardware/camera/device/ICameraDeviceCallback.h>
@@ -181,6 +182,7 @@ private:
     int32_t mJpegQuality = 90;
     bool mHaveSettings = false;   // first request after configure must carry settings
     bool mForceCpuYuv = false;    // vendor.vcam.yuv.cpu=1: measurement baseline
+    ::virtualcamera::FrameProfile mProfile; // vendor.vcam.profile=RUN,0=off
 
     // Fill-path statistics (logged periodically)
     struct FillStats {

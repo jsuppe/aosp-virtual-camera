@@ -64,7 +64,7 @@ class FenceSourceGuards(unittest.TestCase):
 
     def test_failed_destination_returns_error_buffers_and_dependencies(self):
         source = (ROOT / "hal/aidl-v1/VirtualCameraSession.cpp").read_text()
-        start = source.index("auto failUntouched = [&]()")
+        start = source.index("auto failUntouched = [&](Profile::Failure reason,Profile::Phase phase)")
         end = source.index("// Destination dependencies", start)
         failure = source[start:end]
         self.assertIn("ErrorCode::ERROR_REQUEST", failure)
