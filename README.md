@@ -768,7 +768,8 @@ platform/          A13 platform half: aidl-lib, services bp, apps
                    relay, vendor-variant/ = vendor+stable-AIDL/APEX), sepolicy
 scripts/           integrate-a13-platform.sh, build/test/launch helpers
 v2-shared-memory/  zero-copy AHardwareBuffer pool + lock-free ring (socket path)
-virtual-mic/, virtual-display/   companion virtual devices (same pattern)
+virtual-mic/                    companion microphone scaffold
+virtual-display/README.md       forwarding link to standalone display repository
 unified-test/, sample-renderer/, camera-test/, test-app/   A15-era test apps
 ```
 
@@ -799,7 +800,7 @@ why:
 | # | Item | Why | Done when |
 |---|---|---|---|
 | C1 | **Idiomatic SELinux.** | **Done.** `hal_attribute(virtualcamera)` in system_ext public policy; `hal_client_domain(system_server, …)` platform-side; vendor `.te` is now the service type + `hal_attribute_service` + `hal_server_domain` (+ configstore client) — no concrete peer domain named anywhere (§7 step 5, §9.28). Same clean-boot run: enforcing, zero denials, 5 test steps, VTS 37/37. |
-| C2 | **Virtual mic and display on the same pattern.** Vendor APEX + frozen AIDL + platform-owned queue, reusing the fence protocol (audio: FMQ instead of gralloc). | They are scaffolds today (`virtual-mic/`, `virtual-display/`). The camera has proven the shape; the others should not reinvent it. | Each has its own `stable-aidl/`, APEX, policy, and a demo that survives an APEX update. |
+| C2 | **Virtual mic and display on the same pattern.** Vendor APEX + frozen AIDL + platform-owned queue, reusing the fence protocol (audio: FMQ instead of gralloc). | These remain scaffold/design work. Display development moved to [aosp-virtual-display](https://github.com/jsuppe/aosp-virtual-display); `virtual-display/README.md` is a forwarding link. The camera provides useful patterns, not completed display integration. | Each has its own `stable-aidl/`, APEX, policy, and a demo that survives an APEX update. |
 | C3 | **Forward-port to Android 15 (`main` branch).** The A15 NDK AIDL can carry `HardwareBuffer` directly, so the boundary loses `NativeHandle`+descriptor and the platform-side JNI pump shrinks. | The A13 branch is the shipping design because A13 was the constraint; the design should be shown on a current platform too, where it gets simpler. | Same demo, same counters, on `aosp_cf_x86_64_only_phone-trunk_staging`. |
 
 ### Deliberately not on the list
