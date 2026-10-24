@@ -1,8 +1,8 @@
 # Lesson 2 — Graphics buffers & gralloc
 
 **What you'll understand:** what the "empty buffer" from Lesson 1 actually is,
-why you can pass it between processes for free, and the single most common
-reason a camera pipeline shows a black screen.
+why passing its handle avoids copying the pixels, and how allocation/import
+errors can break the pipeline.
 
 ---
 
@@ -22,7 +22,8 @@ So Android almost never moves pixels. It moves **handles to pixels.**
 ## The graphics buffer
 
 The unit of currency is the **graphics buffer**. You'll meet it under three
-names — they're the same object at different API layers:
+names — related representations/wrappers of the same underlying allocation,
+not interchangeable C/C++ types:
 
 | Name | Where you see it |
 |------|------------------|
@@ -38,9 +39,10 @@ is:
 > A graphics buffer is shared across processes **by handle** — a set of file
 > descriptors — not by copying its contents.
 
-Passing one to another process costs microseconds (dup'ing a few fds), not the
-33 MB. **This is what people mean by "zero-copy."** The framework's "empty
-output buffer" from Lesson 1 is exactly this: a handle to memory the framework
+Passing a handle avoids serializing those 33 MB. IPC, fd duplication, import
+and synchronization still cost time; no universal microsecond bound is implied.
+**This is zero-copy transport**, not proof that later rendering performs no copies.
+The framework's "empty output buffer" from Lesson 1 is exactly this: a handle to memory the framework
 allocated, handed to your HAL so you can fill the memory in place.
 
 ## Usage flags: the buffer's contract
@@ -71,8 +73,9 @@ returns in Lesson 3 and Lesson 9.
 Here's the subtlety that catches everyone. When your process *receives* a
 `buffer_handle_t` from another process, you cannot dereference it and start
 writing. The handle's file descriptors are valid in your process, but the
-buffer isn't yet **mapped** into your address space, and gralloc doesn't know
-you're holding it.
+buffer has not necessarily been imported into the local mapper/graphics
+context. Import is distinct from CPU mapping: CPU access additionally requires
+a supported lock/map operation and the proper synchronization.
 
 You must **import** it through the **gralloc mapper**:
 
@@ -89,14 +92,14 @@ handle and makes the buffer usable locally. Only *after* a successful import can
 you lock it and write pixels:
 
 ```cpp
-// core/FrameFiller.cpp — locking a YUV output buffer to write it (CPU path)
+// Conceptual CPU-path sketch; see FrameFiller.cpp for actual helper signatures.
 auto dst = lockYCbCrCompat(importer, handle, usage, width, height);
 // dst.y, dst.cb, dst.cr now point at mappable planes → write them
 ```
 
-> **Import failing is the single most common way a camera pipeline silently
-> produces black frames.** The capture still "succeeds" (you return the buffer
-> with `status = OK`), the app shows *something* — just nothing you drew.
+> **Never return success for an unfilled buffer.** Earlier prototypes could
+> look like successful black frames. The current session reports buffer/request
+> errors when import or filling fails; a black preview by itself is not a diagnosis.
 
 ## Filling a frame (the CPU way)
 
@@ -116,14 +119,16 @@ static inline void rgbaToYuv(uint8_t r, uint8_t g, uint8_t b,
 ```
 
 This works and it's a fine place to start — but notice the cost: it's a full CPU
-pass over every pixel, ~8 million operations per 4K frame. Hold that thought;
-**Lesson 9 eliminates it entirely** by doing the move on the GPU. For now, the
+pass over every pixel, ~8.3 million pixels per 4K frame, each requiring multiple operations. Hold that thought;
+**Lesson 9 removes CPU pixel conversion for the RGBA fast path** and explains
+GPU-assisted YUV and CPU JPEG paths. For now, the
 point is that once a buffer is imported and locked, filling it is "just" writing
 memory.
 
-When there's no real content to show, the same file draws animated **SMPTE color
-bars** instead of black — so a configured camera is always visibly alive. That's
-the fallback you'll see if you open camera 100 before starting a producer.
+`FrameFiller` retains synthetic color-bar helpers from earlier designs. They
+are **not the current stable-AIDL no-source behavior**: without a registered
+producer the device is absent, and without a fresh, ready source the capture
+request fails instead of returning synthetic or cached success.
 
 ## What broke for real
 
@@ -149,9 +154,9 @@ the fallback you'll see if you open camera 100 before starting a producer.
 - **Usage flags** are a contract; a buffer's usage must cover *every* accessor
   or someone can't map it.
 - A received handle must be **imported** through the gralloc mapper before use;
-  **failed import = black frames** even though the capture "succeeds."
+  failed import must produce an error, not a fabricated successful frame.
 - Filling on the CPU means lock → write → (often) color-convert — correct but a
-  full-frame CPU cost we'll remove later.
+  full-frame CPU cost avoided by the RGBA GPU path, not by every output path.
 
 We can now fill a frame. But a virtual camera's whole point is to show *another
 app's* content. Next: the mechanism that lets one app draw into a buffer another

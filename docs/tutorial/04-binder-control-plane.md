@@ -22,8 +22,8 @@ Two planes, different jobs:
 | Control | "register me", "here's your Surface", "camera closed" | Binder/AIDL — small messages |
 
 Keeping them separate is deliberate: you never want a 33 MB frame going through
-Binder. Frames ride the queue; only *tiny* messages and the *handle* to the
-Surface cross Binder.
+Binder. Frames ride the queue; control messages, Surface references, and
+per-frame buffer descriptions/handles/fences cross Binder, not pixel payloads.
 
 ## Binder and AIDL in one paragraph
 
@@ -38,7 +38,7 @@ callback interface across the wire, and the other side can call back.
 ## The virtual camera's control interface
 
 The producer talks to a system service through a small AIDL interface,
-`IVirtualCameraService`. The two calls that matter:
+`IVirtualCameraService`. Abridged setup/teardown API (readiness is described below):
 
 ```aidl
 interface IVirtualCameraService {
@@ -53,6 +53,7 @@ interface IVirtualCameraService {
   when there's a Surface to hand over:
 
 ```aidl
+// Abridged: the full interface also has open/start/stop/still callbacks.
 interface IVirtualCameraCallback {
     void onStreamsConfigured(in StreamConfig[] streams, in Surface[] surfaces);
     void onCameraClosed();
@@ -67,7 +68,10 @@ carried the Surface object across the process boundary.
 
 The producer app —
 [`platform/apps/VCamProducer/.../VCamProducerService.java`](../../platform/apps/VCamProducer/src/com/example/vcamproducer/VCamProducerService.java) —
-looks the service up by name and registers:
+looks the service up by name and registers. This illustrative A13 snippet uses
+legacy scalar configuration fields; the service normalizes those to a single
+exact mode. Current producers should declare explicit `ProducerMode[]` entries
+with dimensions, FPS ranges, output formats and downscale policy:
 
 ```java
 IBinder binder = ServiceManager.getService("virtual_camera");
@@ -79,12 +83,22 @@ config.maxWidth = 1920; config.maxHeight = 1080; config.maxFps = 30;
 mCameraId = mService.registerCamera(config, mCallback);   // ← mCallback is the reverse channel
 ```
 
+On Pi/A17 the integrator changes the broker name to `ruminate_virtual_camera`
+to avoid the stock A17 name/label collision. The producer also has a launcher
+and split-screen activity in the [Pi source](../../targets/rpi5-a17/apps/VCamProducer).
+
+**Do not confuse IDs:** `registerCamera` returns a broker registration ID
+(currently allocated starting at 1000), not a Camera2 ID. The broker assigns
+that registration a slot; slot `s` appears to consumers as camera `100 + s`.
+Registration is asynchronous with respect to HAL publication.
+
 And the service —
 [`service/VirtualCameraService.java`](../../service/VirtualCameraService.java) —
 records the producer and, when the camera's streams are configured, calls back
 with the Surface:
 
 ```java
+// Conceptual sketch; real code normalizes capabilities and reserves a slot.
 public int registerCamera(VirtualCameraConfig config, IVirtualCameraCallback cb) {
     final int id = mNextCameraId.getAndIncrement();
     // ... store {id, config, cb} ...
@@ -94,7 +108,14 @@ public int registerCamera(VirtualCameraConfig config, IVirtualCameraCallback cb)
 
 When a consumer later opens the camera and streams get configured, the service
 invokes `cb.onStreamsConfigured(streams, surfaces)` — and the app's render
-thread (Lesson 3 / Lesson 9) starts drawing into `surfaces[0]`.
+thread (Lesson 3 / Lesson 9) prepares to draw into `surfaces[0]`.
+`StreamConfig` includes connection/configuration tokens. After accepting and
+preparing that configuration, the producer calls `setProducerReady(callback,
+connectionToken, configurationToken, true)`; a rejection uses `false`.
+The service checks the calling UID, callback identity and tokens. Readiness does
+not itself supply a frame: capture still needs a fresh, fence-ready submission.
+See the [full app AIDL](../../aidl/IVirtualCameraService.aidl) and
+[StreamConfig](../../aidl/StreamConfig.aidl).
 
 ## Death: the part beginners skip
 
@@ -112,8 +133,10 @@ callback.asBinder().linkToDeath(() -> {
 }, 0);
 ```
 
-This one hook is what makes "the camera disappears when the producer dies"
-robust rather than hopeful (we lean on it hard in Lesson 6). Treat death
+Death notification starts cleanup; it is not sufficient by itself. Current
+cleanup reserves the slot until HAL removal and queue teardown finish, and uses
+registration/configuration/connection identities to reject delayed work.
+Lesson 6 explains the lifecycle. Treat death
 notification as part of the happy path, not an afterthought — every Binder
 relationship that owns a resource should have one.
 
@@ -125,10 +148,11 @@ relationship that owns a resource should have one.
   registration, so start order stops mattering — but the first symptom was "works
   if I launch them in the right order," which is always a smell that a control-
   plane event is missing.
-* **A service is not launchable.** `IVirtualCameraService` is hosted in
-  system_server; the *producer* is a foreground `Service` with no activity. You
-  start it with `am start-foreground-service`, and it must hold `FOREGROUND_SERVICE`
-  + be granted `CAMERA`. Trying to "open" it like an app fails.
+* **Launch behavior is target-specific.** The root A13 producer is a foreground
+  service without a launcher; the Pi/A17 producer has a launcher and a typed
+  foreground service. `CAMERA` is needed by the Camera2 viewer, not inherently
+  by a synthetic frame generator. Follow each target's manifest and foreground
+  service rules; these producers use integrated platform APIs, not a stock SDK.
 
 ## Takeaways
 

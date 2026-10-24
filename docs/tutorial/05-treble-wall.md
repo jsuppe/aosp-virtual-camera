@@ -24,22 +24,23 @@ and each one bit this project during bring-up.
 
 ## 1. The link-time wall: libraries don't cross
 
-Vendor code **cannot link platform-internal libraries**, and vice versa. The one
-that matters for us: **`libgui`** — the library that implements BufferQueue and
-`Surface` (Lesson 3) — is **platform-only.** A vendor HAL cannot create a
-BufferQueue or wrap a Surface.
+Vendor modules cannot freely link arbitrary platform-private libraries;
+Soong permits defined vendor variants and stable interfaces, not unrestricted
+cross-partition linkage. Here **`libgui`**, which implements BufferQueue and
+`Surface` (Lesson 3), is a platform dependency not available to this vendor HAL.
+This HAL therefore cannot create those platform objects directly.
 
 Sit with that, because it's the crux of the entire architecture:
 
-> We *need* gralloc to work smoothly (that's easiest for a **vendor** HAL — it's
-> in the right SELinux domain, Lesson 2's `/dev/dri` story). But we *also* need
-> BufferQueue/Surface (that's **platform**-only). Those two needs live on
-> opposite sides of the wall.
+> Our selected **vendor HAL** uses the target's vendor graphics stack. Our
+> BufferQueue/Surface integration uses **platform-private** libraries. That
+> deployment choice requires a supported boundary between the two.
 
-You cannot simply put everything in one place. The final design (Lessons 7–9)
+This is not a rule that platform processes cannot use gralloc; they can with
+appropriate dependencies and policy. For this vendor-APEX architecture, The final design (Lessons 7–9)
 resolves this by **splitting along the wall exactly where the primitives allow**:
-the BufferQueue stays platform-side, and only *buffer handles* — which are
-stable and cheap — cross to the vendor HAL. This lesson is why that split exists.
+the BufferQueue stays platform-side, and buffer handles plus descriptions,
+fences and identity tokens cross a stable AIDL contract to the vendor HAL. This lesson is why that split exists.
 
 ## 2. The manifest wall: VINTF
 
@@ -48,7 +49,7 @@ use it unless it's **declared** in a **VINTF manifest** — an XML file listing
 which HAL interfaces exist on each side. Our fragment:
 
 ```xml
-<!-- declares the provider so servicemanager accepts its registration -->
+<!-- Abridged provider-only fragment; see integration for version and custom HAL. -->
 <manifest version="1.0" type="device">
     <hal format="aidl">
         <name>android.hardware.camera.provider</name>
@@ -71,9 +72,10 @@ For us it gates three things:
   may `add` it;
 - app access to the camera.
 
-A vendor camera HAL that lands in the domain `hal_camera_default` gets gralloc,
-GPU, and binder access "for free" — which is a big reason the final HAL ships as
-a **vendor** component.
+The service runs in `hal_camera_default`, but access is not granted simply by
+being on `/vendor`. The target's domain attributes, device labels, service
+contexts and allow-rules must authorize the actual operations. A permissive
+boot is not evidence that these rules work in Enforcing mode.
 
 ## Reading the split in the repo
 
@@ -84,14 +86,18 @@ kept in the tree:
   *can* link `libgui`/`libbinder` — so the HAL could own the BufferQueue, but
   gralloc needs SELinux help.
 - Vendor build (`platform/vendor-variant/…`): modules are `vendor: true`, land in
-  `hal_camera_default`, get gralloc for free — but **cannot** link `libgui`, so
+  `hal_camera_default`, use the target's vendor graphics access — but **cannot**
+  use this platform `libgui` dependency, so
   the Surface relay is compiled out and something else must move frames.
 
 That "something else" is the frozen AIDL boundary of Lesson 7. The
 [integration script](../../scripts/integrate-a13-platform.sh) installs the HAL
 sources, the VINTF fragment, an init `.rc`, and the SELinux policy into a device
 tree — you can read it as the concrete list of "what has to be placed where" to
-satisfy all three walls.
+satisfy all three walls. The A13 script includes a loose vendor VINTF fallback;
+the [Pi/A17 integrator](../../targets/rpi5-a17/integrate.py) removes that fallback
+because its APEX fragment is discovered directly. Installing both declarations
+on that target is a duplicate-instance error, not extra safety.
 
 ## What broke for real
 
@@ -122,12 +128,12 @@ satisfy all three walls.
 - The wall is enforced three ways: **link-time** (`libgui` is platform-only),
   **VINTF** (a HAL must be declared, with the right `type=`), and **SELinux**
   (domains, service-name labels, device access).
-- Our two core needs — smooth gralloc (vendor) and BufferQueue/Surface
-  (platform) — sit on **opposite sides**, which forces the split architecture of
-  Lessons 7–9.
+- This vendor-APEX design keeps its private BufferQueue dependency platform-side
+  and transports handles through the stable boundary in Lessons 7–9.
 
 Before we build that boundary, one more piece of behavior to get right: the
-camera should *exist only while a producer is feeding it*. That's dynamic
+camera should *exist while an accepted producer is registered*, with readiness
+and fresh delivery checked separately. That's dynamic
 availability.
 
 [← Lesson 4](04-binder-control-plane.md) · [Lesson 6: Dynamic availability →](06-dynamic-availability.md)

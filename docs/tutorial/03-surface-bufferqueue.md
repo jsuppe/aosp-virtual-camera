@@ -1,7 +1,7 @@
 # Lesson 3 — Surface & BufferQueue
 
-**What you'll understand:** the single producer/consumer primitive that every
-frame in Android rides on — every preview, every video, every window on screen —
+**What you'll understand:** a central producer/consumer primitive used by
+Android previews, video surfaces and windows —
 and why a `Surface` is really just one end of it.
 
 ---
@@ -18,9 +18,9 @@ Android's answer is one small, ubiquitous data structure.
 
 ## BufferQueue: a conveyor belt of buffers
 
-A **BufferQueue** is a ring of a few graphics buffers (typically 3–4) with a
-**producer** end and a **consumer** end. It choreographs ownership so exactly
-one side touches a given buffer at a time:
+A **BufferQueue** manages buffer slots and a queue with a **producer** end and
+a **consumer** end. The active buffer count is negotiated, not fixed at 3–4.
+Slot ownership and fences together prevent conflicting access:
 
 ```
  producer (drawing)                          consumer (reading)
@@ -30,8 +30,11 @@ one side touches a given buffer at a time:
 ```
 
 - The producer **dequeues** a free buffer, draws into it, and **queues** it.
-- The consumer **acquires** the most recent queued buffer, reads it, and
-  **releases** it back to the free pool.
+- The consumer **acquires** an eligible queued buffer, reads it, and
+  **releases** it with a completion fence. Queue mode and timestamps affect
+  which queued buffer is selected; acquisition does not universally mean newest.
+- Acquire/release calls transfer ownership but asynchronous GPU work may still
+  be pending. Fences tell the next accessor when touching pixels is safe.
 
 Buffers cycle; ownership is explicit; **no pixels are ever copied** — only the
 handle's ownership moves around the ring. This one structure is the backbone of
@@ -63,6 +66,7 @@ the app. You can see the raw creation in the platform frame pump
 [`platform-jni/VirtualCameraRelayJni.cpp`](../../platform-jni/VirtualCameraRelayJni.cpp):
 
 ```cpp
+// A13 conceptual sketch, not a paste-ready function. A17 uses adapted factories.
 // Create the queue; wrap the consumer end; export the producer end as a Surface.
 sp<IGraphicBufferProducer> producer;
 sp<IGraphicBufferConsumer> consumer;
@@ -80,19 +84,24 @@ return android_view_Surface_createFromIGraphicBufferProducer(env, producer);
 // ↑ the Java Surface handed to the producer app
 ```
 
-The consumer side registers a **frame-available listener**. Each time the
-producer queues a frame, the listener fires, the consumer **acquires** it, does
-something with the handle, and **releases** it:
+The consumer registers a **frame-available listener**. The real listener is
+more careful than “acquire, forward, immediately release”:
 
-```cpp
-void onFrameAvailable(const BufferItem&) override {
-    BufferItem item;
-    consumer->acquireBuffer(&item, 0);
-    sp<GraphicBuffer> gb = item.mGraphicBuffer;   // the frame, by handle
-    // ... forward/consume the handle (no pixel copy) ...
-    consumer->releaseBuffer(item);
-}
-```
+1. Verify that the listener still belongs to the current queue/HAL connection.
+2. Acquire a `BufferItem` and preserve its producer acquire fence.
+3. Send its handle, description and configuration token through
+   `queueFrameForConfiguration`.
+4. On accepted delivery, use the returned retirement fence to release the
+   **previously held** item, then retain the newly accepted item.
+5. On definitive rejection, return the unaccepted item with its original fence.
+   An ambiguous transport failure abandons the queue rather than guessing that
+   the HAL never read it.
+
+The HAL keeping a cloned handle is **not** permission to recycle the source
+slot immediately: the producer could overwrite pixels the HAL still samples.
+See `FrameListener`, `releaseHeld` and `abandonQueueLocked` in the linked JNI
+source. Configuration/connection guards also prevent an old callback from
+feeding a replacement session.
 
 ## The usage rule returns
 
@@ -126,7 +135,8 @@ depending on what the two ends declare they'll do.
 ## Takeaways
 
 - A **BufferQueue** is a small ring of buffers with a producer and consumer end;
-  it choreographs ownership so pixels are never copied and never raced.
+  it avoids pixel copies during queue transport; correct ownership **and fences**
+  are required to prevent races.
 - A **`Surface` is the producer end** of a BufferQueue, portable across
   processes — "draw into this Surface" means "produce into my queue."
 - A virtual camera works by **owning the queue and handing its Surface to the

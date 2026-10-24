@@ -1,160 +1,107 @@
 # Lesson 7 — A frozen AIDL boundary
 
-**What you'll understand:** how to let the platform and vendor halves talk across
-the Treble wall through a *stable, versioned* interface — and why "freezing" that
-interface is what later makes the HAL independently updatable.
+**What you'll understand:** how platform and vendor exchange handles and control
+messages through a versioned contract, and what compatibility does not promise.
 
----
+## The boundary
 
-## The problem restated
+The BufferQueue stays platform-side, where `libgui` is available. The vendor HAL
+receives buffer handles, descriptions and fences, not pixel bytes or a private
+platform `Surface` representation.
 
-Lesson 5 left us with a hard fact: the BufferQueue must live **platform-side**
-(`libgui`), but the HAL that fills camera buffers wants to be **vendor-side** (for
-gralloc). So frames have to cross the wall. Lesson 4 said "never send frames
-through Binder" — and that still holds. The resolution:
+The contract is [IVirtualCameraHal.aidl](../../stable-aidl/android/hardware/virtualcamera/hal/IVirtualCameraHal.aidl),
+with the reverse channel in
+[IVirtualCameraHalCallback.aidl](../../stable-aidl/android/hardware/virtualcamera/hal/IVirtualCameraHalCallback.aidl).
+Both use `@VintfStability`; [Android.bp](../../stable-aidl/Android.bp) declares
+`stability: "vintf"` and frozen versions **1 through 6**.
 
-> The **queue and consumer stay platform-side.** What crosses the wall is only
-> the **handle** of each consumed frame (cheap, stable — Lesson 2) plus small
-> control messages. Both travel over a dedicated AIDL interface.
+The system calls the HAL; the HAL uses the supplied callback for lifecycle
+notifications. Compatible stable AIDL wire types, VINTF declarations and SELinux
+access are all required. Sending a `NativeHandle` does not by itself make an
+arbitrary buffer format or graphics-driver combination portable.
 
-But an interface *across the Treble wall* has a requirement ordinary app AIDL
-doesn't: the two sides are built and shipped **separately** (that's the whole
-point of Treble, and it's what makes the APEX in Lesson 8 possible). If the
-platform and the vendor HAL can be updated on different schedules, their shared
-interface must be **stable** — frozen, versioned, and never silently changed.
+## How the interface evolved
 
-## `@VintfStability` and freezing
+| Version | Addition |
+|---------|----------|
+| V1 | Global producer availability, frame handle delivery and lifecycle callback |
+| V2 | Acquire-fenced delivery and retirement-fence return for the previous source |
+| V3 | Per-camera slots and `getMaxCameras()`; legacy unslotted calls address slot 0 |
+| V4 | Configuration-token-bound frame submission and lifecycle callbacks |
+| V5 | Immutable producer descriptors, registration-matched removal and configuration readiness |
+| V6 | Lifecycle callbacks also carry producer registration identity |
 
-An AIDL interface marked `@VintfStability` is a **contract across the wall.** Its
-wire format is hashed and versioned; the build refuses to let you change a frozen
-version. You can add a *new* version, but you can't mutate version 1 out from
-under someone still running it.
+The snapshots in [aidl_api](../../stable-aidl/aidl_api/android.hardware.virtualcamera.hal/)
+are the exact contracts. Comments describing only V1–V3 elsewhere in the tree
+are historical, not the full present protocol.
 
-Our boundary interface —
-[`stable-aidl/.../IVirtualCameraHal.aidl`](../../stable-aidl/android/hardware/virtualcamera/hal/IVirtualCameraHal.aidl):
+**Current compatibility floor:** `connectHal()` in
+[VirtualCameraRelayJni.cpp](../../platform-jni/VirtualCameraRelayJni.cpp) rejects
+HAL versions below **6**. Older methods and dispatch branches remain, but this
+platform client does not automatically fall back to V1/V2/V3 HALs. Stable AIDL
+preserves older wire contracts; it does not require a newer client to accept an
+older server lacking features that client needs.
 
-```aidl
-@VintfStability
-interface IVirtualCameraHal {
-    void setCallback(in IVirtualCameraHalCallback callback);
-    void setProducerAvailable(boolean available);              // ← Lesson 6, across the wall
-    void queueFrame(in NativeHandle buffer, int width, int height,
-                    int stride, int format, long usage, long timestampNs);
-}
+Do not confuse this custom interface's V6 with the standard camera provider's
+interface version, the `hal/aidl-v1` source-directory name, or APEX package
+version 8 in the reviewed source. These are different version spaces.
+
+## The current exchange
+
+Conceptual sequence; consult the linked AIDL for exact signatures:
+
+```text
+platform → HAL: registerProducer(slot, descriptor, owner callback)
+HAL → platform: onStreamsConfiguredForProducer(slot, registration,
+                                              configurationToken, width, height, fps)
+platform → app: negotiated StreamConfig + producer Surface
+app → platform: setProducerReady(callback, connectionToken, configurationToken, ready)
+platform → HAL: setConfigurationReady(slot, configurationToken, ready)
+platform → HAL: queueFrameForConfiguration(slot, configurationToken,
+                   handle, dimensions, stride, format, usage, timestamp, acquireFence)
+HAL → platform: retirement fence for the previously queued source
 ```
 
-Read the three methods against everything so far:
+The platform connection epoch scopes configuration tokens to one HAL connection.
+The registration identity prevents old lifecycle events from reaching a later
+owner of the same slot. The frame fence prevents reading before drawing has
+finished. These solve different problems; none substitutes for another.
 
-- `setProducerAvailable` — the availability push from Lesson 6, now crossing the
-  wall (system_server → vendor HAL).
-- `queueFrame` — a **frame handle** (`NativeHandle`) plus its description. This is
-  the data plane crossing the wall *by handle*, exactly as Lesson 2 promised.
-  Pixels don't move; a handle does.
-- `setCallback` — registers the reverse channel
-  (`IVirtualCameraHalCallback.onStreamsConfigured / onCameraClosed`), so the HAL
-  can drive the platform side when a Camera2 consumer configures streams.
+The vendor imports the handle with `AHardwareBuffer_createFromHandle` and holds
+source leases while capture uses it. The JNI relay retains the corresponding
+BufferQueue item until retirement is safe. Cloning fds alone does not prevent the
+producer from overwriting a recycled buffer.
 
-The direction is the normal Treble direction — **system calls *down* into the
-HAL; the HAL answers through the registered callback.**
+## Freezing a new version
 
-## Freezing it
+After a deliberate compatible interface change in an integrated AOSP tree:
 
-Freezing is a real build step, and it leaves an artifact you can see:
-
-```
-stable-aidl/aidl_api/android.hardware.virtualcamera.hal/1/
-    android/hardware/virtualcamera/hal/IVirtualCameraHal.aidl   ← the frozen copy
-    .hash                                                        ← its fingerprint
+```sh
+m android.hardware.virtualcamera.hal-update-api
+m android.hardware.virtualcamera.hal-freeze-api
 ```
 
-Once frozen at V1, the platform image and the vendor HAL can each be rebuilt and
-reshipped independently, and both are guaranteed to speak V1. Change the
-interface and you must cut a V2 — a deliberate, visible act, which is precisely
-the discipline you want at a boundary that separates two independently-updated
-halves.
-
-And that is exactly what happened next. Making frame delivery *fenced* (Lesson
-9's postscript) needed one more method, `queueFrameFenced`, so the interface
-was frozen again:
-
-```
-$ m android.hardware.virtualcamera.hal-update-api     # refresh aidl_api/.../current/
-$ m android.hardware.virtualcamera.hal-freeze-api     # "Freezing ...-V2."
-stable-aidl/aidl_api/android.hardware.virtualcamera.hal/2/   ← new, with its own .hash
-```
-
-The build appended `version: "2"` to the interface's `versions_with_info`
-itself. V1 is untouched and still served: the HAL implements V2 (a superset),
-and the platform asks `getInterfaceVersion()` before choosing between
-`queueFrameFenced` and the old `queueFrame`. That is the whole point — the two
-halves can be at different versions and still work.
-
-V3 followed the same path when the camera grew into *cameras*: a slot
-argument on presence, frame delivery and the callbacks, with the older
-unslotted methods defined as "slot 0". Same commands, `aidl_api/.../3/`, and
-a HAL that checks the callback's version so a V2 platform still drives slot 0.
-
-## The two endpoints
-
-Each side implements its end of the frozen interface:
-
-- **Vendor endpoint** —
-  [`hal/aidl-v1/VirtualCameraStableHal.cpp`](../../hal/aidl-v1/VirtualCameraStableHal.cpp).
-  It registers `IVirtualCameraHal/default`, and on `queueFrame` it turns the
-  incoming handle into an `AHardwareBuffer` and keeps the newest frame:
-
-  ```cpp
-  AHardwareBuffer_createFromHandle(&desc, handle,
-      AHARDWAREBUFFER_CREATE_FROM_HANDLE_METHOD_CLONE, &ahb);   // handle → AHB
-  // store as "latest"; the capture path (Lesson 9) consumes it
-  ```
-
-- **Platform endpoint** —
-  [`platform-jni/VirtualCameraRelayJni.cpp`](../../platform-jni/VirtualCameraRelayJni.cpp)
-  (owned by `system_server` via
-  [`VirtualCameraNative.java`](../../service/VirtualCameraNative.java)). It owns
-  the BufferQueue from Lesson 3, and its frame-available listener forwards each
-  consumed handle down through the frozen interface:
-
-  ```cpp
-  auto aidlHandle = ::android::dupToAidl(gb->handle);       // GraphicBuffer → NativeHandle
-  hal->queueFrame(aidlHandle, gb->getWidth(), gb->getHeight(),
-                  gb->getStride(), gb->getPixelFormat(),
-                  gb->getUsage(), item.mTimestamp);         // across the wall
-  ```
-
-That's the complete data path: producer draws → platform BufferQueue consumes →
-`queueFrame` carries the *handle* across the wall → vendor HAL holds it → the
-capture loop (Lesson 1) fills the camera buffer from it. No pixels crossed Binder.
+Review generated snapshots/hashes and version metadata; preserve all existing
+frozen snapshots. Follow the target release's stable-AIDL build rules and copy
+the reviewed API artifacts back to this source repository. These are developer
+API-maintenance steps, not commands needed by an app or for every APEX update.
+A new required interface version can require a coordinated platform/HAL update.
 
 ## What broke for real
 
-* **Don't name an AIDL package after a C++ keyword.** The interface was first
-  `android.hardware.camera.virtual` — which generates `namespace …::virtual` in
-  C++, and `virtual` is a keyword. It simply won't compile. (AOSP's own is
-  `android.companion.virtualcamera` for the same reason.) Renamed to
-  `android.hardware.virtualcamera.hal`.
-* **Namespace shadowing.** The new `…hardware::virtualcamera` AIDL namespace then
-  *shadowed* the project's own `virtualcamera::` core namespace, so unqualified
-  references bound to the wrong one. Fix: qualify with a leading `::`.
-* **The freeze has a chicken-and-egg on release branches.** On a `REL` platform
-  an unfrozen `@VintfStability` interface won't build (it demands a frozen
-  version) but you can't freeze without building — resolved by setting an
-  `owner:` on the interface and running the `-freeze-api` / `-update-api` steps.
+- An AIDL package segment named `virtual` generated an invalid C++ namespace:
+  it is a C++ keyword. The package now uses `virtualcamera`.
+- Similar namespace names shadowed the core namespace; explicit leading `::`
+  removed the ambiguity.
+- Slot-only lifecycle callbacks could target a replacement producer. V6 adds
+  registration identity; retaining old wire methods alone cannot solve that race.
 
 ## Takeaways
 
-- Cross-wall interfaces must be **stable**: `@VintfStability`, versioned, and
-  **frozen** so the two independently-shipped halves always agree.
-- Frames cross the wall **by handle** (`queueFrame(NativeHandle …)`), never as
-  pixels; control (availability, stream lifecycle) rides the same interface.
-- Freezing (`aidl_api/.../1/`, later `.../2/`) is the enabling move for the
-  next lesson: it's what lets the vendor half ship — and update — on its own.
-- Versions are negotiated, not assumed: `getInterfaceVersion()` on the client,
-  a superset implementation on the server.
-
-The interface is frozen and the two halves talk cleanly across it. Now we can do
-the thing that stability was for: package the entire vendor HAL as **one signed,
-updatable file.**
+- Freeze the cross-partition contract and negotiate/check versions explicitly.
+- The current platform relay requires **V6**, not just any historical version.
+- Handles avoid pixel serialization; identity and fences preserve correctness.
+- Stable AIDL enables compatible component updates, not arbitrary base-image,
+  ABI, graphics-stack or policy compatibility.
 
 [← Lesson 6](06-dynamic-availability.md) · [Lesson 8: Shipping as a vendor APEX →](08-vendor-apex.md)

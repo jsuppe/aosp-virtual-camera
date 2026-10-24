@@ -1,14 +1,22 @@
 # Building a Virtual Camera on Android — A Tutorial
 
 This is a guided tour through the Android graphics and HAL stack, taught by
-building one real thing: a **virtual camera** — a camera device (id `100`) that
-any normal app can open, whose "sensor" is actually *another app*. By the end
-you'll understand how a frame travels from an app's `glDrawArrays` call, across
-the platform/vendor security boundary, through an updatable system component,
-and out to a camera app's preview — with no color conversion and no CPU touch.
+building one real thing: a **virtual camera** whose "sensor" is *another app*.
+The current implementation supports four producer slots, exposed as Camera2 IDs
+`100`–`103` while registered with the HAL. Consumers use normal Camera2 APIs,
+subject to permissions and supported stream configurations; producers use a
+custom, integrated platform API. By the end you'll understand how a frame
+travels across the platform/vendor boundary into a camera output buffer.
+The RGBA fast path uses a GPU blit without CPU pixel copying or RGBA→YUV
+conversion; that does **not** mean zero CPU work, zero waits, or zero GPU copies.
 
-The [top-level README](../../README.md) is the reference explainer for the
-*finished* system. This tutorial is the slower path: **one concept per lesson**,
+**Reviewed 2026-10-24 against source baseline `9b3cb10188ec43e04b1451582e6e60ba20500f88`
+on `pi5-a17-60fps-20261023`.** See the [review record](REVIEW-20261024.md)
+for scope, corrections, and validation limits.
+
+The [top-level README](../../README.md) contains architecture and historical
+bring-up notes; older examples there are not all current deployment instructions.
+Use this tutorial's source links and target-specific integration guidance. This tutorial is the slower path: **one concept per lesson**,
 each building on the last, each grounded in the real code in this repo. You
 read and understand rather than build from scratch — every lesson points at the
 actual files and explains why they are shaped the way they are.
@@ -62,12 +70,25 @@ lesson works outward until the whole loop is closed.
 
 ## How to follow along
 
-The system is validated on **Cuttlefish**, Android's reference virtual device,
-running Android 13. Lessons reference `adb` commands and logcat tags so you can
-watch each concept work on a running device. You don't need to build anything to
-learn — but if you want to, [lesson 8](08-vendor-apex.md) and the
-[integration script](../../scripts/integrate-a13-platform.sh) show how the
-pieces get into a device image.
+There are two reference targets, with different qualification boundaries:
+
+- **Android 13 Cuttlefish:** root `platform/`, `service/`, `platform-jni/`,
+  `hal/aidl-v1/` and the [A13 integration script](../../scripts/integrate-a13-platform.sh).
+  Earlier matched A13 cohorts have Enforcing and staged-APEX evidence; those
+  receipts do not automatically qualify every newer source revision.
+- **Android 17 Raspberry Pi 5:** the [target guide](../../targets/rpi5-a17/README.md),
+  pinned manifest and target integrator. Its producer app is in
+  `targets/rpi5-a17/apps/VCamProducer`, not the root A13 app directory.
+  The tested Pi base is userdebug/test-signed and SELinux permissive.
+
+Examples are conceptual unless explicitly identified as source excerpts.
+`SERIAL`, paths and output counts are placeholders, not commands to run blindly
+against whichever device happens to be connected. Read [lesson 8](08-vendor-apex.md)
+before building or updating. This review did not rebuild or requalify either target.
+
+The [latest Pi investigation](../pi5-extensive-20261024/README.md) distinguishes
+successful capture callbacks, independently decoded pixels and presentation.
+A 120-fps request or callback rate is not proof of 120 distinct displayed frames.
 
 A recurring feature: **"What broke for real."** Each lesson ends with the actual
 bugs hit while building this — because the failure modes teach the concept as

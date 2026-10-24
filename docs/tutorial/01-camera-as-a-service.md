@@ -16,32 +16,32 @@ cm.openCamera("100", stateCallback, handler);
 ```
 
 It's tempting to imagine this reaches down to `/dev/video0` and a driver. It
-doesn't — not from the app, not even close. The call crosses **three process
-boundaries** before anything hardware-shaped happens:
+doesn't — not from the app. In this project's AIDL camera path there are
+**two Binder process crossings** in the simplified diagram:
 
 ```
  your app  ──Binder──▶  cameraserver  ──Binder/AIDL──▶  a camera HAL  ──▶ hardware
  (Camera2)              (the broker)                    (the "driver")
 ```
 
-* **cameraserver** is a system process — the camera broker. It's the only thing
-  that talks to camera HALs directly, and it multiplexes every app's requests
-  onto them. Your app never touches a HAL.
+* **cameraserver** is a system process — the camera broker. It normally brokers app access to camera HALs and arbitrates client requests.
+  Test tools such as VTS can also call a provider directly. Ordinary Camera2
+  apps do not call this HAL directly.
 * A **camera HAL** (Hardware Abstraction Layer) is the vendor-supplied piece
-  that actually knows a specific sensor. On a real phone there's one per camera
-  chip vendor.
+  that implements device behavior. A provider can expose multiple cameras;
+  there is no required one-provider-per-chip-vendor mapping.
 
 Here is the leverage the whole project rests on: **cameraserver talks to a HAL
-through a standard AIDL interface, and it cannot tell whether the thing on the
-other end is a driver or a program pretending to be one.** Implement that
-interface in software and you have a camera that every unmodified camera app can
-open.
+through a standard AIDL interface rather than requiring a physical sensor.** Implement that
+interface in software and compatible, authorized Camera2 consumers can use it
+without a custom consumer SDK. Apps can still filter cameras or request
+unsupported capabilities; universal app compatibility is not implied.
 
 ## What a HAL actually is
 
-Strip away the acronym and a HAL is just **a long-running native service that
-registers a well-known interface with `servicemanager`.** For camera, the
-interface is:
+In this project, the binderized AIDL camera HAL is **a native service that
+registers a well-known interface with `servicemanager`.** Other HAL generations
+can use different mechanisms, including HIDL. Here the provider interface is:
 
 ```
 android.hardware.camera.provider.ICameraProvider
@@ -68,8 +68,9 @@ matters.)
 
 ## The request/response model
 
-The second surprise: **a camera does not push frames.** There is no callback
-that fires 30 times a second with a picture. Instead the framework *pulls*:
+The second surprise: **HAL capture results answer capture requests**. Camera2
+has asynchronous result and image callbacks, but these are driven by requests,
+including repeating requests, rather than an unsolicited HAL image feed:
 
 1. cameraserver hands the HAL a **capture request**. Crucially, that request
    contains an **empty output buffer** — memory the framework already allocated.
@@ -80,7 +81,8 @@ that fires 30 times a second with a picture. Instead the framework *pulls*:
 You can see the shape of it in the session code — the loop that answers each
 request lives in
 [`hal/aidl-v1/VirtualCameraSession.cpp`](../../hal/aidl-v1/VirtualCameraSession.cpp),
-in `processCaptureRequest`. Reduced to its essence:
+starting in `processCaptureRequest` and its capture-processing helpers.
+Conceptual pseudocode, omitting validation, fences, metadata and errors:
 
 ```cpp
 for (const auto& inBuffer : request.outputBuffers) {
@@ -95,7 +97,8 @@ for (const auto& inBuffer : request.outputBuffers) {
 mCallback->processCaptureResult(...);                  // hand them back
 ```
 
-Notice what a *minimal* virtual camera would need: it doesn't have to render
+As a hypothetical first implementation (not the current no-source policy),
+notice what a *minimal* virtual camera would need: it doesn't have to render
 anything interesting. If it just returned every buffer with `status = OK` and
 solid gray pixels, camera 100 would already work — apps would open it and see
 gray. That's the first checkpoint on the arc: **a camera that exists.** Making
@@ -103,37 +106,42 @@ those pixels *interesting* is the rest of the tutorial.
 
 ## Enumeration: how camera 100 shows up
 
-Before a capture, an app asks "what cameras exist?" The framework calls the
-provider's `getCameraIdList`. Ours returns one id:
+Before capture, the framework queries the provider and listens for device-status
+changes. The current provider enumerates **present slots**, not an unconditional
+camera 100:
 
 ```cpp
-// hal/aidl-v1/VirtualCameraProvider.cpp
-ndk::ScopedAStatus VirtualCameraProvider::getCameraIdList(
-        std::vector<std::string>* cameraIds) {
-    cameraIds->push_back(kVirtualCameraId);  // "device@1.0/virtual_renderer/100"
-    return ndk::ScopedAStatus::ok();
+// Current getCameraIdList loop; surrounding null check/logging omitted.
+for (int s = 0; s < ::virtualcamera::kMaxVirtualCameras; s++) {
+    if (mSlotPresent[s].load(std::memory_order_acquire)) {
+        cameraIds->push_back(::virtualcamera::deviceIdForSlot(s));
+    }
 }
 ```
 
-That single line is why `100` appears in `cm.getCameraIdList()`. Later
-(Lesson 6) we'll make this list *conditional* — the camera should only exist
-while a producer is feeding it — but the mechanism is this one method.
+[VirtualCameraSlots.h](../../hal/core/VirtualCameraSlots.h) maps slot 0 to
+`device@1.0/virtual_renderer/100`, slot 1 to `.../101`, up to slot 3.
+The app-facing Camera2 IDs are strings such as `"100"`. These are **not** the
+broker registration IDs returned to producers (Lesson 4).
 
-You can watch it on a running device:
+Enumeration alone is not a usable camera: metadata, device/session interfaces,
+stream negotiation, shutter/results, buffer ownership and errors must also meet
+the camera contract. Inspect the actual state with:
 
+```sh
+adb -s SERIAL shell dumpsys media.camera
 ```
-$ adb shell dumpsys media.camera | grep "maps to"
-    Device 0 maps to "0"
-    Device 1 maps to "1"
-    Device 2 maps to "100"     ← our virtual camera
-```
+
+No registered producer normally means none of these virtual IDs is exposed.
+Lesson 6 explains publication and removal.
 
 ## What broke for real
 
 * **A camera provider that registers but is never *declared* won't be used.**
   `servicemanager` enforces a manifest (VINTF, Lesson 5): if
-  `ICameraProvider/virtual_renderer` isn't listed, registration is silently
-  refused and camera 100 never appears — with no obvious error at the app.
+  the exact `ICameraProvider/virtual_renderer/0` instance isn't declared,
+  registration can fail. Inspect the returned status, servicemanager logs and
+  SELinux denials rather than assuming a silent or uniquely diagnosed failure.
 * **The service is a *service*, not an activity.** Early on the producer app was
   launched with `monkey`, which expects a launchable activity and failed with a
   cryptic exit code. A HAL-adjacent service is started explicitly (via init, or
@@ -143,12 +151,12 @@ $ adb shell dumpsys media.camera | grep "maps to"
 
 - An Android camera is a **service you call across processes**, brokered by
   **cameraserver**, not a device you open.
-- A **HAL** is a native service implementing a standard AIDL interface; software
-  can implement it and cameraserver can't tell the difference.
+- This **HAL** is a native service implementing the standard AIDL camera
+  contract; consumers do not need a custom API just because its source is software.
 - Frames are **pulled**: the framework hands you an empty buffer per request and
   you fill it.
-- Making the camera *exist* is one method (`getCameraIdList`) plus answering
-  requests with `status = OK`.
+- Enumeration is only the start: publish valid capabilities and return success
+  only for genuinely filled buffers, with correct synchronization and metadata.
 
 Next we tackle the thing we hand-waved — *putting pixels into that buffer* — and
 discover the type that all of Android graphics is built on.

@@ -1,135 +1,121 @@
 # Lesson 8 — Shipping as a vendor APEX
 
-**What you'll understand:** what an APEX is, how the whole vendor HAL fits into
-one signed file, what such a file *can't* carry, and how "update = replace one
-file" actually works.
+**What you'll understand:** what the package contains, what must already exist
+in the base image, and why staging, activation and qualification are separate.
 
----
+## Package versus complete integration
 
-## Why not just put files in the image?
+An APEX is a signed package containing a filesystem image. `apexd` mounts the
+active package under `/apex/<name>`; its native components run with their own
+init/SELinux identities rather than as an ordinary app.
 
-Up to now the HAL is "some binaries and libraries in `/vendor`." That works, but
-to *update* it you'd reflash the vendor image. The frozen interface from Lesson 7
-bought us the right to update the vendor half independently — an **APEX** is how
-you cash that in.
+This project's factory package is installed under `/vendor/apex` and named
+`com.android.hardware.camera.provider.virtual`. The [build definition](../../apex/Android.bp)
+packages the provider service, its required implementation/interface libraries,
+an init rc file and a VINTF fragment. This native vendor APEX does not package
+the demo APKs. APEX as a format is not universally limited to native-only code.
 
-## What an APEX is
+It is **not** an installer that adds the whole virtual camera to untouched
+Android. The base image must already supply:
 
-An **APEX** (Android Pony EXpress) is Android's package format for **updatable
-system components.** Concretely it's a signed filesystem image inside a zip that
-`apexd` **mounts at `/apex/<name>`** very early in boot — before ordinary apps
-exist. The contrast with an APK is the whole idea:
+- the system_server broker, framework/app AIDL and its startup integration;
+- the JNI BufferQueue relay and matching interface libraries;
+- SELinux domains/attributes, service labels and necessary access rules;
+- target-appropriate VINTF declarations and compatibility-matrix requirements;
+- the trusted APEX signing identities and compatible ABI/graphics dependencies.
 
-| | APK | APEX |
-|-|-----|------|
-| Ships | app code (Dalvik) | native binaries, libraries, init scripts, config |
-| Installed to | `/data/app` | mounted at `/apex/<name>` |
-| Runs | as an app | as system/vendor components |
+Read [the A13 integrator](../../scripts/integrate-a13-platform.sh) or
+[the Pi/A17 target guide](../../targets/rpi5-a17/README.md) for the actual target.
+Copying only `hal/` and `apex/` is not sufficient integration.
 
-A **vendor APEX** lives on `/vendor/apex` and carries **vendor HALs** —
-precisely our payload. (Cuttlefish itself ships several: wifi, bluetooth,
-vibrator. You can list them: `adb shell ls /vendor/apex`.)
+## Two signatures and target-specific placement
 
-## Anatomy of ours
+`apex_key` signs the payload; `android_app_certificate` supplies the container
+signature. Updates must satisfy the installed base's trust and version policy.
+The repository keys are development keys, not production secrets or production
+trust. Provision product signing before release; changing keys on an existing
+installation requires a supported trust/migration process.
 
-Our package —
-[`apex/`](../../apex/) — builds
-`com.android.hardware.camera.provider.virtual.apex`, which contains:
+`file_contexts` labels files inside the package; it does not add arbitrary
+SELinux domains or allow-rules to the already-booted system. Those policies belong
+in the base image. The A13 reference has Enforcing evidence for earlier matched
+cohorts; the tested Pi/A17 base remains permissive. Do not transfer security
+qualification between them.
 
-```
-├── apex_manifest.json     name + version   ← the version is the update counter
-├── bin/hw/…-service        the HAL binary
-├── lib64/…-impl.so, …hal-V1-ndk.so   its libraries (incl. the frozen AIDL, L7)
-├── etc/…virtual.rc         init script (service path: /apex/…/bin/hw/…)
-└── etc/vintf/manifest/….xml   the VINTF fragment (Lesson 5), declaring BOTH
-                                ICameraProvider/virtual_renderer AND
-                                IVirtualCameraHal/default
-```
+**VINTF discovery differs by target:** the A13 integration installs an additional
+loose vendor fragment because its libvintf path needs that fallback. Pi/A17
+discovers the APEX fragment and removes the fallback to avoid duplicate instances.
+The provider instance is `ICameraProvider/virtual_renderer/0`; the custom transport
+is `IVirtualCameraHal/default` under its own package name.
 
-Three build-side pieces in [`apex/Android.bp`](../../apex/Android.bp) make it a
-*trustworthy* unit:
+## Build configuration is not an activation guarantee
 
-- **`apex_key` + `android_app_certificate`** — the payload is AVB-signed and the
-  container is APK-signed. `apexd` refuses a package whose signature doesn't
-  match the expected key. **This is what makes "replace the file" safe** — you
-  can't swap in an unsigned or wrong-key APEX. (The repo uses dev keys; a real
-  product rotates them.)
-- **`file_contexts`** — SELinux labels for files *inside* the APEX. Ours labels
-  the binary `hal_camera_default_exec`, so `init` transitions the service into
-  the vendor camera-HAL domain (Lesson 5) — gralloc, GPU, and binder access
-  included, which is why the vendor-side HAL has none of the Lesson 2 gralloc
-  pain.
-- The **`.rc` and VINTF fragment ship *inside* the APEX** — `init` reads
-  `/apex/*/etc/*.rc` and libvintf reads APEX vintf fragments, so the HAL's whole
-  lifecycle (how it starts, that it's declared) travels *with* the package.
+At the reviewed source revision:
 
-## What an APEX cannot carry
+- `apex/Android.bp` declares `vendor: true` and `updatable: false`.
+- `apex_manifest.json` has package version **8** and
+  `supportsRebootlessUpdate: true`.
+- The custom HAL AIDL is **V6**. Package version 8 is not interface V8, nor proof
+  that version 8 is installed on a device.
 
-This boundary is as important as what it *can* carry, and it's why the system is
-split the way it is:
+On the tested A13 branch, the supported vendor Soong configuration does not use
+`updatable: true`, yet signed staged shell installs were demonstrated on a
+matched integrated base. Conversely, the rebootless manifest flag does **not**
+establish working non-staged/rebootless activation. The documented reference
+flow stages and **reboots**.
 
-- **`system_server` code** — the `VirtualCameraService` and the JNI frame pump
-  (Lessons 4, 7) are platform code in `services.jar` / `/system_ext`. They follow
-  **platform OTAs**, not the APEX.
-- **SELinux policy** — an APEX may label *its own files* but **cannot add domains
-  or allow-rules.** Policy must already be on the image before the APEX can rely
-  on it. (This is the top real-world "productization" gap; the demo runs
-  permissive.)
-- **Apps** — the demo producer/viewer are ordinary APKs, updatable as apps.
+## A staged update, with explicit prerequisites
 
-So the shipping picture is two-speed: the **platform half** rides slow platform
-OTAs; the **vendor HAL** — the part most likely to iterate — updates on its own
-via the APEX.
+First select the exact device/base, verify the artifact hash, package/version,
+signing compatibility and platform/JNI cohort, and check for unrelated pending
+staged sessions. Then, on a compatible target, the command shape is:
 
-## The update flow (the payoff)
-
-Because the interface is frozen (Lesson 7), updating the HAL is genuinely "swap
-one file":
-
-```bash
-# bump apex_manifest.json version, rebuild (incremental: seconds)
-m com.android.hardware.camera.provider.virtual
-
-# replace the one signed file and reboot
-adb push …/vendor/apex/com.android.hardware.camera.provider.virtual.apex /vendor/apex/
-adb reboot
-
-adb shell ls /apex | grep provider.virtual
-#   com.android.hardware.camera.provider.virtual@2      ← new version live
+```sh
+adb -s SERIAL install --staged -i com.android.shell \
+  --staged-ready-timeout 15000 /absolute/path/to/approved-newer.apex
+adb -s SERIAL shell pm list staged-sessions --only-parent
 ```
 
-At boot `apexd` activates the new version; cameraserver reconnects to the
-restarted provider; the platform relay's death-recipient (Lesson 6/7)
-reconnects the frozen-AIDL session — and frames flow again, **with zero changes
-to the platform image.** In this project that was a ~9-second incremental build
-and a ~15-second boot, `@1` → `@2`, pipeline resumed.
+Require the expected session to be **READY and not failed** before a planned
+reboot. After reboot, verify that same session is **APPLIED**, Android completed
+boot, and `/apex/apex-info-list.xml` identifies the expected active version/path.
+A data update should be active under `/data/apex/active/`, with its factory
+package retained. Then rerun registration, lifecycle and pixel-delivery checks.
+Upload success alone is not activation, and activation alone is not correctness.
+
+Do **not** copy a file into `/data/apex/` and assume installation occurred.
+Replacing `/vendor/apex/` on a remounted development image is a different
+factory-image modification workflow, not the staged-update procedure above.
+
+The repository's [reference installer](../../scripts/install-apex-reference.py)
+adds artifact and base-hash checks and requires explicit `--reboot` to reboot:
+
+```sh
+python3 scripts/install-apex-reference.py --help
+```
+
+It intentionally pins **one older A13 reference cohort** and refuses other
+serials/base hashes, including Pi. It is not a generic installer for current V6
+source; do not remove its guards to make an unmatched device pass.
+
+The [Pi investigation](../pi5-extensive-20261024/README.md) built a diagnostic
+APEX without staging it. Earlier Pi staging failed; neither a package build nor
+A13 success qualifies Pi staged activation, rollback or rebootless updates.
 
 ## What broke for real
 
-* **A pushed `services.jar` was shadowed by stale AOT.** Updating the *platform*
-  half (not the APEX) didn't take effect because Android had precompiled
-  `/system/framework/oat/*/services.{odex,vdex,art}` and the ART apexdata
-  dalvik-cache still held the old code. New code "didn't run" until those were
-  deleted and the device rebooted. *Lesson: when a pushed jar seems ignored,
-  suspect the AOT caches.*
-* **The VINTF fragment `type=` again.** The APEX's fragment must be
-  `type="device"` (it's vendor) — the same one-word trap from Lesson 5, now
-  packaged.
+- Updating platform jars without matching build artifacts/AOT state can leave
+  stale code. Prefer a coherent image rebuild/OTA; deleting caches is not a
+  general deployment recipe.
+- Duplicate or incorrectly typed VINTF declarations can prevent HAL discovery
+  or boot. Check target placement, not just XML syntax.
+- Shipping loose and APEX provider services together can start duplicate HALs.
 
 ## Takeaways
 
-- An **APEX** is a signed, mounted package of *system* components; a **vendor
-  APEX** carries vendor HALs and updates independently of the platform image.
-- Signing + `file_contexts` + an in-package `.rc`/VINTF fragment make it a
-  self-contained, trustworthy unit — which is what makes **"update = replace one
-  file"** safe.
-- It **cannot** carry `system_server` code or SELinux policy — those stay on the
-  image, which is exactly why the design splits platform vs vendor.
-- The frozen interface (Lesson 7) is what lets the two update on different
-  schedules.
-
-One thing remained a full CPU cost through all of this: the per-pixel color
-conversion when filling the camera buffer (Lesson 2). The final lesson removes it
-entirely — on the GPU.
+- The APEX updates the **vendor component on a compatible integrated base**.
+- Service/JNI, policy, trust and compatibility requirements remain base concerns.
+- Distinguish build, staging, reboot activation, camera regression and recovery.
+- Rebootless flags and frozen AIDL are prerequisites/capabilities, not qualification.
 
 [← Lesson 7](07-frozen-boundary.md) · [Lesson 9: GPU compositing, zero conversion →](09-gpu-zero-conversion.md)

@@ -1,196 +1,158 @@
 # Lesson 9 — GPU compositing, zero conversion
 
-**What you'll understand:** how to render the producer's frames on the GPU and
-fill the camera buffer with **no color conversion and no CPU touch** — and the GL
-concepts (EGLImage, texture vs renderbuffer, FBO) that make it work. This is the
-lesson that ties the whole arc together.
+**What you'll understand:** the RGBA GPU pixel path, the separate YUV/JPEG paths,
+and why GPU rendering does not mean zero copies, waits or CPU work.
 
----
+## State the claim precisely
 
-## The one remaining CPU cost
+In this implementation the producer draws into a source BufferQueue, while
+Camera2 supplies different destination buffers. The HAL must fill those output
+buffers. For an RGBA source and RGBA destination, it can do a **GPU shader blit
+without CPU pixel copying or RGBA→YUV conversion**.
 
-Every lesson so far left one thing on the CPU: the **fill**. Lesson 2's
-`FrameFiller` locks the camera output buffer and writes it pixel-by-pixel,
-converting RGBA→YUV — ~8 million operations per 4K frame, the single biggest cost
-in the pipeline. Let's remove it.
+That is not zero-copy rendering: the GPU reads one allocation and writes another.
+It is also not a universal requirement for every conceivable camera architecture;
+it follows from this implementation's distinct source and destination queues.
+Scaling and memory-layout changes can still cost GPU time even when formats match.
 
-First, two facts, stated precisely — because "zero-copy" gets overclaimed here:
+## Step 1 — render into the producer Surface
 
-- **The copy is unavoidable.** The camera framework *owns* the output buffer
-  (it's bound to the consumer app's Surface, Lesson 3). The producer drew into a
-  *different* buffer. Two buffers, two queues → the HAL must move pixels from one
-  to the other. No producer≠consumer topology escapes this move.
-- **The color conversion is avoidable.** *Moving* pixels and *converting* them
-  are different costs. If both buffers are RGBA, moving is a plain blit with
-  nothing to convert.
-
-So the honest target is **one GPU blit, no conversion, no CPU touch** — not "zero
-copy." Here's how each piece gets there.
-
-## Step 1 — the producer renders on the GPU
-
-The producer stops using a software canvas and renders with **OpenGL ES**. It
-wraps the Surface (an `ANativeWindow`) in an `EGLSurface` and draws a fragment
-shader — see
-[`VCamProducerService.java`](../../platform/apps/VCamProducer/src/com/example/vcamproducer/VCamProducerService.java):
+The [A13 producer](../../platform/apps/VCamProducer/src/com/example/vcamproducer/VCamProducerService.java)
+uses EGL/OpenGL ES. Conceptually:
 
 ```java
-EGLSurface win = EGL14.eglCreateWindowSurface(dpy, cfg, mSurface, …);
+// Pseudocode: EGL setup and error handling omitted.
+EGLSurface win = EGL14.eglCreateWindowSurface(dpy, cfg, surface, attributes, 0);
 EGL14.eglMakeCurrent(dpy, win, win, ctx);
-// … a full-screen shader draws a time-varying gradient + a moving disc …
 GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
-EGL14.eglSwapBuffers(dpy, win);        // queues a GPU-rendered RGBA buffer
+EGL14.eglSwapBuffers(dpy, win);
 ```
 
-Because EGL allocates the Surface's buffers with GPU render-target usage
-(remember the usage-union rule, Lessons 2–3), **no CPU touches the producer's
-pixels.** The frames it queues are RGBA in GPU memory.
+Swap queues a buffer with a producer-completion dependency; it need not mean the
+GPU has finished drawing. The Pi implementation is in its
+[target-specific producer](../../targets/rpi5-a17/apps/VCamProducer/src/com/example/vcamproducer/VCamProducerService.java).
+It includes a CPU-drawn/uploaded clock texture, so calling the entire demo
+“no CPU touch” would be wrong even if the HAL's RGBA fill is GPU-only.
 
-## Step 2 — three GL concepts for the fill
+## Step 2 — import and draw
 
-The HAL now needs to move that GPU frame into the camera's output buffer on the
-GPU. Three concepts, each an analogue of something you already know.
+[GpuCompositor.cpp](../../hal/core/GpuCompositor.cpp) imports buffers as EGLImages.
+An **EGLImage** is a local graphics API object referring to imported storage,
+not an object/handle sent across Binder. The gralloc/native handle crosses the
+process boundary; each process establishes its own graphics objects.
 
-**EGLImage — the GPU's cross-process handle.** Lesson 2 said a gralloc buffer is
-shared by handle. An **`EGLImage`** is the GPU-side equivalent: a lightweight
-wrapper that lets a GL context *point at* an existing gralloc buffer without
-copying. You build one from an `AHardwareBuffer` and bind it to a GL object. This
-is "handles travel, pixels don't" — for the GPU.
-
-**Texture vs renderbuffer — read vs write.** A GL object backed by an EGLImage
-is one of two things:
-- a **texture**, which a shader **samples** (reads) — this takes the producer
-  frame as *input*;
-- a **renderbuffer**, which the GPU **draws into** (writes) — this targets the
-  camera output buffer as *output*.
-
-The trap: you *cannot* attach an imported-gralloc **texture** as a render target
-on most drivers — the framebuffer comes back "incomplete." Imported buffers are
-only reliably renderable through a **renderbuffer**
-(`glEGLImageTargetRenderbufferStorageOES`).
-
-**FBO — an off-screen draw target.** A **Framebuffer Object** redirects GL
-drawing away from the screen to a buffer you attach — here, the renderbuffer
-wrapping the camera output. Attach it, draw a full-screen quad whose shader
-samples the source texture, and the result lands in the output buffer.
-
-## Step 3 — the compositor
-
-Put together in
-[`core/GpuCompositor.cpp`](../../hal/core/GpuCompositor.cpp), the per-request move is:
-
-```
-producer AHB ──EGLImage──▶ GL texture (sampled) ─┐
-                                                  ├─ full-screen shader ──▶
-output buffer ──EGLImage──▶ renderbuffer ─FBO────┘   (RGBA→RGBA: a copy,
-                                                       never a conversion)
+```text
+source AHardwareBuffer → EGLImage → sampled GL texture
+                                         ↓ shader quad
+output gralloc buffer → EGLImage → renderbuffer attached to FBO
 ```
 
-```cpp
-// import source as a sampled texture
-glBindTexture(GL_TEXTURE_2D, mSrcTex);
-glEGLImageTargetTexture2DOES_(GL_TEXTURE_2D, srcImg);
-// import destination as a RENDERBUFFER (renderable; texture attach = incomplete)
-glEGLImageTargetRenderbufferStorageOES_(GL_RENDERBUFFER, dstImg);
-glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                          GL_RENDERBUFFER, dstRb);
-// one passthrough blit
-glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-```
+A **Framebuffer Object (FBO)** selects the destination for rendering. This
+compositor binds the output EGLImage as a renderbuffer and samples the source
+texture. The source and destination allocations remain distinct.
 
-## Step 4 — the format nudge (why it's *zero* conversion)
+The renderbuffer path fixed an incomplete-FBO failure on the tested stack.
+That does **not** mean imported textures can never be framebuffer attachments:
+support depends on the driver, format, texture target and EGL/GL extensions.
+Check framebuffer completeness and errors on the actual target.
 
-The blit only converts if the two formats differ. A preview usually asks for
-`IMPLEMENTATION_DEFINED` — "HAL, you pick." So the HAL **picks RGBA**, in
-[`VirtualCameraSession.cpp`](../../hal/aidl-v1/VirtualCameraSession.cpp)'s
-`configureStreams`:
+The compositor serializes use of its EGL context and makes it current on the
+thread performing the operation. A context initialized on one Binder thread
+is not automatically current on all threads in the pool.
 
-```cpp
-if (resolvedFormat == kImplDefined) resolvedFormat = kRGBA8888;   // pick RGBA
-// … and request GPU_RENDER_TARGET buffers for the RGBA path …
-```
+## Step 3 — choose the output path
 
-Now source is RGBA, destination is RGBA, and the shader pass is a straight
-passthrough — **zero color conversion.** A `SurfaceTexture` consumer (our viewer)
-samples RGBA fine, so the common preview case lands entirely on this path. A
-consumer that *hard-requires* YUV falls back to the CPU `FrameFiller` — labeled,
-honest, and the only path that still costs a CPU pass (moving it to the GPU is
-future work).
+[VirtualCameraSession.cpp](../../hal/aidl-v1/VirtualCameraSession.cpp) resolves
+`IMPLEMENTATION_DEFINED` to RGBA_8888 and requests GPU-render-target usage for
+that stream. The negotiated producer capabilities must allow the configuration.
 
-## The bonus: correctness, not just speed
+The current fill paths are:
 
-Recall Lesson 6's "keep the newest frame" store. With the old *software*-canvas
-producer that was safe only because CPU drawing is synchronous. A **GPU** producer
-finishes asynchronously — naively reading its buffer could catch a half-drawn
-frame. And the reverse hazard exists too: once the platform hands a buffer back
-to the BufferQueue, the producer may start drawing into it while the HAL's GPU is
-still reading it.
+| Output | Implementation |
+|--------|----------------|
+| RGBA/RGBX GPU-compatible output | EGLImage import and shader blit; completion fence, or synchronous fallback |
+| YUV_420_888 | GPU BT.601 limited-range conversion into packed intermediate planes, then CPU row copies into mapped destination planes; CPU converter fallback |
+| JPEG/BLOB | CPU JPEG encoding and camera JPEG blob trailer |
 
-The first GPU version leaned on the driver's pipeline ordering for the first
-hazard and hid the second behind a `glFinish()`. The finished design makes both
-explicit with **sync fences**, the same mechanism SurfaceFlinger and every
-camera HAL use:
+The YUV path is **already implemented**, not future work. It is GPU-assisted,
+not direct rendering into the final YUV allocation and not zero-CPU-copy.
+`compositeToYcbcr` calls `glFinish` before reading back/copying its intermediate
+planes. [FrameFiller.cpp](../../hal/core/FrameFiller.cpp) provides CPU conversion;
+[JpegEncoder.cpp](../../hal/core/JpegEncoder.cpp) handles JPEG.
+Failed imports, rendering or mapping must report errors, not a successful blank
+frame. A fallback only works if the actual allocation supports its access needs.
 
-- The producer's *acquire fence* travels down with the handle in
-  `queueFrameFenced` (a V2 method — see Lesson 7's postscript). The HAL's GPU
-  waits on it with `eglWaitSyncKHR`; no CPU ever blocks.
-- The compositor's blit produces a *native fence* (`EGL_ANDROID_native_fence_sync`
-  → one fd). It becomes the camera framework's release fence for the output
-  buffer, **and** it goes back up to the platform when the frame is retired, so
-  the platform releases the source buffer *with* it and the producer's next
-  `dequeueBuffer` waits for the HAL's read.
-- The request loop is paced to `AE_TARGET_FPS_RANGE` (30 fps by default)
-  instead of free-running, and reports the paced slot as the sensor timestamp.
+## Step 4 — preserve fences and freshness
 
-Correctness by construction, and one fewer `glFinish()` on a binder thread.
+There are three separate synchronization obligations:
 
-## Watch it
+1. **Source acquire fence:** do not sample producer pixels before rendering ends.
+2. **Destination acquire fence:** do not overwrite a camera buffer before its
+   previous user finishes with it.
+3. **Completion fences:** do not let the camera consumer read the output, or
+   let the producer overwrite the source, before this HAL's GPU work finishes.
 
-```
-$ adb logcat | grep -E "VCamGpuCompositor|PRODUCED .*GL|RECEIVED"
-  VCamGpuCompositor: GPU compositor initialized (…NVIDIA GeForce RTX 3090…)
-  VCamProducer: PRODUCED 300 frames (GL)
-  VCamViewer:   RECEIVED 300 frames from camera 100
-```
+The compositor supports importing a source fence for an EGL wait. However,
+**the current stable-AIDL capture loop first checks source readiness on the CPU**:
+it polls the source fence with cancellable waits of up to 2 ms and a bounded
+source-availability/readiness budget. The normal budget is one requested frame
+period; the initial attempt after configuration gets at least 200 ms for startup.
+Diagnostic-only settings can alter that budget. These are implementation policy,
+not end-to-end latency guarantees.
 
-Steady state: **0 GPU-composite errors, 0 CPU-fallback calls** — no pixel touches
-the CPU, end to end.
+Once the source fence is ready, the session passes no remaining source dependency
+to the renderer. Destination-fence waits are also present. Thus the old claim
+“no CPU ever blocks” is false even on the RGBA path.
+
+The GPU completion fence protects both destination consumption and source reuse;
+the source lease/retirement machinery preserves read dependencies until the JNI
+relay can release its held BufferQueue item. If native completion fencing is
+unavailable, the compositor can use synchronous `glFinish` for correctness.
+
+Freshness is separate from fence completion. The capture loop requires a newer
+source submission sequence for the current configuration, rechecks identity,
+and fails on missing, stale, unready or cancelled work. It does not replay its
+latest cached frame as a fresh successful result. This admission check still
+cannot prove the producer changed its pixels: an independent marker decoder is
+needed to measure distinct content.
+
+## What the performance evidence establishes
+
+The [2026-10-24 Pi investigation](../pi5-extensive-20261024/README.md) reports:
+
+- With a temporary clear-before-overwrite candidate and the mirror disabled,
+  1080p120 sustained **120 successful Camera2 results/s** for a 60-second window.
+- The corresponding full split workload delivered about **12.9 results/s**;
+  full 1080p60 delivered 60/s in its measured window.
+- An independent non-displaying pixel-decoding workload remained near **60
+  distinct frames/s** even when 120 was requested. It did not qualify 120-fps
+  fresh-pixel delivery; physical/optical latency was not measured.
+- The clear optimization is diagnostic/default-off, not a promoted default.
+  The device was restored after testing. Clock-glyph artifacts remain recorded
+  as an unresolved producer/demo issue.
+
+These are specific workloads and receipts, not universal Pi limits. Buffer
+layout, duplicated rendering, SurfaceView versus TextureView, recording load
+and presentation all matter. “No RGBA→YUV conversion” does not mean no bottleneck.
 
 ## What broke for real
 
-* **`FBO incomplete`.** The first version attached the destination EGLImage as a
-  *texture* — `glCheckFramebufferStatus` returned not-complete. Imported gralloc
-  buffers are only renderable via a **renderbuffer**. (Step 2's trap, learned the
-  hard way.)
-* **`status = 0x0`, every GL call a silent no-op.** `glCheckFramebufferStatus`
-  returned literally `0` — not a valid enum, meaning **no GL context was
-  current.** The HAL processes capture requests on the **binder thread pool**, so
-  the thread that *initialized* the context wasn't the one *using* it, and an EGL
-  context is current on one thread at a time. Fix: `eglMakeCurrent` to acquire at
-  the top of each composite and release at the end, serialized by a mutex.
-* **Missing ext headers.** `EGLImageKHR` and the `…KHR`/`…OES` entrypoints live in
-  `<EGL/eglext.h>` / `<GLES2/gl2ext.h>` and are loaded via `eglGetProcAddress`,
-  not linked directly.
+- Incomplete FBOs required an appropriate renderbuffer import path on the tested
+  driver; inspect capabilities instead of generalizing to every GPU.
+- GL calls on a thread without the current context did not perform the intended
+  operation; make-current/serialization and error checks are necessary.
+- Dropping a fence, recycling a held source too early, or accepting an old
+  configuration can corrupt frames despite otherwise valid rendering code.
 
-## The whole arc, closed
+## The whole arc
 
-Trace one frame through everything you've learned:
+Producer registration publishes capabilities → Camera2 negotiates output → the
+HAL requests a token-bound source configuration → the producer acknowledges and
+draws into its Surface → JNI forwards handles/fences → the HAL admits a fresh,
+ready source and fills Camera2 buffers → the consumer receives buffers/results.
 
-1. The producer draws it with **OpenGL ES** into a Surface (L1 camera exists, L9
-   GPU) — the Surface being the producer end of a **BufferQueue** (L3) it got by
-   **registering with a Binder service** (L4).
-2. The platform side **consumes** the frame by handle and pushes that handle
-   **across the Treble wall** (L5) over a **frozen AIDL** interface (L7) —
-   `queueFrame(NativeHandle …)`, no pixels through IPC.
-3. The **vendor HAL**, shipped as an updatable **APEX** (L8), imports the handle
-   and — because a producer is registered, so the camera **exists** (L6) —
-   composites it on the **GPU with zero conversion** (L9) into the camera output
-   buffer, which is a **gralloc buffer** the framework owns (L2).
-4. **cameraserver** hands that buffer to the app's preview (L1). Pixels drawn by
-   one app appear in another, across the security boundary, out of a
-   hot-swappable component, without ever touching the CPU.
-
-That's the whole system — and now every piece of it should read like something
-you understand rather than magic.
+The APEX packages the vendor half; the integrated platform owns the broker and
+queue. Zero-copy **transport**, GPU **fill**, successful **capture**, distinct
+**pixel delivery**, and physical **presentation** are different claims.
 
 [← Lesson 8](08-vendor-apex.md) · [Back to the index](00-index.md) · [Top-level README](../../README.md)
