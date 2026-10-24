@@ -23,6 +23,7 @@
 #include <android/sync.h>
 #include <android-base/properties.h>
 #include <hardware/gralloc.h>
+#include <ui/GraphicBufferMapper.h>
 #include <unistd.h>
 #include <algorithm>
 #include <chrono>
@@ -374,6 +375,25 @@ buffer_handle_t VirtualCameraSession::importBuffer(const StreamBuffer& buffer) {
     // handle. Delete our temporary wrapper, but NEVER close borrowed fds.
     const int inputFdCount = nativeHandle->numFds;
     native_handle_delete(nativeHandle);
+
+    // Profile-only: inspect actual imported allocations, not inferred Surface usage.
+    // Bound logging to the initial pool; preserve getter errors rather than treating
+    // unavailable metadata as a valid zero/linear modifier.
+    if (mProfile.enabled() && mBufferCache.size() < 8 &&
+            ::android::base::GetBoolProperty("ro.debuggable", false)) {
+        auto& mapper = ::android::GraphicBufferMapper::get();
+        uint64_t usage = 0, modifier = 0, bytes = 0;
+        uint32_t fourcc = 0;
+        int usageStatus = mapper.getUsage(bufHandle, &usage);
+        int modifierStatus = mapper.getPixelFormatModifier(bufHandle, &modifier);
+        int sizeStatus = mapper.getAllocationSize(bufHandle, &bytes);
+        int formatStatus = mapper.getPixelFormatFourCC(bufHandle, &fourcc);
+        ALOGI("PROFILE_ALLOCATION stream=%d buffer=%lu usage=0x%lx modifier=0x%lx "
+              "fourcc=0x%x bytes=%lu status=%d,%d,%d,%d",
+              buffer.streamId, (unsigned long)buffer.bufferId,
+              (unsigned long)usage, (unsigned long)modifier, fourcc,
+              (unsigned long)bytes, usageStatus, modifierStatus, formatStatus, sizeStatus);
+    }
 
     // Cache it
     mBufferCache[key] = bufHandle;

@@ -1,0 +1,318 @@
+{
+  "601": {
+    "camera_combined_usage": [
+      "0x300"
+    ],
+    "allocations": [
+      {
+        "buffer": 1,
+        "usage": "0x300",
+        "modifier": "0x700000000000006",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      },
+      {
+        "buffer": 2,
+        "usage": "0x300",
+        "modifier": "0x700000000000006",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      },
+      {
+        "buffer": 3,
+        "usage": "0x300",
+        "modifier": "0x700000000000006",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      },
+      {
+        "buffer": 4,
+        "usage": "0x300",
+        "modifier": "0x700000000000006",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      }
+    ],
+    "gpu_clock_mhz_before_after": [
+      981.0,
+      984.2
+    ],
+    "temperature_c": [
+      49.6
+    ]
+  },
+  "602": {
+    "camera_combined_usage": [
+      "0xb00"
+    ],
+    "allocations": [
+      {
+        "buffer": 1,
+        "usage": "0xb00",
+        "modifier": "0x0",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      },
+      {
+        "buffer": 2,
+        "usage": "0xb00",
+        "modifier": "0x0",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      },
+      {
+        "buffer": 3,
+        "usage": "0xb00",
+        "modifier": "0x0",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      },
+      {
+        "buffer": 4,
+        "usage": "0xb00",
+        "modifier": "0x0",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      },
+      {
+        "buffer": 5,
+        "usage": "0xb00",
+        "modifier": "0x0",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      },
+      {
+        "buffer": 6,
+        "usage": "0xb00",
+        "modifier": "0x0",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      }
+    ],
+    "gpu_clock_mhz_before_after": [
+      981.1,
+      970.6
+    ],
+    "temperature_c": [
+      50.7
+    ]
+  },
+  "603": {
+    "camera_combined_usage": [
+      "0xb00"
+    ],
+    "allocations": [
+      {
+        "buffer": 1,
+        "usage": "0xb00",
+        "modifier": "0x0",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      },
+      {
+        "buffer": 2,
+        "usage": "0xb00",
+        "modifier": "0x0",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      },
+      {
+        "buffer": 3,
+        "usage": "0xb00",
+        "modifier": "0x0",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      },
+      {
+        "buffer": 4,
+        "usage": "0xb00",
+        "modifier": "0x0",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      },
+      {
+        "buffer": 5,
+        "usage": "0xb00",
+        "modifier": "0x0",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      },
+      {
+        "buffer": 6,
+        "usage": "0xb00",
+        "modifier": "0x0",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      }
+    ],
+    "gpu_clock_mhz_before_after": [
+      960.2,
+      977.9
+    ],
+    "temperature_c": [
+      49.05
+    ]
+  },
+  "604": {
+    "camera_combined_usage": [
+      "0x300"
+    ],
+    "allocations": [
+      {
+        "buffer": 1,
+        "usage": "0x300",
+        "modifier": "0x700000000000006",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      },
+      {
+        "buffer": 2,
+        "usage": "0x300",
+        "modifier": "0x700000000000006",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      },
+      {
+        "buffer": 3,
+        "usage": "0x300",
+        "modifier": "0x700000000000006",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      },
+      {
+        "buffer": 4,
+        "usage": "0x300",
+        "modifier": "0x700000000000006",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      }
+    ],
+    "gpu_clock_mhz_before_after": [
+      974.8,
+      967.7
+    ],
+    "temperature_c": [
+      49.05
+    ]
+  },
+  "605": {
+    "camera_combined_usage": [
+      "0x300"
+    ],
+    "allocations": [
+      {
+        "buffer": 1,
+        "usage": "0x300",
+        "modifier": "0x700000000000006",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      },
+      {
+        "buffer": 2,
+        "usage": "0x300",
+        "modifier": "0x700000000000006",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      },
+      {
+        "buffer": 3,
+        "usage": "0x300",
+        "modifier": "0x700000000000006",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      },
+      {
+        "buffer": 4,
+        "usage": "0x300",
+        "modifier": "0x700000000000006",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      }
+    ],
+    "gpu_clock_mhz_before_after": [
+      989.5,
+      977.4
+    ],
+    "temperature_c": [
+      48.5
+    ]
+  },
+  "606": {
+    "camera_combined_usage": [
+      "0xb00"
+    ],
+    "allocations": [
+      {
+        "buffer": 1,
+        "usage": "0xb00",
+        "modifier": "0x0",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      },
+      {
+        "buffer": 2,
+        "usage": "0xb00",
+        "modifier": "0x0",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      },
+      {
+        "buffer": 3,
+        "usage": "0xb00",
+        "modifier": "0x0",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      },
+      {
+        "buffer": 4,
+        "usage": "0xb00",
+        "modifier": "0x0",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      },
+      {
+        "buffer": 5,
+        "usage": "0xb00",
+        "modifier": "0x0",
+        "fourcc": "0x34324241",
+        "bytes": 8305772,
+        "status": "0,0,0,0"
+      }
+    ],
+    "gpu_clock_mhz_before_after": [
+      970.9,
+      981.3
+    ],
+    "temperature_c": [
+      47.95
+    ]
+  }
+}
