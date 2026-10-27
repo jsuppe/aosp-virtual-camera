@@ -38,6 +38,8 @@ public final class SplitDemoActivity extends Activity {
     private final int[] mTextureUpdates = new int[2];
     private String mCameraId;
     private int mTargetFps;
+    private SurfaceView mDirectView;
+    private boolean mLeftSurface, mPreviewSized;
     private int mStreamWidth, mStreamHeight;
     private FrameTrace mCaptureTrace;
     private boolean mProfiling;
@@ -57,12 +59,20 @@ public final class SplitDemoActivity extends Activity {
         int requestedFps = state == null ? getIntent().getIntExtra("fps", 60)
                 : state.getInt("selected_fps", 60);
         mTargetFps = requestedFps == 30 || requestedFps == 120 ? requestedFps : 60;
+        if(getIntent().getIntExtra("profile_run",0)>0 &&
+                (requestedFps==40 || requestedFps==45 || requestedFps==50)) mTargetFps=requestedFps;
         int requestedWidth = state == null ? getIntent().getIntExtra("width", 640)
                 : state.getInt("selected_width", 640);
         mStreamWidth = requestedWidth == 3840 ? 3840 : requestedWidth == 1920 ? 1920 : 640;
         mStreamHeight = mStreamWidth == 3840 ? 2160 : mStreamWidth == 1920 ? 1080 : 480;
         // The default producer advertises UHD at up to 30 fps only.
-        if (mStreamWidth == 3840) mTargetFps = 30;
+        if (mStreamWidth == 3840 && getIntent().getIntExtra("profile_run",0) <= 0) mTargetFps = 30;
+        // Measured app-only winner for UHD; diagnostic runs keep explicit defaults.
+        boolean optimizedDefault = mStreamWidth==3840 && getIntent().getIntExtra("profile_run",0)<=0;
+        mLeftSurface = (optimizedDefault || getIntent().getIntExtra("profile_run",0)>0)
+                && getIntent().getBooleanExtra("left_surface",optimizedDefault);
+        mPreviewSized = (optimizedDefault || getIntent().getIntExtra("profile_run",0)>0)
+                && getIntent().getBooleanExtra("preview_sized",optimizedDefault);
         getIntent().putExtra("width", mStreamWidth).putExtra("fps", mTargetFps);
         mUseSurfaceView=state==null ? getIntent().getBooleanExtra("surface_preview",true)
                 : state.getBoolean("selected_surface_preview",true);
@@ -135,12 +145,15 @@ public final class SplitDemoActivity extends Activity {
         root.addView(toolbar);
         mComparison = new FrameLayout(this);
         LinearLayout row = new LinearLayout(this);
+        if (mLeftSurface) createDirectSurfacePane(row);
+        else {
         mDirect = pane(row, "LEFT • PRODUCER DIRECT\nSame generated frame, no camera path");
         mDirect.setContentDescription("Tap to change the producer background color");
         mDirect.setOnClickListener(v -> {
             if (!mActive || mCopyPending || mFrozen.getVisibility() == View.VISIBLE) return;
             VCamProducerService.changeBackground();
         });
+        }
         String cameraHeading="RIGHT • VIRTUAL CAMERA " + mCameraId + "\nProducer → HAL → Camera2";
         if(mUseSurfaceView) createSurfacePane(row,cameraHeading);
         else mPreview = pane(row,cameraHeading);
@@ -156,7 +169,7 @@ public final class SplitDemoActivity extends Activity {
                 + String.format(java.util.Locale.ROOT, "%.2f", 1000.0 / mTargetFps)
                 + "ms per step at target rate; not a precision latency meter.", 15));
         setContentView(root);
-        mDirect.setSurfaceTextureListener(listener(true));
+        if(mDirect!=null) mDirect.setSurfaceTextureListener(listener(true));
         if(mPreview!=null) mPreview.setSurfaceTextureListener(listener(false));
     }
 
@@ -243,6 +256,41 @@ public final class SplitDemoActivity extends Activity {
         });
     }
 
+    private void createDirectSurfacePane(LinearLayout row) {
+        LinearLayout column=new LinearLayout(this); column.setOrientation(LinearLayout.VERTICAL);
+        column.addView(label("LEFT • PRODUCER DIRECT\n" + (mProfiling ? "Surface reference (experimental)" : "Preview-sized reference • camera remains 4K"),18));
+        FrameLayout holder=new FrameLayout(this);
+        mDirectView=new SurfaceView(this) {
+            @Override protected void onMeasure(int w,int h) {
+                int width=MeasureSpec.getSize(w),height=MeasureSpec.getSize(h);
+                if((long)width*mStreamHeight>(long)height*mStreamWidth) width=height*mStreamWidth/mStreamHeight;
+                else height=width*mStreamHeight/mStreamWidth;
+                setMeasuredDimension(width,height);
+            }
+        };
+        holder.addView(mDirectView,new FrameLayout.LayoutParams(-1,-1,Gravity.CENTER));
+        column.addView(holder,new LinearLayout.LayoutParams(-1,0,1));
+        row.addView(column,new LinearLayout.LayoutParams(0,-1,1));
+        mDirectView.setOnClickListener(v->{if(mActive && !mCopyPending && mFrozen.getVisibility()!=View.VISIBLE)VCamProducerService.changeBackground();});
+        SurfaceHolder h=mDirectView.getHolder();
+        h.setFormat(android.graphics.PixelFormat.RGBA_8888);
+        if(!mPreviewSized)h.setFixedSize(mStreamWidth,mStreamHeight);
+        h.addCallback(new SurfaceHolder.Callback(){
+            public void surfaceCreated(SurfaceHolder h){}
+            public void surfaceChanged(SurfaceHolder h,int format,int w,int height){
+                mDirectSurface=h.getSurface(); // borrowed; SurfaceHolder owns it
+                mDirectSurface.setFrameRate(mTargetFps,Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE);
+                if(mActive)VCamProducerService.sReferenceSurface=mDirectSurface;
+                maybeOpen();
+            }
+            public void surfaceDestroyed(SurfaceHolder h){
+                closeCamera();
+                if(VCamProducerService.sReferenceSurface==mDirectSurface)VCamProducerService.sReferenceSurface=null;
+                mDirectSurface=null;
+            }
+        });
+    }
+
     private boolean cameraPreviewReady() {
         return mUseSurfaceView ? mSurfaceReady : mPreview!=null && mPreview.isAvailable();
     }
@@ -251,7 +299,7 @@ public final class SplitDemoActivity extends Activity {
         return new TextureView.SurfaceTextureListener() {
             @Override public void onSurfaceTextureAvailable(SurfaceTexture st, int w, int h) {
                 mTextureTimestamps[direct ? 0 : 1] = 0;
-                st.setDefaultBufferSize(mStreamWidth, mStreamHeight);
+                st.setDefaultBufferSize(direct && mPreviewSized ? w : mStreamWidth, direct && mPreviewSized ? h : mStreamHeight);
                 if (direct) {
                     mDirectSurface = new Surface(st);
                     mDirectSurface.setFrameRate(mTargetFps, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE);
@@ -290,6 +338,9 @@ public final class SplitDemoActivity extends Activity {
         VCamProducerService.sReferenceSurface = mDirectSurface;
         startForegroundService(new Intent(this, VCamProducerService.class)
                 .putExtra("profile_run",getIntent().getIntExtra("profile_run",0))
+                .putExtra("profile",getIntent().getIntExtra("profile_run",0)>0 ? "4k-perf" : "default")
+                .putExtra("cached_clock",getIntent().getBooleanExtra("cached_clock",false))
+                .putExtra("render_once",getIntent().getBooleanExtra("render_once",false))
                 .putExtra("minimal_scene",getIntent().getBooleanExtra("minimal_scene",false))
                 .putExtra("mirror",getIntent().getBooleanExtra("mirror",true))
                 .putExtra("clock",getIntent().getBooleanExtra("clock",true)));
@@ -438,8 +489,8 @@ public final class SplitDemoActivity extends Activity {
             mFreeze.setText("Freeze comparison");
             return;
         }
-        if (mCopyPending || !mDirect.isAvailable() || !cameraPreviewReady()) return;
-        if(mUseSurfaceView) { freezeCompositedDisplay(); return; }
+        if (mCopyPending || (mDirectSurface==null || !mDirectSurface.isValid()) || !cameraPreviewReady()) return;
+        if(mUseSurfaceView || mLeftSurface) { freezeCompositedDisplay(); return; }
         int[] pos = new int[2];
         mComparison.getLocationInWindow(pos);
         Rect area = new Rect(pos[0], pos[1], pos[0] + mComparison.getWidth(), pos[1] + mComparison.getHeight());

@@ -1,0 +1,20 @@
+{
+  "1001": "Baseline",
+  "1002": "HAL clear only",
+  "1003": "Left SurfaceView only",
+  "1004": "Preview-sized reference only",
+  "1005": "Cached clock only",
+  "1006": "Render-once only",
+  "1007": "Baseline repeat",
+  "1010": "Clear + left SurfaceView",
+  "1011": "Clear + preview-sized reference",
+  "1012": "Clear + SurfaceView + preview-sized @30",
+  "1013": "Same three @60",
+  "1014": "Same three @40",
+  "1015": "Same three @45",
+  "1016": "Same three @50",
+  "1017": "Same three @30 repeat",
+  "1018": "SurfaceView + preview-sized, no clear",
+  "1019": "SurfaceView + preview-sized + cached clock @30, no clear",
+  "1020": "Clear + SurfaceView + preview-sized + cached clock @60"
+}

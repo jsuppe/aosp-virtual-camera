@@ -1,0 +1,3173 @@
+{
+  "1001": {
+    "window_seconds": 60,
+    "window_start_ns": 296585883932489,
+    "producer_submissions_per_second": 21.5,
+    "camera2_success_results_per_second": 4.583333333333333,
+    "camera2_failed_results_per_second": 24.75,
+    "result_interval": {
+      "n": 274,
+      "median_ms": 267.9582405,
+      "p95_ms": 277.261148,
+      "p99_ms": 278.398167,
+      "max_ms": 377.771814
+    },
+    "producer_timestamp_to_result_callback": {
+      "n": 275,
+      "median_ms": 28.010278,
+      "p95_ms": 32.936445,
+      "p99_ms": 35.095797,
+      "max_ms": 35.380259
+    },
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 1290,
+        "median_ms": 40.7121015,
+        "p95_ms": 62.453315,
+        "p99_ms": 62.866093,
+        "max_ms": 67.93676
+      },
+      "draw": {
+        "n": 1290,
+        "median_ms": 0.208648,
+        "p95_ms": 0.449296,
+        "p99_ms": 0.540241,
+        "max_ms": 1.960408
+      },
+      "swap": {
+        "n": 1290,
+        "median_ms": 0.8654165,
+        "p95_ms": 1.849,
+        "p99_ms": 2.581,
+        "max_ms": 4.433463
+      },
+      "mirror": {
+        "n": 1290,
+        "median_ms": 0.6359355,
+        "p95_ms": 1.312833,
+        "p99_ms": 1.625445,
+        "max_ms": 3.155056
+      }
+    },
+    "hal_failures": {
+      "6": 1015,
+      "5": 470,
+      "0": 275
+    },
+    "hal_success_cpu_phases": {
+      "import_ns": {
+        "n": 275,
+        "median_ms": 0.001593,
+        "p95_ms": 0.004278,
+        "p99_ms": 0.005871,
+        "max_ms": 0.007741
+      },
+      "destination_wait_ns": {
+        "n": 275,
+        "median_ms": 0.00026,
+        "p95_ms": 0.001093,
+        "p99_ms": 0.001537,
+        "max_ms": 0.003426
+      },
+      "pace_ns": {
+        "n": 275,
+        "median_ms": 0.000333,
+        "p95_ms": 0.001352,
+        "p99_ms": 0.001685,
+        "max_ms": 0.002741
+      },
+      "source_wait_ns": {
+        "n": 275,
+        "median_ms": 6.2165,
+        "p95_ms": 10.32974,
+        "p99_ms": 10.364629,
+        "max_ms": 11.584407
+      },
+      "source_fence_wait_ns": {
+        "n": 275,
+        "median_ms": 24.722796,
+        "p95_ms": 26.866463,
+        "p99_ms": 26.989796,
+        "max_ms": 27.163186
+      },
+      "output_ns": {
+        "n": 275,
+        "median_ms": 0.680333,
+        "p95_ms": 1.050426,
+        "p99_ms": 1.145871,
+        "max_ms": 1.859055
+      },
+      "callback_ns": {
+        "n": 275,
+        "median_ms": 1.209241,
+        "p95_ms": 1.972537,
+        "p99_ms": 3.106204,
+        "max_ms": 3.31713
+      },
+      "cleanup_ns": {
+        "n": 275,
+        "median_ms": 0.013167,
+        "p95_ms": 0.024481,
+        "p99_ms": 0.037352,
+        "max_ms": 0.059444
+      },
+      "total_ns": {
+        "n": 275,
+        "median_ms": 32.903463,
+        "p95_ms": 35.940166,
+        "p99_ms": 36.398777,
+        "max_ms": 37.142129
+      },
+      "gpu_context_ns": {
+        "n": 275,
+        "median_ms": 0.032926,
+        "p95_ms": 0.062186,
+        "p99_ms": 0.064092,
+        "max_ms": 0.067481
+      },
+      "gpu_source_import_ns": {
+        "n": 275,
+        "median_ms": 0.111,
+        "p95_ms": 0.192741,
+        "p99_ms": 0.211518,
+        "max_ms": 1.044037
+      },
+      "gpu_destination_import_ns": {
+        "n": 275,
+        "median_ms": 0.164204,
+        "p95_ms": 0.233907,
+        "p99_ms": 0.268926,
+        "max_ms": 0.423037
+      },
+      "gpu_draw_submit_ns": {
+        "n": 275,
+        "median_ms": 0.212759,
+        "p95_ms": 0.339203,
+        "p99_ms": 0.366371,
+        "max_ms": 0.610778
+      },
+      "gpu_fence_submit_ns": {
+        "n": 275,
+        "median_ms": 0.083315,
+        "p95_ms": 0.12937,
+        "p99_ms": 0.155815,
+        "max_ms": 0.224018
+      },
+      "gpu_cleanup_ns": {
+        "n": 275,
+        "median_ms": 0.046537,
+        "p95_ms": 0.070889,
+        "p99_ms": 0.085389,
+        "max_ms": 0.263056
+      }
+    },
+    "source_fence_signal_to_observed": {
+      "n": 276,
+      "median_ms": 0.8293705,
+      "p95_ms": 1.975037,
+      "p99_ms": 2.03113,
+      "max_ms": 2.053611
+    },
+    "hal_success_unique_source_sequences": 275,
+    "hal_success_rows": 275,
+    "source_acquisition_age": {
+      "n": 275,
+      "median_ms": 1.347148,
+      "p95_ms": 2.410092,
+      "p99_ms": 2.614963,
+      "max_ms": 3.917037
+    },
+    "per_10s_success_rates": [
+      4.7,
+      4.5,
+      4.3,
+      4.6,
+      4.6,
+      4.8
+    ]
+  },
+  "1002": {
+    "window_seconds": 60,
+    "window_start_ns": 296709851082193,
+    "producer_submissions_per_second": 21.266666666666666,
+    "camera2_success_results_per_second": 8.666666666666666,
+    "camera2_failed_results_per_second": 21.316666666666666,
+    "result_interval": {
+      "n": 519,
+      "median_ms": 98.888704,
+      "p95_ms": 138.375129,
+      "p99_ms": 138.936815,
+      "max_ms": 239.232592
+    },
+    "producer_timestamp_to_result_callback": {
+      "n": 520,
+      "median_ms": 27.7860095,
+      "p95_ms": 30.774445,
+      "p99_ms": 31.997686,
+      "max_ms": 35.332574
+    },
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 1276,
+        "median_ms": 41.250389,
+        "p95_ms": 53.311204,
+        "p99_ms": 53.935555,
+        "max_ms": 60.635148
+      },
+      "draw": {
+        "n": 1276,
+        "median_ms": 0.222204,
+        "p95_ms": 0.521444,
+        "p99_ms": 0.608796,
+        "max_ms": 2.935852
+      },
+      "swap": {
+        "n": 1276,
+        "median_ms": 0.8930555,
+        "p95_ms": 1.852037,
+        "p99_ms": 3.213444,
+        "max_ms": 4.196926
+      },
+      "mirror": {
+        "n": 1276,
+        "median_ms": 0.67538,
+        "p95_ms": 1.344166,
+        "p99_ms": 1.545426,
+        "max_ms": 3.868648
+      }
+    },
+    "hal_failures": {
+      "5": 523,
+      "0": 520,
+      "6": 756
+    },
+    "hal_success_cpu_phases": {
+      "import_ns": {
+        "n": 520,
+        "median_ms": 0.003093,
+        "p95_ms": 0.006852,
+        "p99_ms": 0.009277,
+        "max_ms": 0.032074
+      },
+      "destination_wait_ns": {
+        "n": 520,
+        "median_ms": 0.001111,
+        "p95_ms": 0.007889,
+        "p99_ms": 0.008796,
+        "max_ms": 0.016555
+      },
+      "pace_ns": {
+        "n": 520,
+        "median_ms": 0.000463,
+        "p95_ms": 0.001889,
+        "p99_ms": 0.002519,
+        "max_ms": 0.004833
+      },
+      "source_wait_ns": {
+        "n": 520,
+        "median_ms": 2.07975,
+        "p95_ms": 8.239333,
+        "p99_ms": 8.274315,
+        "max_ms": 8.315685
+      },
+      "source_fence_wait_ns": {
+        "n": 520,
+        "median_ms": 24.707898,
+        "p95_ms": 26.833278,
+        "p99_ms": 26.901167,
+        "max_ms": 26.983778
+      },
+      "output_ns": {
+        "n": 520,
+        "median_ms": 0.7916485,
+        "p95_ms": 1.105277,
+        "p99_ms": 1.253667,
+        "max_ms": 2.722945
+      },
+      "callback_ns": {
+        "n": 520,
+        "median_ms": 1.431083,
+        "p95_ms": 2.182574,
+        "p99_ms": 2.846259,
+        "max_ms": 3.204944
+      },
+      "cleanup_ns": {
+        "n": 520,
+        "median_ms": 0.015463,
+        "p95_ms": 0.024592,
+        "p99_ms": 0.030945,
+        "max_ms": 0.039444
+      },
+      "total_ns": {
+        "n": 520,
+        "median_ms": 28.2945925,
+        "p95_ms": 33.943185,
+        "p99_ms": 34.862944,
+        "max_ms": 36.301056
+      },
+      "gpu_context_ns": {
+        "n": 520,
+        "median_ms": 0.0373055,
+        "p95_ms": 0.062074,
+        "p99_ms": 0.067426,
+        "max_ms": 0.600389
+      },
+      "gpu_source_import_ns": {
+        "n": 520,
+        "median_ms": 0.1262315,
+        "p95_ms": 0.206481,
+        "p99_ms": 0.247074,
+        "max_ms": 1.199981
+      },
+      "gpu_destination_import_ns": {
+        "n": 520,
+        "median_ms": 0.177009,
+        "p95_ms": 0.261649,
+        "p99_ms": 0.302,
+        "max_ms": 0.386185
+      },
+      "gpu_draw_submit_ns": {
+        "n": 520,
+        "median_ms": 0.248565,
+        "p95_ms": 0.37274,
+        "p99_ms": 0.466407,
+        "max_ms": 2.022111
+      },
+      "gpu_fence_submit_ns": {
+        "n": 520,
+        "median_ms": 0.095352,
+        "p95_ms": 0.13513,
+        "p99_ms": 0.223519,
+        "max_ms": 1.458482
+      },
+      "gpu_cleanup_ns": {
+        "n": 520,
+        "median_ms": 0.0553795,
+        "p95_ms": 0.082537,
+        "p99_ms": 0.123759,
+        "max_ms": 0.335204
+      }
+    },
+    "source_fence_signal_to_observed": {
+      "n": 520,
+      "median_ms": 1.2008335,
+      "p95_ms": 1.986445,
+      "p99_ms": 2.077111,
+      "max_ms": 2.88013
+    },
+    "hal_success_unique_source_sequences": 520,
+    "hal_success_rows": 520,
+    "source_acquisition_age": {
+      "n": 520,
+      "median_ms": 1.570907,
+      "p95_ms": 2.732259,
+      "p99_ms": 2.94937,
+      "max_ms": 3.629889
+    },
+    "per_10s_success_rates": [
+      8.5,
+      8.7,
+      8.7,
+      8.7,
+      8.9,
+      8.5
+    ]
+  },
+  "1003": {
+    "window_seconds": 60,
+    "window_start_ns": 296805802421228,
+    "producer_submissions_per_second": 20.0,
+    "camera2_success_results_per_second": 10.0,
+    "camera2_failed_results_per_second": 20.0,
+    "result_interval": {
+      "n": 599,
+      "median_ms": 100.403148,
+      "p95_ms": 100.713463,
+      "p99_ms": 100.897056,
+      "max_ms": 102.377389
+    },
+    "producer_timestamp_to_result_callback": {
+      "n": 600,
+      "median_ms": 16.9014255,
+      "p95_ms": 17.969556,
+      "p99_ms": 18.087963,
+      "max_ms": 19.114592
+    },
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 1200,
+        "median_ms": 3.310176,
+        "p95_ms": 6.130019,
+        "p99_ms": 6.360111,
+        "max_ms": 6.70513
+      },
+      "draw": {
+        "n": 1200,
+        "median_ms": 0.1453055,
+        "p95_ms": 0.176055,
+        "p99_ms": 0.190871,
+        "max_ms": 0.26413
+      },
+      "swap": {
+        "n": 1200,
+        "median_ms": 0.795296,
+        "p95_ms": 1.540852,
+        "p99_ms": 1.839963,
+        "max_ms": 1.981111
+      },
+      "mirror": {
+        "n": 1200,
+        "median_ms": 45.9345925,
+        "p95_ms": 59.645166,
+        "p99_ms": 59.722148,
+        "max_ms": 60.723037
+      }
+    },
+    "hal_failures": {
+      "6": 600,
+      "5": 600,
+      "0": 600
+    },
+    "hal_success_cpu_phases": {
+      "import_ns": {
+        "n": 600,
+        "median_ms": 0.001186,
+        "p95_ms": 0.001704,
+        "p99_ms": 0.001963,
+        "max_ms": 0.002204
+      },
+      "destination_wait_ns": {
+        "n": 600,
+        "median_ms": 0.00024,
+        "p95_ms": 0.0005,
+        "p99_ms": 0.000593,
+        "max_ms": 0.000722
+      },
+      "pace_ns": {
+        "n": 600,
+        "median_ms": 0.000333,
+        "p95_ms": 0.000593,
+        "p99_ms": 0.000704,
+        "max_ms": 0.001
+      },
+      "source_wait_ns": {
+        "n": 600,
+        "median_ms": 16.5229075,
+        "p95_ms": 16.914111,
+        "p99_ms": 18.617056,
+        "max_ms": 18.757704
+      },
+      "source_fence_wait_ns": {
+        "n": 600,
+        "median_ms": 14.4118325,
+        "p95_ms": 14.455574,
+        "p99_ms": 14.466037,
+        "max_ms": 14.476092
+      },
+      "output_ns": {
+        "n": 600,
+        "median_ms": 0.536778,
+        "p95_ms": 0.586519,
+        "p99_ms": 0.64087,
+        "max_ms": 0.694722
+      },
+      "callback_ns": {
+        "n": 600,
+        "median_ms": 0.812954,
+        "p95_ms": 0.931852,
+        "p99_ms": 1.030278,
+        "max_ms": 1.808685
+      },
+      "cleanup_ns": {
+        "n": 600,
+        "median_ms": 0.009741,
+        "p95_ms": 0.012018,
+        "p99_ms": 0.01724,
+        "max_ms": 0.979444
+      },
+      "total_ns": {
+        "n": 600,
+        "median_ms": 32.286287,
+        "p95_ms": 32.498186,
+        "p99_ms": 33.099778,
+        "max_ms": 35.307408
+      },
+      "gpu_context_ns": {
+        "n": 600,
+        "median_ms": 0.024194,
+        "p95_ms": 0.027963,
+        "p99_ms": 0.028852,
+        "max_ms": 0.032148
+      },
+      "gpu_source_import_ns": {
+        "n": 600,
+        "median_ms": 0.0828425,
+        "p95_ms": 0.091018,
+        "p99_ms": 0.100019,
+        "max_ms": 0.113612
+      },
+      "gpu_destination_import_ns": {
+        "n": 600,
+        "median_ms": 0.141824,
+        "p95_ms": 0.154296,
+        "p99_ms": 0.160574,
+        "max_ms": 0.181482
+      },
+      "gpu_draw_submit_ns": {
+        "n": 600,
+        "median_ms": 0.1738885,
+        "p95_ms": 0.190241,
+        "p99_ms": 0.201741,
+        "max_ms": 0.304704
+      },
+      "gpu_fence_submit_ns": {
+        "n": 600,
+        "median_ms": 0.061028,
+        "p95_ms": 0.068519,
+        "p99_ms": 0.072037,
+        "max_ms": 0.168129
+      },
+      "gpu_cleanup_ns": {
+        "n": 600,
+        "median_ms": 0.033408,
+        "p95_ms": 0.038907,
+        "p99_ms": 0.042482,
+        "max_ms": 0.049555
+      }
+    },
+    "source_fence_signal_to_observed": {
+      "n": 600,
+      "median_ms": 0.923287,
+      "p95_ms": 1.959352,
+      "p99_ms": 2.046889,
+      "max_ms": 2.079
+    },
+    "hal_success_unique_source_sequences": 600,
+    "hal_success_rows": 600,
+    "source_acquisition_age": {
+      "n": 600,
+      "median_ms": 1.7203245,
+      "p95_ms": 2.76137,
+      "p99_ms": 2.872648,
+      "max_ms": 3.231445
+    },
+    "per_10s_success_rates": [
+      10.0,
+      10.0,
+      10.0,
+      10.0,
+      10.0,
+      10.0
+    ]
+  },
+  "1004": {
+    "window_seconds": 60,
+    "window_start_ns": 296901783214541,
+    "producer_submissions_per_second": 29.95,
+    "camera2_success_results_per_second": 11.2,
+    "camera2_failed_results_per_second": 18.783333333333335,
+    "result_interval": {
+      "n": 671,
+      "median_ms": 99.298686,
+      "p95_ms": 133.308259,
+      "p99_ms": 166.668592,
+      "max_ms": 701.724111
+    },
+    "producer_timestamp_to_result_callback": {
+      "n": 672,
+      "median_ms": 33.361195,
+      "p95_ms": 43.80013,
+      "p99_ms": 50.400333,
+      "max_ms": 64.704185
+    },
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 1797,
+        "median_ms": 1.935703,
+        "p95_ms": 21.068908,
+        "p99_ms": 42.617296,
+        "max_ms": 53.12176
+      },
+      "draw": {
+        "n": 1797,
+        "median_ms": 0.128759,
+        "p95_ms": 0.317426,
+        "p99_ms": 0.517259,
+        "max_ms": 3.271444
+      },
+      "swap": {
+        "n": 1797,
+        "median_ms": 0.992092,
+        "p95_ms": 1.932167,
+        "p99_ms": 2.700056,
+        "max_ms": 4.077722
+      },
+      "mirror": {
+        "n": 1797,
+        "median_ms": 0.547556,
+        "p95_ms": 1.219277,
+        "p99_ms": 1.446741,
+        "max_ms": 2.131482
+      }
+    },
+    "hal_failures": {
+      "6": 1125,
+      "0": 672,
+      "5": 2
+    },
+    "hal_success_cpu_phases": {
+      "import_ns": {
+        "n": 672,
+        "median_ms": 0.0018985,
+        "p95_ms": 0.003889,
+        "p99_ms": 0.004833,
+        "max_ms": 0.032463
+      },
+      "destination_wait_ns": {
+        "n": 672,
+        "median_ms": 0.000963,
+        "p95_ms": 0.006,
+        "p99_ms": 0.006945,
+        "max_ms": 2.838296
+      },
+      "pace_ns": {
+        "n": 672,
+        "median_ms": 0.000389,
+        "p95_ms": 0.001315,
+        "p99_ms": 0.001982,
+        "max_ms": 7.17876
+      },
+      "source_wait_ns": {
+        "n": 672,
+        "median_ms": 12.3769355,
+        "p95_ms": 14.493611,
+        "p99_ms": 16.513334,
+        "max_ms": 18.59713
+      },
+      "source_fence_wait_ns": {
+        "n": 672,
+        "median_ms": 16.466028,
+        "p95_ms": 20.721352,
+        "p99_ms": 22.827537,
+        "max_ms": 30.990148
+      },
+      "output_ns": {
+        "n": 672,
+        "median_ms": 0.847972,
+        "p95_ms": 1.573796,
+        "p99_ms": 3.600592,
+        "max_ms": 23.207426
+      },
+      "callback_ns": {
+        "n": 672,
+        "median_ms": 1.973259,
+        "p95_ms": 4.060148,
+        "p99_ms": 4.513092,
+        "max_ms": 5.05763
+      },
+      "cleanup_ns": {
+        "n": 672,
+        "median_ms": 0.028139,
+        "p95_ms": 0.039704,
+        "p99_ms": 0.053667,
+        "max_ms": 0.091074
+      },
+      "total_ns": {
+        "n": 672,
+        "median_ms": 31.359778,
+        "p95_ms": 35.162963,
+        "p99_ms": 36.270907,
+        "max_ms": 41.60087
+      },
+      "gpu_context_ns": {
+        "n": 672,
+        "median_ms": 0.043194,
+        "p95_ms": 0.068111,
+        "p99_ms": 0.094259,
+        "max_ms": 0.138611
+      },
+      "gpu_source_import_ns": {
+        "n": 672,
+        "median_ms": 0.139389,
+        "p95_ms": 0.257444,
+        "p99_ms": 0.339482,
+        "max_ms": 2.610556
+      },
+      "gpu_destination_import_ns": {
+        "n": 672,
+        "median_ms": 0.1973795,
+        "p95_ms": 0.349852,
+        "p99_ms": 0.408666,
+        "max_ms": 3.10937
+      },
+      "gpu_draw_submit_ns": {
+        "n": 672,
+        "median_ms": 0.2748425,
+        "p95_ms": 0.561629,
+        "p99_ms": 0.628185,
+        "max_ms": 16.42313
+      },
+      "gpu_fence_submit_ns": {
+        "n": 672,
+        "median_ms": 0.088778,
+        "p95_ms": 0.179889,
+        "p99_ms": 0.255148,
+        "max_ms": 16.779537
+      },
+      "gpu_cleanup_ns": {
+        "n": 672,
+        "median_ms": 0.0494445,
+        "p95_ms": 0.095907,
+        "p99_ms": 0.119666,
+        "max_ms": 2.688407
+      }
+    },
+    "source_fence_signal_to_observed": {
+      "n": 673,
+      "median_ms": 0.992778,
+      "p95_ms": 1.952555,
+      "p99_ms": 2.042556,
+      "max_ms": 2.070186
+    },
+    "hal_success_unique_source_sequences": 672,
+    "hal_success_rows": 672,
+    "source_acquisition_age": {
+      "n": 672,
+      "median_ms": 1.5943335,
+      "p95_ms": 2.555038,
+      "p99_ms": 2.939019,
+      "max_ms": 9.116334
+    },
+    "per_10s_success_rates": [
+      11.0,
+      11.0,
+      11.0,
+      10.9,
+      12.5,
+      10.8
+    ]
+  },
+  "1005": {
+    "window_seconds": 60,
+    "window_start_ns": 296997933320780,
+    "producer_submissions_per_second": 25.783333333333335,
+    "camera2_success_results_per_second": 0.0,
+    "camera2_failed_results_per_second": 29.283333333333335,
+    "result_interval": null,
+    "producer_timestamp_to_result_callback": null,
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 1547,
+        "median_ms": 0.073945,
+        "p95_ms": 0.158092,
+        "p99_ms": 0.216185,
+        "max_ms": 1.628277
+      },
+      "draw": {
+        "n": 1547,
+        "median_ms": 0.129703,
+        "p95_ms": 0.281482,
+        "p99_ms": 0.352185,
+        "max_ms": 1.820685
+      },
+      "swap": {
+        "n": 1547,
+        "median_ms": 16.332704,
+        "p95_ms": 27.096444,
+        "p99_ms": 27.624148,
+        "max_ms": 27.961574
+      },
+      "mirror": {
+        "n": 1547,
+        "median_ms": 15.875649,
+        "p95_ms": 26.319371,
+        "p99_ms": 26.813555,
+        "max_ms": 27.329407
+      }
+    },
+    "hal_failures": {
+      "6": 1547,
+      "5": 210
+    },
+    "hal_success_cpu_phases": {
+      "import_ns": null,
+      "destination_wait_ns": null,
+      "pace_ns": null,
+      "source_wait_ns": null,
+      "source_fence_wait_ns": null,
+      "output_ns": null,
+      "callback_ns": null,
+      "cleanup_ns": null,
+      "total_ns": null,
+      "gpu_context_ns": null,
+      "gpu_source_import_ns": null,
+      "gpu_destination_import_ns": null,
+      "gpu_draw_submit_ns": null,
+      "gpu_fence_submit_ns": null,
+      "gpu_cleanup_ns": null
+    },
+    "source_fence_signal_to_observed": null,
+    "hal_success_unique_source_sequences": 0,
+    "hal_success_rows": 0,
+    "source_acquisition_age": null,
+    "per_10s_success_rates": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "1006": {
+    "window_seconds": 60,
+    "window_start_ns": 297094033424964,
+    "producer_submissions_per_second": 24.966666666666665,
+    "camera2_success_results_per_second": 0.0,
+    "camera2_failed_results_per_second": 29.2,
+    "result_interval": null,
+    "producer_timestamp_to_result_callback": null,
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 1498,
+        "median_ms": 18.860676,
+        "p95_ms": 22.992037,
+        "p99_ms": 23.232611,
+        "max_ms": 24.825111
+      },
+      "draw": {
+        "n": 1498,
+        "median_ms": 0.3648515,
+        "p95_ms": 0.575704,
+        "p99_ms": 0.609204,
+        "max_ms": 0.786
+      },
+      "swap": {
+        "n": 1498,
+        "median_ms": 8.0926765,
+        "p95_ms": 10.077129,
+        "p99_ms": 10.300555,
+        "max_ms": 12.600815
+      },
+      "mirror": {
+        "n": 1498,
+        "median_ms": 13.08587,
+        "p95_ms": 22.050703,
+        "p99_ms": 22.701426,
+        "max_ms": 23.685334
+      }
+    },
+    "hal_failures": {
+      "6": 1498,
+      "5": 254
+    },
+    "hal_success_cpu_phases": {
+      "import_ns": null,
+      "destination_wait_ns": null,
+      "pace_ns": null,
+      "source_wait_ns": null,
+      "source_fence_wait_ns": null,
+      "output_ns": null,
+      "callback_ns": null,
+      "cleanup_ns": null,
+      "total_ns": null,
+      "gpu_context_ns": null,
+      "gpu_source_import_ns": null,
+      "gpu_destination_import_ns": null,
+      "gpu_draw_submit_ns": null,
+      "gpu_fence_submit_ns": null,
+      "gpu_cleanup_ns": null
+    },
+    "source_fence_signal_to_observed": null,
+    "hal_success_unique_source_sequences": 0,
+    "hal_success_rows": 0,
+    "source_acquisition_age": null,
+    "per_10s_success_rates": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "1007": {
+    "window_seconds": 60,
+    "window_start_ns": 297190349299703,
+    "producer_submissions_per_second": 21.2,
+    "camera2_success_results_per_second": 5.516666666666667,
+    "camera2_failed_results_per_second": 23.766666666666666,
+    "result_interval": {
+      "n": 330,
+      "median_ms": 107.0556205,
+      "p95_ms": 277.081537,
+      "p99_ms": 306.860481,
+      "max_ms": 379.942555
+    },
+    "producer_timestamp_to_result_callback": {
+      "n": 331,
+      "median_ms": 27.752407,
+      "p95_ms": 33.810722,
+      "p99_ms": 34.3935,
+      "max_ms": 34.778055
+    },
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 1272,
+        "median_ms": 40.4307405,
+        "p95_ms": 62.451463,
+        "p99_ms": 62.74,
+        "max_ms": 67.275222
+      },
+      "draw": {
+        "n": 1272,
+        "median_ms": 0.221305,
+        "p95_ms": 0.519982,
+        "p99_ms": 0.571426,
+        "max_ms": 2.449166
+      },
+      "swap": {
+        "n": 1272,
+        "median_ms": 0.8566385,
+        "p95_ms": 1.613092,
+        "p99_ms": 1.933555,
+        "max_ms": 3.534871
+      },
+      "mirror": {
+        "n": 1272,
+        "median_ms": 0.5677405,
+        "p95_ms": 1.024259,
+        "p99_ms": 1.23576,
+        "max_ms": 3.270907
+      }
+    },
+    "hal_failures": {
+      "6": 940,
+      "5": 486,
+      "0": 331
+    },
+    "hal_success_cpu_phases": {
+      "import_ns": {
+        "n": 331,
+        "median_ms": 0.001592,
+        "p95_ms": 0.003593,
+        "p99_ms": 0.004481,
+        "max_ms": 0.008907
+      },
+      "destination_wait_ns": {
+        "n": 331,
+        "median_ms": 0.000259,
+        "p95_ms": 0.001092,
+        "p99_ms": 10.040963,
+        "max_ms": 11.385963
+      },
+      "pace_ns": {
+        "n": 331,
+        "median_ms": 0.000315,
+        "p95_ms": 0.001111,
+        "p99_ms": 0.001315,
+        "max_ms": 0.004092
+      },
+      "source_wait_ns": {
+        "n": 331,
+        "median_ms": 6.205833,
+        "p95_ms": 10.375759,
+        "p99_ms": 12.393444,
+        "max_ms": 12.431093
+      },
+      "source_fence_wait_ns": {
+        "n": 331,
+        "median_ms": 24.702888,
+        "p95_ms": 26.870556,
+        "p99_ms": 26.952981,
+        "max_ms": 27.149815
+      },
+      "output_ns": {
+        "n": 331,
+        "median_ms": 0.679352,
+        "p95_ms": 1.00913,
+        "p99_ms": 1.089167,
+        "max_ms": 2.704352
+      },
+      "callback_ns": {
+        "n": 331,
+        "median_ms": 1.074611,
+        "p95_ms": 1.812834,
+        "p99_ms": 2.040703,
+        "max_ms": 3.294611
+      },
+      "cleanup_ns": {
+        "n": 331,
+        "median_ms": 0.012074,
+        "p95_ms": 0.019926,
+        "p99_ms": 0.027371,
+        "max_ms": 0.056926
+      },
+      "total_ns": {
+        "n": 331,
+        "median_ms": 32.58626,
+        "p95_ms": 35.973796,
+        "p99_ms": 44.014574,
+        "max_ms": 45.198185
+      },
+      "gpu_context_ns": {
+        "n": 331,
+        "median_ms": 0.034408,
+        "p95_ms": 0.06187,
+        "p99_ms": 0.063407,
+        "max_ms": 0.077166
+      },
+      "gpu_source_import_ns": {
+        "n": 331,
+        "median_ms": 0.116259,
+        "p95_ms": 0.185759,
+        "p99_ms": 0.196297,
+        "max_ms": 0.624093
+      },
+      "gpu_destination_import_ns": {
+        "n": 331,
+        "median_ms": 0.161518,
+        "p95_ms": 0.219315,
+        "p99_ms": 0.247574,
+        "max_ms": 0.290759
+      },
+      "gpu_draw_submit_ns": {
+        "n": 331,
+        "median_ms": 0.212111,
+        "p95_ms": 0.330944,
+        "p99_ms": 0.357575,
+        "max_ms": 2.230241
+      },
+      "gpu_fence_submit_ns": {
+        "n": 331,
+        "median_ms": 0.079574,
+        "p95_ms": 0.117389,
+        "p99_ms": 0.131389,
+        "max_ms": 0.35563
+      },
+      "gpu_cleanup_ns": {
+        "n": 331,
+        "median_ms": 0.040741,
+        "p95_ms": 0.059741,
+        "p99_ms": 0.063852,
+        "max_ms": 0.084519
+      }
+    },
+    "source_fence_signal_to_observed": {
+      "n": 332,
+      "median_ms": 0.6009165,
+      "p95_ms": 1.943574,
+      "p99_ms": 2.024704,
+      "max_ms": 2.066889
+    },
+    "hal_success_unique_source_sequences": 331,
+    "hal_success_rows": 331,
+    "source_acquisition_age": {
+      "n": 331,
+      "median_ms": 1.363722,
+      "p95_ms": 2.581055,
+      "p99_ms": 2.868963,
+      "max_ms": 4.439759
+    },
+    "per_10s_success_rates": [
+      5.3,
+      5.2,
+      5.4,
+      5.7,
+      5.8,
+      5.7
+    ]
+  },
+  "1010": {
+    "window_seconds": 60,
+    "window_start_ns": 297316300778887,
+    "producer_submissions_per_second": 20.0,
+    "camera2_success_results_per_second": 10.0,
+    "camera2_failed_results_per_second": 20.0,
+    "result_interval": {
+      "n": 599,
+      "median_ms": 100.007815,
+      "p95_ms": 100.573296,
+      "p99_ms": 103.105463,
+      "max_ms": 104.724629
+    },
+    "producer_timestamp_to_result_callback": {
+      "n": 600,
+      "median_ms": 15.8995185,
+      "p95_ms": 16.828241,
+      "p99_ms": 19.054777,
+      "max_ms": 20.327833
+    },
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 1200,
+        "median_ms": 1.9872035,
+        "p95_ms": 4.390519,
+        "p99_ms": 4.53926,
+        "max_ms": 6.271444
+      },
+      "draw": {
+        "n": 1200,
+        "median_ms": 0.118,
+        "p95_ms": 0.133593,
+        "p99_ms": 0.137593,
+        "max_ms": 0.183926
+      },
+      "swap": {
+        "n": 1200,
+        "median_ms": 0.60325,
+        "p95_ms": 0.654074,
+        "p99_ms": 0.747277,
+        "max_ms": 0.88424
+      },
+      "mirror": {
+        "n": 1200,
+        "median_ms": 45.926787,
+        "p95_ms": 62.192907,
+        "p99_ms": 62.351574,
+        "max_ms": 62.416722
+      }
+    },
+    "hal_failures": {
+      "5": 600,
+      "0": 600,
+      "6": 600
+    },
+    "hal_success_cpu_phases": {
+      "import_ns": {
+        "n": 600,
+        "median_ms": 0.000963,
+        "p95_ms": 0.00124,
+        "p99_ms": 0.001333,
+        "max_ms": 0.001371
+      },
+      "destination_wait_ns": {
+        "n": 600,
+        "median_ms": 0.000222,
+        "p95_ms": 0.000241,
+        "p99_ms": 0.000444,
+        "max_ms": 0.000556
+      },
+      "pace_ns": {
+        "n": 600,
+        "median_ms": 0.000296,
+        "p95_ms": 0.000352,
+        "p99_ms": 0.000556,
+        "max_ms": 0.00063
+      },
+      "source_wait_ns": {
+        "n": 600,
+        "median_ms": 14.4154165,
+        "p95_ms": 14.469352,
+        "p99_ms": 14.489093,
+        "max_ms": 14.518055
+      },
+      "source_fence_wait_ns": {
+        "n": 600,
+        "median_ms": 12.385435,
+        "p95_ms": 14.453778,
+        "p99_ms": 14.464315,
+        "max_ms": 14.567444
+      },
+      "output_ns": {
+        "n": 600,
+        "median_ms": 0.597491,
+        "p95_ms": 0.631666,
+        "p99_ms": 1.362944,
+        "max_ms": 1.813149
+      },
+      "callback_ns": {
+        "n": 600,
+        "median_ms": 1.459241,
+        "p95_ms": 1.774482,
+        "p99_ms": 2.173407,
+        "max_ms": 2.944334
+      },
+      "cleanup_ns": {
+        "n": 600,
+        "median_ms": 0.024722,
+        "p95_ms": 0.034241,
+        "p99_ms": 0.044815,
+        "max_ms": 0.057556
+      },
+      "total_ns": {
+        "n": 600,
+        "median_ms": 28.8774445,
+        "p95_ms": 29.244352,
+        "p99_ms": 32.222,
+        "max_ms": 33.135889
+      },
+      "gpu_context_ns": {
+        "n": 600,
+        "median_ms": 0.025871,
+        "p95_ms": 0.028241,
+        "p99_ms": 0.075555,
+        "max_ms": 0.109315
+      },
+      "gpu_source_import_ns": {
+        "n": 600,
+        "median_ms": 0.088963,
+        "p95_ms": 0.094222,
+        "p99_ms": 0.250871,
+        "max_ms": 0.330814
+      },
+      "gpu_destination_import_ns": {
+        "n": 600,
+        "median_ms": 0.1490555,
+        "p95_ms": 0.159908,
+        "p99_ms": 0.274852,
+        "max_ms": 0.348037
+      },
+      "gpu_draw_submit_ns": {
+        "n": 600,
+        "median_ms": 0.203815,
+        "p95_ms": 0.214482,
+        "p99_ms": 0.516777,
+        "max_ms": 0.607722
+      },
+      "gpu_fence_submit_ns": {
+        "n": 600,
+        "median_ms": 0.070028,
+        "p95_ms": 0.075833,
+        "p99_ms": 0.163055,
+        "max_ms": 0.229685
+      },
+      "gpu_cleanup_ns": {
+        "n": 600,
+        "median_ms": 0.036352,
+        "p95_ms": 0.043667,
+        "p99_ms": 0.080074,
+        "max_ms": 0.094593
+      }
+    },
+    "source_fence_signal_to_observed": {
+      "n": 600,
+      "median_ms": 0.280907,
+      "p95_ms": 0.940852,
+      "p99_ms": 1.739074,
+      "max_ms": 2.090648
+    },
+    "hal_success_unique_source_sequences": 600,
+    "hal_success_rows": 600,
+    "source_acquisition_age": {
+      "n": 600,
+      "median_ms": 1.7468795,
+      "p95_ms": 1.964278,
+      "p99_ms": 2.34076,
+      "max_ms": 2.388815
+    },
+    "per_10s_success_rates": [
+      10.0,
+      10.0,
+      10.0,
+      10.0,
+      10.0,
+      10.0
+    ]
+  },
+  "1011": {
+    "window_seconds": 60,
+    "window_start_ns": 297412385536459,
+    "producer_submissions_per_second": 29.466666666666665,
+    "camera2_success_results_per_second": 18.583333333333332,
+    "camera2_failed_results_per_second": 11.233333333333333,
+    "result_interval": {
+      "n": 1114,
+      "median_ms": 35.154907,
+      "p95_ms": 100.259481,
+      "p99_ms": 199.433556,
+      "max_ms": 800.724926
+    },
+    "producer_timestamp_to_result_callback": {
+      "n": 1115,
+      "median_ms": 32.808463,
+      "p95_ms": 37.490556,
+      "p99_ms": 47.215556,
+      "max_ms": 71.233815
+    },
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 1768,
+        "median_ms": 1.8325185,
+        "p95_ms": 11.028518,
+        "p99_ms": 17.795371,
+        "max_ms": 28.503481
+      },
+      "draw": {
+        "n": 1768,
+        "median_ms": 0.150861,
+        "p95_ms": 0.31863,
+        "p99_ms": 0.470055,
+        "max_ms": 0.808611
+      },
+      "swap": {
+        "n": 1768,
+        "median_ms": 1.108972,
+        "p95_ms": 1.843463,
+        "p99_ms": 2.914908,
+        "max_ms": 5.118296
+      },
+      "mirror": {
+        "n": 1768,
+        "median_ms": 0.7045275,
+        "p95_ms": 1.069648,
+        "p99_ms": 1.205074,
+        "max_ms": 5.566037
+      }
+    },
+    "hal_failures": {
+      "0": 1114,
+      "6": 654,
+      "5": 21
+    },
+    "hal_success_cpu_phases": {
+      "import_ns": {
+        "n": 1114,
+        "median_ms": 0.002167,
+        "p95_ms": 0.005389,
+        "p99_ms": 0.007019,
+        "max_ms": 0.010166
+      },
+      "destination_wait_ns": {
+        "n": 1114,
+        "median_ms": 0.003852,
+        "p95_ms": 0.009666,
+        "p99_ms": 0.013167,
+        "max_ms": 0.029037
+      },
+      "pace_ns": {
+        "n": 1114,
+        "median_ms": 0.000351,
+        "p95_ms": 5.880389,
+        "p99_ms": 8.799704,
+        "max_ms": 13.117704
+      },
+      "source_wait_ns": {
+        "n": 1114,
+        "median_ms": 10.316444,
+        "p95_ms": 16.559685,
+        "p99_ms": 17.696149,
+        "max_ms": 18.639241
+      },
+      "source_fence_wait_ns": {
+        "n": 1114,
+        "median_ms": 16.556213,
+        "p95_ms": 32.971963,
+        "p99_ms": 33.180129,
+        "max_ms": 33.387834
+      },
+      "output_ns": {
+        "n": 1114,
+        "median_ms": 0.9163985,
+        "p95_ms": 1.851333,
+        "p99_ms": 1.993056,
+        "max_ms": 4.334852
+      },
+      "callback_ns": {
+        "n": 1114,
+        "median_ms": 1.606731,
+        "p95_ms": 3.817722,
+        "p99_ms": 4.505796,
+        "max_ms": 5.271519
+      },
+      "cleanup_ns": {
+        "n": 1114,
+        "median_ms": 0.01887,
+        "p95_ms": 0.038334,
+        "p99_ms": 0.050815,
+        "max_ms": 2.341722
+      },
+      "total_ns": {
+        "n": 1114,
+        "median_ms": 34.58587,
+        "p95_ms": 37.360667,
+        "p99_ms": 42.247852,
+        "max_ms": 45.638259
+      },
+      "gpu_context_ns": {
+        "n": 1114,
+        "median_ms": 0.046426,
+        "p95_ms": 0.111241,
+        "p99_ms": 0.125926,
+        "max_ms": 0.161611
+      },
+      "gpu_source_import_ns": {
+        "n": 1114,
+        "median_ms": 0.15263,
+        "p95_ms": 0.368222,
+        "p99_ms": 0.427629,
+        "max_ms": 0.500722
+      },
+      "gpu_destination_import_ns": {
+        "n": 1114,
+        "median_ms": 0.2098885,
+        "p95_ms": 0.387241,
+        "p99_ms": 0.421908,
+        "max_ms": 1.378426
+      },
+      "gpu_draw_submit_ns": {
+        "n": 1114,
+        "median_ms": 0.317787,
+        "p95_ms": 0.649537,
+        "p99_ms": 0.729463,
+        "max_ms": 3.503852
+      },
+      "gpu_fence_submit_ns": {
+        "n": 1114,
+        "median_ms": 0.097287,
+        "p95_ms": 0.193074,
+        "p99_ms": 0.222907,
+        "max_ms": 2.068111
+      },
+      "gpu_cleanup_ns": {
+        "n": 1114,
+        "median_ms": 0.052195,
+        "p95_ms": 0.099019,
+        "p99_ms": 0.125722,
+        "max_ms": 2.343352
+      }
+    },
+    "source_fence_signal_to_observed": {
+      "n": 1122,
+      "median_ms": 0.6738145,
+      "p95_ms": 1.943296,
+      "p99_ms": 2.057537,
+      "max_ms": 2.094296
+    },
+    "hal_success_unique_source_sequences": 1114,
+    "hal_success_rows": 1114,
+    "source_acquisition_age": {
+      "n": 1114,
+      "median_ms": 1.7756575,
+      "p95_ms": 2.528315,
+      "p99_ms": 2.906241,
+      "max_ms": 4.047482
+    },
+    "per_10s_success_rates": [
+      18.9,
+      18.4,
+      17.9,
+      18.1,
+      19.5,
+      18.7
+    ]
+  },
+  "1012": {
+    "window_seconds": 60,
+    "window_start_ns": 297508772054050,
+    "producer_submissions_per_second": 28.616666666666667,
+    "camera2_success_results_per_second": 28.616666666666667,
+    "camera2_failed_results_per_second": 1.3833333333333333,
+    "result_interval": {
+      "n": 1716,
+      "median_ms": 33.3461205,
+      "p95_ms": 38.576092,
+      "p99_ms": 104.979222,
+      "max_ms": 107.066055
+    },
+    "producer_timestamp_to_result_callback": {
+      "n": 1717,
+      "median_ms": 16.885685,
+      "p95_ms": 17.271722,
+      "p99_ms": 21.036204,
+      "max_ms": 21.356333
+    },
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 1717,
+        "median_ms": 0.585426,
+        "p95_ms": 0.647556,
+        "p99_ms": 0.756796,
+        "max_ms": 1.167074
+      },
+      "draw": {
+        "n": 1717,
+        "median_ms": 0.07313,
+        "p95_ms": 0.081,
+        "p99_ms": 0.10024,
+        "max_ms": 0.278389
+      },
+      "swap": {
+        "n": 1717,
+        "median_ms": 0.588945,
+        "p95_ms": 0.686537,
+        "p99_ms": 5.283111,
+        "max_ms": 6.370204
+      },
+      "mirror": {
+        "n": 1717,
+        "median_ms": 32.058259,
+        "p95_ms": 36.817204,
+        "p99_ms": 98.775999,
+        "max_ms": 99.113334
+      }
+    },
+    "hal_failures": {
+      "0": 1717,
+      "5": 83
+    },
+    "hal_success_cpu_phases": {
+      "import_ns": {
+        "n": 1717,
+        "median_ms": 0.001944,
+        "p95_ms": 0.004778,
+        "p99_ms": 0.005889,
+        "max_ms": 0.007204
+      },
+      "destination_wait_ns": {
+        "n": 1717,
+        "median_ms": 0.004334,
+        "p95_ms": 0.007759,
+        "p99_ms": 0.010185,
+        "max_ms": 15.058315
+      },
+      "pace_ns": {
+        "n": 1717,
+        "median_ms": 10.476,
+        "p95_ms": 10.656797,
+        "p99_ms": 16.360926,
+        "max_ms": 16.620834
+      },
+      "source_wait_ns": {
+        "n": 1717,
+        "median_ms": 6.183222,
+        "p95_ms": 6.209592,
+        "p99_ms": 10.304889,
+        "max_ms": 12.385537
+      },
+      "source_fence_wait_ns": {
+        "n": 1717,
+        "median_ms": 14.43626,
+        "p95_ms": 14.463834,
+        "p99_ms": 18.528537,
+        "max_ms": 18.602944
+      },
+      "output_ns": {
+        "n": 1717,
+        "median_ms": 0.602778,
+        "p95_ms": 0.76763,
+        "p99_ms": 0.919333,
+        "max_ms": 1.239315
+      },
+      "callback_ns": {
+        "n": 1717,
+        "median_ms": 1.245166,
+        "p95_ms": 1.464481,
+        "p99_ms": 1.543889,
+        "max_ms": 2.101315
+      },
+      "cleanup_ns": {
+        "n": 1717,
+        "median_ms": 0.016,
+        "p95_ms": 0.02137,
+        "p99_ms": 0.023556,
+        "max_ms": 0.059
+      },
+      "total_ns": {
+        "n": 1717,
+        "median_ms": 32.983092,
+        "p95_ms": 33.37737,
+        "p99_ms": 38.811093,
+        "max_ms": 39.4205
+      },
+      "gpu_context_ns": {
+        "n": 1717,
+        "median_ms": 0.024482,
+        "p95_ms": 0.037667,
+        "p99_ms": 0.062148,
+        "max_ms": 0.072111
+      },
+      "gpu_source_import_ns": {
+        "n": 1717,
+        "median_ms": 0.093814,
+        "p95_ms": 0.14087,
+        "p99_ms": 0.210648,
+        "max_ms": 0.25787
+      },
+      "gpu_destination_import_ns": {
+        "n": 1717,
+        "median_ms": 0.150111,
+        "p95_ms": 0.177167,
+        "p99_ms": 0.216074,
+        "max_ms": 0.247945
+      },
+      "gpu_draw_submit_ns": {
+        "n": 1717,
+        "median_ms": 0.192982,
+        "p95_ms": 0.213074,
+        "p99_ms": 0.314982,
+        "max_ms": 0.557686
+      },
+      "gpu_fence_submit_ns": {
+        "n": 1717,
+        "median_ms": 0.069556,
+        "p95_ms": 0.07974,
+        "p99_ms": 0.105722,
+        "max_ms": 0.411889
+      },
+      "gpu_cleanup_ns": {
+        "n": 1717,
+        "median_ms": 0.043111,
+        "p95_ms": 0.055019,
+        "p99_ms": 0.069982,
+        "max_ms": 0.102278
+      }
+    },
+    "source_fence_signal_to_observed": {
+      "n": 1717,
+      "median_ms": 1.630111,
+      "p95_ms": 1.749334,
+      "p99_ms": 1.85626,
+      "max_ms": 2.010407
+    },
+    "hal_success_unique_source_sequences": 1717,
+    "hal_success_rows": 1717,
+    "source_acquisition_age": {
+      "n": 1717,
+      "median_ms": 0.842388,
+      "p95_ms": 0.980223,
+      "p99_ms": 2.354611,
+      "max_ms": 15.241296
+    },
+    "per_10s_success_rates": [
+      28.6,
+      28.7,
+      28.7,
+      28.6,
+      28.8,
+      28.3
+    ]
+  },
+  "1013": {
+    "window_seconds": 60,
+    "window_start_ns": 297605349006715,
+    "producer_submissions_per_second": 30.0,
+    "camera2_success_results_per_second": 6.266666666666667,
+    "camera2_failed_results_per_second": 50.71666666666667,
+    "result_interval": {
+      "n": 375,
+      "median_ms": 35.329223,
+      "p95_ms": 466.24187,
+      "p99_ms": 466.975352,
+      "max_ms": 498.854148
+    },
+    "producer_timestamp_to_result_callback": {
+      "n": 376,
+      "median_ms": 16.5166665,
+      "p95_ms": 17.456148,
+      "p99_ms": 17.711018,
+      "max_ms": 19.188796
+    },
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 1800,
+        "median_ms": 0.915435,
+        "p95_ms": 1.010056,
+        "p99_ms": 1.090315,
+        "max_ms": 1.34863
+      },
+      "draw": {
+        "n": 1800,
+        "median_ms": 0.10513,
+        "p95_ms": 0.11813,
+        "p99_ms": 0.128685,
+        "max_ms": 0.26837
+      },
+      "swap": {
+        "n": 1800,
+        "median_ms": 0.8941385,
+        "p95_ms": 1.099592,
+        "p99_ms": 1.286426,
+        "max_ms": 1.628222
+      },
+      "mirror": {
+        "n": 1800,
+        "median_ms": 30.7811015,
+        "p95_ms": 31.772981,
+        "p99_ms": 32.44213,
+        "max_ms": 36.849037
+      }
+    },
+    "hal_failures": {
+      "0": 376,
+      "5": 1618,
+      "6": 1425
+    },
+    "hal_success_cpu_phases": {
+      "import_ns": {
+        "n": 376,
+        "median_ms": 0.001741,
+        "p95_ms": 0.005148,
+        "p99_ms": 0.007926,
+        "max_ms": 1.32524
+      },
+      "destination_wait_ns": {
+        "n": 376,
+        "median_ms": 0.000352,
+        "p95_ms": 8.732777,
+        "p99_ms": 8.90137,
+        "max_ms": 9.019389
+      },
+      "pace_ns": {
+        "n": 376,
+        "median_ms": 0.000407,
+        "p95_ms": 0.001556,
+        "p99_ms": 0.002629,
+        "max_ms": 0.003203
+      },
+      "source_wait_ns": {
+        "n": 376,
+        "median_ms": 2.061657,
+        "p95_ms": 4.161611,
+        "p99_ms": 4.185741,
+        "max_ms": 4.222408
+      },
+      "source_fence_wait_ns": {
+        "n": 376,
+        "median_ms": 14.3607315,
+        "p95_ms": 14.436445,
+        "p99_ms": 14.471648,
+        "max_ms": 16.474407
+      },
+      "output_ns": {
+        "n": 376,
+        "median_ms": 0.530629,
+        "p95_ms": 0.594926,
+        "p99_ms": 0.648981,
+        "max_ms": 0.699389
+      },
+      "callback_ns": {
+        "n": 376,
+        "median_ms": 0.8057035,
+        "p95_ms": 0.971444,
+        "p99_ms": 1.169722,
+        "max_ms": 4.422204
+      },
+      "cleanup_ns": {
+        "n": 376,
+        "median_ms": 0.010352,
+        "p95_ms": 0.012741,
+        "p99_ms": 0.013648,
+        "max_ms": 0.026519
+      },
+      "total_ns": {
+        "n": 376,
+        "median_ms": 16.1115,
+        "p95_ms": 18.146148,
+        "p99_ms": 18.284815,
+        "max_ms": 21.511926
+      },
+      "gpu_context_ns": {
+        "n": 376,
+        "median_ms": 0.022204,
+        "p95_ms": 0.026722,
+        "p99_ms": 0.028667,
+        "max_ms": 0.029908
+      },
+      "gpu_source_import_ns": {
+        "n": 376,
+        "median_ms": 0.079972,
+        "p95_ms": 0.102518,
+        "p99_ms": 0.107944,
+        "max_ms": 0.124333
+      },
+      "gpu_destination_import_ns": {
+        "n": 376,
+        "median_ms": 0.1376295,
+        "p95_ms": 0.153148,
+        "p99_ms": 0.167315,
+        "max_ms": 0.176612
+      },
+      "gpu_draw_submit_ns": {
+        "n": 376,
+        "median_ms": 0.170704,
+        "p95_ms": 0.202796,
+        "p99_ms": 0.243704,
+        "max_ms": 0.31363
+      },
+      "gpu_fence_submit_ns": {
+        "n": 376,
+        "median_ms": 0.058972,
+        "p95_ms": 0.073833,
+        "p99_ms": 0.085259,
+        "max_ms": 0.188888
+      },
+      "gpu_cleanup_ns": {
+        "n": 376,
+        "median_ms": 0.033074,
+        "p95_ms": 0.039371,
+        "p99_ms": 0.041315,
+        "max_ms": 0.044259
+      }
+    },
+    "source_fence_signal_to_observed": {
+      "n": 379,
+      "median_ms": 0.684778,
+      "p95_ms": 1.679444,
+      "p99_ms": 2.006352,
+      "max_ms": 2.075722
+    },
+    "hal_success_unique_source_sequences": 376,
+    "hal_success_rows": 376,
+    "source_acquisition_age": {
+      "n": 376,
+      "median_ms": 1.987426,
+      "p95_ms": 9.9565,
+      "p99_ms": 10.021611,
+      "max_ms": 10.058037
+    },
+    "per_10s_success_rates": [
+      6.6,
+      5.0,
+      6.4,
+      6.9,
+      6.6,
+      6.1
+    ]
+  },
+  "1014": {
+    "window_seconds": 60,
+    "window_start_ns": 297827501080916,
+    "producer_submissions_per_second": 29.45,
+    "camera2_success_results_per_second": 9.933333333333334,
+    "camera2_failed_results_per_second": 29.95,
+    "result_interval": {
+      "n": 595,
+      "median_ms": 99.999685,
+      "p95_ms": 127.554963,
+      "p99_ms": 172.612352,
+      "max_ms": 233.718148
+    },
+    "producer_timestamp_to_result_callback": {
+      "n": 596,
+      "median_ms": 16.143176,
+      "p95_ms": 16.908204,
+      "p99_ms": 17.244334,
+      "max_ms": 20.150777
+    },
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 1767,
+        "median_ms": 0.601352,
+        "p95_ms": 0.651,
+        "p99_ms": 0.704667,
+        "max_ms": 0.882019
+      },
+      "draw": {
+        "n": 1767,
+        "median_ms": 0.073296,
+        "p95_ms": 0.079315,
+        "p99_ms": 0.086204,
+        "max_ms": 0.163629
+      },
+      "swap": {
+        "n": 1767,
+        "median_ms": 0.570574,
+        "p95_ms": 0.657982,
+        "p99_ms": 0.959722,
+        "max_ms": 6.148056
+      },
+      "mirror": {
+        "n": 1767,
+        "median_ms": 32.047056,
+        "p95_ms": 32.244463,
+        "p99_ms": 60.412482,
+        "max_ms": 98.949592
+      }
+    },
+    "hal_failures": {
+      "6": 1172,
+      "5": 626,
+      "0": 595
+    },
+    "hal_success_cpu_phases": {
+      "import_ns": {
+        "n": 595,
+        "median_ms": 0.001537,
+        "p95_ms": 0.001907,
+        "p99_ms": 0.01,
+        "max_ms": 0.139593
+      },
+      "destination_wait_ns": {
+        "n": 595,
+        "median_ms": 0.00413,
+        "p95_ms": 0.004723,
+        "p99_ms": 0.016111,
+        "max_ms": 0.027852
+      },
+      "pace_ns": {
+        "n": 595,
+        "median_ms": 0.000278,
+        "p95_ms": 0.0005,
+        "p99_ms": 3.173777,
+        "max_ms": 8.272333
+      },
+      "source_wait_ns": {
+        "n": 595,
+        "median_ms": 8.248722,
+        "p95_ms": 8.273815,
+        "p99_ms": 10.305629,
+        "max_ms": 12.358222
+      },
+      "source_fence_wait_ns": {
+        "n": 595,
+        "median_ms": 12.36813,
+        "p95_ms": 14.437574,
+        "p99_ms": 14.460704,
+        "max_ms": 16.486352
+      },
+      "output_ns": {
+        "n": 595,
+        "median_ms": 0.542537,
+        "p95_ms": 0.63187,
+        "p99_ms": 0.785407,
+        "max_ms": 0.813259
+      },
+      "callback_ns": {
+        "n": 595,
+        "median_ms": 1.232889,
+        "p95_ms": 1.454593,
+        "p99_ms": 1.529463,
+        "max_ms": 6.794741
+      },
+      "cleanup_ns": {
+        "n": 595,
+        "median_ms": 0.016056,
+        "p95_ms": 0.021926,
+        "p99_ms": 0.026703,
+        "max_ms": 0.185315
+      },
+      "total_ns": {
+        "n": 595,
+        "median_ms": 22.426796,
+        "p95_ms": 22.763981,
+        "p99_ms": 27.739296,
+        "max_ms": 32.789704
+      },
+      "gpu_context_ns": {
+        "n": 595,
+        "median_ms": 0.02637,
+        "p95_ms": 0.029704,
+        "p99_ms": 0.065185,
+        "max_ms": 0.069852
+      },
+      "gpu_source_import_ns": {
+        "n": 595,
+        "median_ms": 0.103963,
+        "p95_ms": 0.118407,
+        "p99_ms": 0.239833,
+        "max_ms": 0.257574
+      },
+      "gpu_destination_import_ns": {
+        "n": 595,
+        "median_ms": 0.136944,
+        "p95_ms": 0.157537,
+        "p99_ms": 0.174203,
+        "max_ms": 0.196611
+      },
+      "gpu_draw_submit_ns": {
+        "n": 595,
+        "median_ms": 0.15776,
+        "p95_ms": 0.197982,
+        "p99_ms": 0.22913,
+        "max_ms": 0.342278
+      },
+      "gpu_fence_submit_ns": {
+        "n": 595,
+        "median_ms": 0.058537,
+        "p95_ms": 0.074,
+        "p99_ms": 0.084851,
+        "max_ms": 0.241945
+      },
+      "gpu_cleanup_ns": {
+        "n": 595,
+        "median_ms": 0.034907,
+        "p95_ms": 0.048537,
+        "p99_ms": 0.0585,
+        "max_ms": 0.100556
+      }
+    },
+    "source_fence_signal_to_observed": {
+      "n": 595,
+      "median_ms": 1.007407,
+      "p95_ms": 1.550092,
+      "p99_ms": 1.765481,
+      "max_ms": 1.993351
+    },
+    "hal_success_unique_source_sequences": 595,
+    "hal_success_rows": 595,
+    "source_acquisition_age": {
+      "n": 595,
+      "median_ms": 2.190333,
+      "p95_ms": 2.303019,
+      "p99_ms": 2.324352,
+      "max_ms": 2.346611
+    },
+    "per_10s_success_rates": [
+      9.5,
+      10.1,
+      10.0,
+      9.9,
+      10.1,
+      10.0
+    ]
+  },
+  "1015": {
+    "window_seconds": 60,
+    "window_start_ns": 297923817072154,
+    "producer_submissions_per_second": 29.033333333333335,
+    "camera2_success_results_per_second": 14.5,
+    "camera2_failed_results_per_second": 30.5,
+    "result_interval": {
+      "n": 869,
+      "median_ms": 66.110111,
+      "p95_ms": 68.053907,
+      "p99_ms": 133.999111,
+      "max_ms": 159.530148
+    },
+    "producer_timestamp_to_result_callback": {
+      "n": 870,
+      "median_ms": 16.774352,
+      "p95_ms": 17.75626,
+      "p99_ms": 17.911111,
+      "max_ms": 18.551518
+    },
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 1742,
+        "median_ms": 0.8932405,
+        "p95_ms": 0.975444,
+        "p99_ms": 1.094611,
+        "max_ms": 1.736074
+      },
+      "draw": {
+        "n": 1742,
+        "median_ms": 0.106,
+        "p95_ms": 0.118166,
+        "p99_ms": 0.142815,
+        "max_ms": 0.445
+      },
+      "swap": {
+        "n": 1742,
+        "median_ms": 0.9199535,
+        "p95_ms": 1.058481,
+        "p99_ms": 5.613315,
+        "max_ms": 8.806426
+      },
+      "mirror": {
+        "n": 1742,
+        "median_ms": 30.7214905,
+        "p95_ms": 31.762371,
+        "p99_ms": 98.541704,
+        "max_ms": 98.695315
+      }
+    },
+    "hal_failures": {
+      "5": 958,
+      "0": 870,
+      "6": 872
+    },
+    "hal_success_cpu_phases": {
+      "import_ns": {
+        "n": 870,
+        "median_ms": 0.001537,
+        "p95_ms": 0.001963,
+        "p99_ms": 0.002259,
+        "max_ms": 0.024518
+      },
+      "destination_wait_ns": {
+        "n": 870,
+        "median_ms": 0.0042965,
+        "p95_ms": 0.00487,
+        "p99_ms": 0.005222,
+        "max_ms": 0.034037
+      },
+      "pace_ns": {
+        "n": 870,
+        "median_ms": 0.000296,
+        "p95_ms": 0.000519,
+        "p99_ms": 0.000778,
+        "max_ms": 0.001704
+      },
+      "source_wait_ns": {
+        "n": 870,
+        "median_ms": 6.196935,
+        "p95_ms": 6.234537,
+        "p99_ms": 6.308685,
+        "max_ms": 8.277
+      },
+      "source_fence_wait_ns": {
+        "n": 870,
+        "median_ms": 14.4073615,
+        "p95_ms": 14.461741,
+        "p99_ms": 14.493481,
+        "max_ms": 14.5985
+      },
+      "output_ns": {
+        "n": 870,
+        "median_ms": 0.4938155,
+        "p95_ms": 0.584037,
+        "p99_ms": 0.616538,
+        "max_ms": 0.662592
+      },
+      "callback_ns": {
+        "n": 870,
+        "median_ms": 0.8544355,
+        "p95_ms": 1.021204,
+        "p99_ms": 1.115296,
+        "max_ms": 2.394111
+      },
+      "cleanup_ns": {
+        "n": 870,
+        "median_ms": 0.0112035,
+        "p95_ms": 0.013518,
+        "p99_ms": 0.015519,
+        "max_ms": 0.046871
+      },
+      "total_ns": {
+        "n": 870,
+        "median_ms": 20.138667,
+        "p95_ms": 22.130611,
+        "p99_ms": 22.2875,
+        "max_ms": 23.715092
+      },
+      "gpu_context_ns": {
+        "n": 870,
+        "median_ms": 0.020954,
+        "p95_ms": 0.025907,
+        "p99_ms": 0.027259,
+        "max_ms": 0.039315
+      },
+      "gpu_source_import_ns": {
+        "n": 870,
+        "median_ms": 0.0717595,
+        "p95_ms": 0.093037,
+        "p99_ms": 0.099389,
+        "max_ms": 0.12013
+      },
+      "gpu_destination_import_ns": {
+        "n": 870,
+        "median_ms": 0.1382965,
+        "p95_ms": 0.15563,
+        "p99_ms": 0.163759,
+        "max_ms": 0.220111
+      },
+      "gpu_draw_submit_ns": {
+        "n": 870,
+        "median_ms": 0.1525275,
+        "p95_ms": 0.186833,
+        "p99_ms": 0.209926,
+        "max_ms": 0.301056
+      },
+      "gpu_fence_submit_ns": {
+        "n": 870,
+        "median_ms": 0.056731,
+        "p95_ms": 0.072389,
+        "p99_ms": 0.097426,
+        "max_ms": 0.185
+      },
+      "gpu_cleanup_ns": {
+        "n": 870,
+        "median_ms": 0.033306,
+        "p95_ms": 0.039574,
+        "p99_ms": 0.044333,
+        "max_ms": 0.144222
+      }
+    },
+    "source_fence_signal_to_observed": {
+      "n": 870,
+      "median_ms": 1.063241,
+      "p95_ms": 1.959574,
+      "p99_ms": 2.045926,
+      "max_ms": 2.077315
+    },
+    "hal_success_unique_source_sequences": 870,
+    "hal_success_rows": 870,
+    "source_acquisition_age": {
+      "n": 870,
+      "median_ms": 1.506,
+      "p95_ms": 2.459926,
+      "p99_ms": 2.556981,
+      "max_ms": 2.671537
+    },
+    "per_10s_success_rates": [
+      14.6,
+      14.4,
+      14.5,
+      14.5,
+      14.5,
+      14.5
+    ]
+  },
+  "1016": {
+    "window_seconds": 60,
+    "window_start_ns": 298020300473597,
+    "producer_submissions_per_second": 29.65,
+    "camera2_success_results_per_second": 9.683333333333334,
+    "camera2_failed_results_per_second": 40.11666666666667,
+    "result_interval": {
+      "n": 580,
+      "median_ms": 100.0204725,
+      "p95_ms": 101.668204,
+      "p99_ms": 167.378593,
+      "max_ms": 267.44011
+    },
+    "producer_timestamp_to_result_callback": {
+      "n": 581,
+      "median_ms": 16.229185,
+      "p95_ms": 17.207111,
+      "p99_ms": 17.497704,
+      "max_ms": 20.313556
+    },
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 1779,
+        "median_ms": 0.613019,
+        "p95_ms": 0.700815,
+        "p99_ms": 0.76487,
+        "max_ms": 1.380963
+      },
+      "draw": {
+        "n": 1779,
+        "median_ms": 0.073482,
+        "p95_ms": 0.084556,
+        "p99_ms": 0.089982,
+        "max_ms": 0.158963
+      },
+      "swap": {
+        "n": 1779,
+        "median_ms": 0.575426,
+        "p95_ms": 0.6915,
+        "p99_ms": 0.892907,
+        "max_ms": 2.627926
+      },
+      "mirror": {
+        "n": 1779,
+        "median_ms": 32.022777,
+        "p95_ms": 32.30863,
+        "p99_ms": 60.136463,
+        "max_ms": 65.182037
+      }
+    },
+    "hal_failures": {
+      "5": 1210,
+      "0": 581,
+      "6": 1197
+    },
+    "hal_success_cpu_phases": {
+      "import_ns": {
+        "n": 581,
+        "median_ms": 0.00187,
+        "p95_ms": 0.003019,
+        "p99_ms": 0.0035,
+        "max_ms": 0.005111
+      },
+      "destination_wait_ns": {
+        "n": 581,
+        "median_ms": 0.004685,
+        "p95_ms": 0.007889,
+        "p99_ms": 0.011426,
+        "max_ms": 0.073777
+      },
+      "pace_ns": {
+        "n": 581,
+        "median_ms": 0.00037,
+        "p95_ms": 0.00087,
+        "p99_ms": 0.001148,
+        "max_ms": 0.002833
+      },
+      "source_wait_ns": {
+        "n": 581,
+        "median_ms": 2.064685,
+        "p95_ms": 4.184889,
+        "p99_ms": 6.227518,
+        "max_ms": 8.296352
+      },
+      "source_fence_wait_ns": {
+        "n": 581,
+        "median_ms": 12.405445,
+        "p95_ms": 14.45713,
+        "p99_ms": 14.466649,
+        "max_ms": 14.602444
+      },
+      "output_ns": {
+        "n": 581,
+        "median_ms": 0.566611,
+        "p95_ms": 0.647371,
+        "p99_ms": 0.713,
+        "max_ms": 0.827667
+      },
+      "callback_ns": {
+        "n": 581,
+        "median_ms": 1.210241,
+        "p95_ms": 1.444463,
+        "p99_ms": 1.607167,
+        "max_ms": 38.972075
+      },
+      "cleanup_ns": {
+        "n": 581,
+        "median_ms": 0.015888,
+        "p95_ms": 0.021296,
+        "p99_ms": 0.02326,
+        "max_ms": 0.048259
+      },
+      "total_ns": {
+        "n": 581,
+        "median_ms": 16.354482,
+        "p95_ms": 20.135056,
+        "p99_ms": 21.96726,
+        "max_ms": 59.648945
+      },
+      "gpu_context_ns": {
+        "n": 581,
+        "median_ms": 0.02337,
+        "p95_ms": 0.027907,
+        "p99_ms": 0.033389,
+        "max_ms": 0.039963
+      },
+      "gpu_source_import_ns": {
+        "n": 581,
+        "median_ms": 0.093463,
+        "p95_ms": 0.110574,
+        "p99_ms": 0.117778,
+        "max_ms": 0.162111
+      },
+      "gpu_destination_import_ns": {
+        "n": 581,
+        "median_ms": 0.141945,
+        "p95_ms": 0.162371,
+        "p99_ms": 0.175407,
+        "max_ms": 0.196371
+      },
+      "gpu_draw_submit_ns": {
+        "n": 581,
+        "median_ms": 0.184852,
+        "p95_ms": 0.213593,
+        "p99_ms": 0.265888,
+        "max_ms": 0.346278
+      },
+      "gpu_fence_submit_ns": {
+        "n": 581,
+        "median_ms": 0.065778,
+        "p95_ms": 0.07863,
+        "p99_ms": 0.130871,
+        "max_ms": 0.208556
+      },
+      "gpu_cleanup_ns": {
+        "n": 581,
+        "median_ms": 0.037407,
+        "p95_ms": 0.049982,
+        "p99_ms": 0.056259,
+        "max_ms": 0.090889
+      }
+    },
+    "source_fence_signal_to_observed": {
+      "n": 581,
+      "median_ms": 1.106111,
+      "p95_ms": 1.925407,
+      "p99_ms": 2.034759,
+      "max_ms": 2.063259
+    },
+    "hal_success_unique_source_sequences": 581,
+    "hal_success_rows": 581,
+    "source_acquisition_age": {
+      "n": 581,
+      "median_ms": 1.328685,
+      "p95_ms": 2.357222,
+      "p99_ms": 2.524778,
+      "max_ms": 3.078574
+    },
+    "per_10s_success_rates": [
+      9.8,
+      9.8,
+      9.7,
+      9.6,
+      9.6,
+      9.6
+    ]
+  },
+  "1017": {
+    "window_seconds": 60,
+    "window_start_ns": 298116801155151,
+    "producer_submissions_per_second": 28.333333333333332,
+    "camera2_success_results_per_second": 27.016666666666666,
+    "camera2_failed_results_per_second": 2.9833333333333334,
+    "result_interval": {
+      "n": 1620,
+      "median_ms": 32.733537,
+      "p95_ms": 35.616037,
+      "p99_ms": 134.269704,
+      "max_ms": 204.749981
+    },
+    "producer_timestamp_to_result_callback": {
+      "n": 1621,
+      "median_ms": 16.786666,
+      "p95_ms": 17.724574,
+      "p99_ms": 17.948112,
+      "max_ms": 20.171407
+    },
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 1700,
+        "median_ms": 0.885852,
+        "p95_ms": 0.985315,
+        "p99_ms": 1.105111,
+        "max_ms": 1.424593
+      },
+      "draw": {
+        "n": 1700,
+        "median_ms": 0.105574,
+        "p95_ms": 0.117389,
+        "p99_ms": 0.133444,
+        "max_ms": 0.437166
+      },
+      "swap": {
+        "n": 1700,
+        "median_ms": 0.9218055,
+        "p95_ms": 1.063889,
+        "p99_ms": 5.377334,
+        "max_ms": 9.119018
+      },
+      "mirror": {
+        "n": 1700,
+        "median_ms": 31.3633145,
+        "p95_ms": 31.770111,
+        "p99_ms": 98.562889,
+        "max_ms": 99.332222
+      }
+    },
+    "hal_failures": {
+      "0": 1621,
+      "5": 100,
+      "6": 79
+    },
+    "hal_success_cpu_phases": {
+      "import_ns": {
+        "n": 1621,
+        "median_ms": 0.001815,
+        "p95_ms": 0.002204,
+        "p99_ms": 0.002389,
+        "max_ms": 0.023889
+      },
+      "destination_wait_ns": {
+        "n": 1621,
+        "median_ms": 0.003685,
+        "p95_ms": 0.004629,
+        "p99_ms": 0.005185,
+        "max_ms": 1.137259
+      },
+      "pace_ns": {
+        "n": 1621,
+        "median_ms": 0.000315,
+        "p95_ms": 0.000592,
+        "p99_ms": 0.00074,
+        "max_ms": 0.001778
+      },
+      "source_wait_ns": {
+        "n": 1621,
+        "median_ms": 18.519741,
+        "p95_ms": 18.603981,
+        "p99_ms": 20.59163,
+        "max_ms": 20.643963
+      },
+      "source_fence_wait_ns": {
+        "n": 1621,
+        "median_ms": 14.406537,
+        "p95_ms": 14.456741,
+        "p99_ms": 14.495704,
+        "max_ms": 16.729703
+      },
+      "output_ns": {
+        "n": 1621,
+        "median_ms": 0.503352,
+        "p95_ms": 0.594981,
+        "p99_ms": 0.634649,
+        "max_ms": 0.882463
+      },
+      "callback_ns": {
+        "n": 1621,
+        "median_ms": 0.846518,
+        "p95_ms": 0.999297,
+        "p99_ms": 1.084204,
+        "max_ms": 2.290296
+      },
+      "cleanup_ns": {
+        "n": 1621,
+        "median_ms": 0.010981,
+        "p95_ms": 0.013519,
+        "p99_ms": 0.015833,
+        "max_ms": 0.047722
+      },
+      "total_ns": {
+        "n": 1621,
+        "median_ms": 32.421926,
+        "p95_ms": 34.469889,
+        "p99_ms": 34.877185,
+        "max_ms": 35.856314
+      },
+      "gpu_context_ns": {
+        "n": 1621,
+        "median_ms": 0.021185,
+        "p95_ms": 0.026649,
+        "p99_ms": 0.030463,
+        "max_ms": 0.084685
+      },
+      "gpu_source_import_ns": {
+        "n": 1621,
+        "median_ms": 0.075518,
+        "p95_ms": 0.099963,
+        "p99_ms": 0.106852,
+        "max_ms": 0.158223
+      },
+      "gpu_destination_import_ns": {
+        "n": 1621,
+        "median_ms": 0.135,
+        "p95_ms": 0.151648,
+        "p99_ms": 0.159722,
+        "max_ms": 0.219148
+      },
+      "gpu_draw_submit_ns": {
+        "n": 1621,
+        "median_ms": 0.157944,
+        "p95_ms": 0.199852,
+        "p99_ms": 0.221648,
+        "max_ms": 0.3465
+      },
+      "gpu_fence_submit_ns": {
+        "n": 1621,
+        "median_ms": 0.05737,
+        "p95_ms": 0.074111,
+        "p99_ms": 0.085462,
+        "max_ms": 0.197297
+      },
+      "gpu_cleanup_ns": {
+        "n": 1621,
+        "median_ms": 0.032981,
+        "p95_ms": 0.04,
+        "p99_ms": 0.044685,
+        "max_ms": 0.173074
+      }
+    },
+    "source_fence_signal_to_observed": {
+      "n": 1621,
+      "median_ms": 1.077352,
+      "p95_ms": 1.945704,
+      "p99_ms": 2.043667,
+      "max_ms": 2.064241
+    },
+    "hal_success_unique_source_sequences": 1621,
+    "hal_success_rows": 1621,
+    "source_acquisition_age": {
+      "n": 1621,
+      "median_ms": 1.528185,
+      "p95_ms": 2.41424,
+      "p99_ms": 2.515445,
+      "max_ms": 2.638222
+    },
+    "per_10s_success_rates": [
+      26.8,
+      27.6,
+      26.9,
+      27.0,
+      27.2,
+      26.6
+    ]
+  },
+  "1018": {
+    "window_seconds": 60,
+    "window_start_ns": 298298349905524,
+    "producer_submissions_per_second": 28.45,
+    "camera2_success_results_per_second": 25.033333333333335,
+    "camera2_failed_results_per_second": 4.966666666666667,
+    "result_interval": {
+      "n": 1501,
+      "median_ms": 33.439018,
+      "p95_ms": 62.591796,
+      "p99_ms": 170.728741,
+      "max_ms": 204.928908
+    },
+    "producer_timestamp_to_result_callback": {
+      "n": 1502,
+      "median_ms": 19.901278,
+      "p95_ms": 20.734185,
+      "p99_ms": 21.010611,
+      "max_ms": 26.411167
+    },
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 1707,
+        "median_ms": 1.136537,
+        "p95_ms": 1.259963,
+        "p99_ms": 1.328037,
+        "max_ms": 1.455852
+      },
+      "draw": {
+        "n": 1707,
+        "median_ms": 0.116797,
+        "p95_ms": 0.132408,
+        "p99_ms": 0.1425,
+        "max_ms": 0.307185
+      },
+      "swap": {
+        "n": 1707,
+        "median_ms": 0.606575,
+        "p95_ms": 0.692722,
+        "p99_ms": 0.784037,
+        "max_ms": 9.58763
+      },
+      "mirror": {
+        "n": 1707,
+        "median_ms": 31.45413,
+        "p95_ms": 36.799574,
+        "p99_ms": 60.618741,
+        "max_ms": 98.760185
+      }
+    },
+    "hal_failures": {
+      "0": 1502,
+      "5": 93,
+      "6": 205
+    },
+    "hal_success_cpu_phases": {
+      "import_ns": {
+        "n": 1502,
+        "median_ms": 0.00187,
+        "p95_ms": 0.004167,
+        "p99_ms": 0.005778,
+        "max_ms": 0.008148
+      },
+      "destination_wait_ns": {
+        "n": 1502,
+        "median_ms": 0.003889,
+        "p95_ms": 0.007278,
+        "p99_ms": 0.010111,
+        "max_ms": 0.076907
+      },
+      "pace_ns": {
+        "n": 1502,
+        "median_ms": 0.000278,
+        "p95_ms": 0.000982,
+        "p99_ms": 0.001741,
+        "max_ms": 0.00413
+      },
+      "source_wait_ns": {
+        "n": 1502,
+        "median_ms": 14.4729725,
+        "p95_ms": 20.577222,
+        "p99_ms": 20.633019,
+        "max_ms": 21.028852
+      },
+      "source_fence_wait_ns": {
+        "n": 1502,
+        "median_ms": 16.456537,
+        "p95_ms": 16.521425,
+        "p99_ms": 18.549148,
+        "max_ms": 22.717333
+      },
+      "output_ns": {
+        "n": 1502,
+        "median_ms": 0.765963,
+        "p95_ms": 1.325204,
+        "p99_ms": 1.405981,
+        "max_ms": 3.058407
+      },
+      "callback_ns": {
+        "n": 1502,
+        "median_ms": 0.9943705,
+        "p95_ms": 1.805888,
+        "p99_ms": 3.128797,
+        "max_ms": 4.589
+      },
+      "cleanup_ns": {
+        "n": 1502,
+        "median_ms": 0.012482,
+        "p95_ms": 0.022444,
+        "p99_ms": 0.03024,
+        "max_ms": 2.183018
+      },
+      "total_ns": {
+        "n": 1502,
+        "median_ms": 33.121324,
+        "p95_ms": 35.200851,
+        "p99_ms": 36.614074,
+        "max_ms": 38.314981
+      },
+      "gpu_context_ns": {
+        "n": 1502,
+        "median_ms": 0.037074,
+        "p95_ms": 0.072963,
+        "p99_ms": 0.076686,
+        "max_ms": 0.103148
+      },
+      "gpu_source_import_ns": {
+        "n": 1502,
+        "median_ms": 0.134685,
+        "p95_ms": 0.265611,
+        "p99_ms": 0.282407,
+        "max_ms": 1.60024
+      },
+      "gpu_destination_import_ns": {
+        "n": 1502,
+        "median_ms": 0.1763245,
+        "p95_ms": 0.302222,
+        "p99_ms": 0.331203,
+        "max_ms": 0.403537
+      },
+      "gpu_draw_submit_ns": {
+        "n": 1502,
+        "median_ms": 0.2467495,
+        "p95_ms": 0.445815,
+        "p99_ms": 0.495519,
+        "max_ms": 2.481908
+      },
+      "gpu_fence_submit_ns": {
+        "n": 1502,
+        "median_ms": 0.0895185,
+        "p95_ms": 0.156908,
+        "p99_ms": 0.182907,
+        "max_ms": 0.548592
+      },
+      "gpu_cleanup_ns": {
+        "n": 1502,
+        "median_ms": 0.048111,
+        "p95_ms": 0.074703,
+        "p99_ms": 0.089407,
+        "max_ms": 2.086833
+      }
+    },
+    "source_fence_signal_to_observed": {
+      "n": 1502,
+      "median_ms": 0.885195,
+      "p95_ms": 1.931556,
+      "p99_ms": 2.039963,
+      "max_ms": 2.081222
+    },
+    "hal_success_unique_source_sequences": 1502,
+    "hal_success_rows": 1502,
+    "source_acquisition_age": {
+      "n": 1502,
+      "median_ms": 1.7209165,
+      "p95_ms": 2.1935,
+      "p99_ms": 2.295148,
+      "max_ms": 2.444148
+    },
+    "per_10s_success_rates": [
+      25.3,
+      25.2,
+      24.5,
+      25.3,
+      25.1,
+      24.8
+    ]
+  },
+  "1019": {
+    "window_seconds": 60,
+    "window_start_ns": 299251452179196,
+    "producer_submissions_per_second": 29.033333333333335,
+    "camera2_success_results_per_second": 25.55,
+    "camera2_failed_results_per_second": 4.45,
+    "result_interval": {
+      "n": 1532,
+      "median_ms": 33.243278,
+      "p95_ms": 90.158519,
+      "p99_ms": 170.723536,
+      "max_ms": 238.680611
+    },
+    "producer_timestamp_to_result_callback": {
+      "n": 1533,
+      "median_ms": 17.714,
+      "p95_ms": 21.130907,
+      "p99_ms": 21.666592,
+      "max_ms": 23.554389
+    },
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 1742,
+        "median_ms": 0.0569075,
+        "p95_ms": 0.064889,
+        "p99_ms": 0.077463,
+        "max_ms": 0.233703
+      },
+      "draw": {
+        "n": 1742,
+        "median_ms": 0.120389,
+        "p95_ms": 0.133667,
+        "p99_ms": 0.160389,
+        "max_ms": 0.3235
+      },
+      "swap": {
+        "n": 1742,
+        "median_ms": 0.6020185,
+        "p95_ms": 0.712204,
+        "p99_ms": 0.997907,
+        "max_ms": 7.791796
+      },
+      "mirror": {
+        "n": 1742,
+        "median_ms": 32.5367965,
+        "p95_ms": 36.751223,
+        "p99_ms": 60.822685,
+        "max_ms": 99.413333
+      }
+    },
+    "hal_failures": {
+      "0": 1533,
+      "5": 58,
+      "6": 209
+    },
+    "hal_success_cpu_phases": {
+      "import_ns": {
+        "n": 1533,
+        "median_ms": 0.001833,
+        "p95_ms": 0.00474,
+        "p99_ms": 0.006575,
+        "max_ms": 2.022759
+      },
+      "destination_wait_ns": {
+        "n": 1533,
+        "median_ms": 0.004092,
+        "p95_ms": 0.007685,
+        "p99_ms": 0.010259,
+        "max_ms": 0.035519
+      },
+      "pace_ns": {
+        "n": 1533,
+        "median_ms": 0.000352,
+        "p95_ms": 0.001703,
+        "p99_ms": 0.002518,
+        "max_ms": 0.006555
+      },
+      "source_wait_ns": {
+        "n": 1533,
+        "median_ms": 16.521871,
+        "p95_ms": 18.627518,
+        "p99_ms": 20.606389,
+        "max_ms": 20.734648
+      },
+      "source_fence_wait_ns": {
+        "n": 1533,
+        "median_ms": 14.435314,
+        "p95_ms": 16.528186,
+        "p99_ms": 18.573852,
+        "max_ms": 20.943982
+      },
+      "output_ns": {
+        "n": 1533,
+        "median_ms": 0.711741,
+        "p95_ms": 0.941481,
+        "p99_ms": 1.151796,
+        "max_ms": 2.031185
+      },
+      "callback_ns": {
+        "n": 1533,
+        "median_ms": 1.017111,
+        "p95_ms": 1.322963,
+        "p99_ms": 1.960925,
+        "max_ms": 4.11
+      },
+      "cleanup_ns": {
+        "n": 1533,
+        "median_ms": 0.015111,
+        "p95_ms": 0.022241,
+        "p99_ms": 0.026926,
+        "max_ms": 2.176296
+      },
+      "total_ns": {
+        "n": 1533,
+        "median_ms": 32.812611,
+        "p95_ms": 34.842463,
+        "p99_ms": 35.443222,
+        "max_ms": 37.856056
+      },
+      "gpu_context_ns": {
+        "n": 1533,
+        "median_ms": 0.033241,
+        "p95_ms": 0.054445,
+        "p99_ms": 0.072796,
+        "max_ms": 0.105426
+      },
+      "gpu_source_import_ns": {
+        "n": 1533,
+        "median_ms": 0.120334,
+        "p95_ms": 0.178296,
+        "p99_ms": 0.25837,
+        "max_ms": 1.34226
+      },
+      "gpu_destination_import_ns": {
+        "n": 1533,
+        "median_ms": 0.167871,
+        "p95_ms": 0.205185,
+        "p99_ms": 0.270852,
+        "max_ms": 0.351352
+      },
+      "gpu_draw_submit_ns": {
+        "n": 1533,
+        "median_ms": 0.231926,
+        "p95_ms": 0.296945,
+        "p99_ms": 0.385907,
+        "max_ms": 0.588574
+      },
+      "gpu_fence_submit_ns": {
+        "n": 1533,
+        "median_ms": 0.086481,
+        "p95_ms": 0.104018,
+        "p99_ms": 0.157463,
+        "max_ms": 0.264129
+      },
+      "gpu_cleanup_ns": {
+        "n": 1533,
+        "median_ms": 0.040741,
+        "p95_ms": 0.055963,
+        "p99_ms": 0.068296,
+        "max_ms": 0.157926
+      }
+    },
+    "source_fence_signal_to_observed": {
+      "n": 1534,
+      "median_ms": 0.481935,
+      "p95_ms": 1.979222,
+      "p99_ms": 2.055814,
+      "max_ms": 2.084222
+    },
+    "hal_success_unique_source_sequences": 1533,
+    "hal_success_rows": 1533,
+    "source_acquisition_age": {
+      "n": 1533,
+      "median_ms": 1.415815,
+      "p95_ms": 2.210982,
+      "p99_ms": 2.317741,
+      "max_ms": 3.033037
+    },
+    "per_10s_success_rates": [
+      25.2,
+      26.1,
+      25.0,
+      26.1,
+      25.7,
+      25.2
+    ]
+  },
+  "1020": {
+    "window_seconds": 60,
+    "window_start_ns": 299348612650027,
+    "producer_submissions_per_second": 51.68333333333333,
+    "camera2_success_results_per_second": 6.983333333333333,
+    "camera2_failed_results_per_second": 50.28333333333333,
+    "result_interval": {
+      "n": 418,
+      "median_ms": 104.7825555,
+      "p95_ms": 295.46374,
+      "p99_ms": 296.768537,
+      "max_ms": 381.372889
+    },
+    "producer_timestamp_to_result_callback": {
+      "n": 419,
+      "median_ms": 15.526222,
+      "p95_ms": 19.192204,
+      "p99_ms": 19.975629,
+      "max_ms": 20.270037
+    },
+    "missing_timestamps": 0,
+    "negative_latencies": 0,
+    "producer_cpu_elapsed": {
+      "overlay": {
+        "n": 3101,
+        "median_ms": 0.044037,
+        "p95_ms": 0.090963,
+        "p99_ms": 0.117334,
+        "max_ms": 0.713851
+      },
+      "draw": {
+        "n": 3101,
+        "median_ms": 0.092685,
+        "p95_ms": 0.160759,
+        "p99_ms": 0.253018,
+        "max_ms": 0.483574
+      },
+      "swap": {
+        "n": 3101,
+        "median_ms": 0.525629,
+        "p95_ms": 4.494815,
+        "p99_ms": 8.191574,
+        "max_ms": 8.964408
+      },
+      "mirror": {
+        "n": 3101,
+        "median_ms": 16.007241,
+        "p95_ms": 36.346037,
+        "p99_ms": 37.319259,
+        "max_ms": 37.722667
+      }
+    },
+    "hal_failures": {
+      "6": 2682,
+      "0": 419,
+      "5": 335
+    },
+    "hal_success_cpu_phases": {
+      "import_ns": {
+        "n": 419,
+        "median_ms": 0.001019,
+        "p95_ms": 0.001852,
+        "p99_ms": 0.002574,
+        "max_ms": 0.003407
+      },
+      "destination_wait_ns": {
+        "n": 419,
+        "median_ms": 0.00026,
+        "p95_ms": 0.00463,
+        "p99_ms": 0.005111,
+        "max_ms": 0.007167
+      },
+      "pace_ns": {
+        "n": 419,
+        "median_ms": 0.000296,
+        "p95_ms": 0.000556,
+        "p99_ms": 0.000759,
+        "max_ms": 0.002778
+      },
+      "source_wait_ns": {
+        "n": 419,
+        "median_ms": 4.12213,
+        "p95_ms": 4.138982,
+        "p99_ms": 4.159185,
+        "max_ms": 4.699222
+      },
+      "source_fence_wait_ns": {
+        "n": 419,
+        "median_ms": 12.389371,
+        "p95_ms": 14.480333,
+        "p99_ms": 16.502185,
+        "max_ms": 16.727704
+      },
+      "output_ns": {
+        "n": 419,
+        "median_ms": 0.5295,
+        "p95_ms": 0.714537,
+        "p99_ms": 0.945778,
+        "max_ms": 2.822592
+      },
+      "callback_ns": {
+        "n": 419,
+        "median_ms": 1.002019,
+        "p95_ms": 2.542982,
+        "p99_ms": 4.067037,
+        "max_ms": 4.643592
+      },
+      "cleanup_ns": {
+        "n": 419,
+        "median_ms": 0.013722,
+        "p95_ms": 0.028537,
+        "p99_ms": 0.041686,
+        "max_ms": 0.102055
+      },
+      "total_ns": {
+        "n": 419,
+        "median_ms": 18.110167,
+        "p95_ms": 19.805611,
+        "p99_ms": 21.217463,
+        "max_ms": 21.719945
+      },
+      "gpu_context_ns": {
+        "n": 419,
+        "median_ms": 0.020555,
+        "p95_ms": 0.028074,
+        "p99_ms": 0.039889,
+        "max_ms": 0.080926
+      },
+      "gpu_source_import_ns": {
+        "n": 419,
+        "median_ms": 0.077037,
+        "p95_ms": 0.105537,
+        "p99_ms": 0.130426,
+        "max_ms": 0.505222
+      },
+      "gpu_destination_import_ns": {
+        "n": 419,
+        "median_ms": 0.135963,
+        "p95_ms": 0.165648,
+        "p99_ms": 0.192963,
+        "max_ms": 0.278111
+      },
+      "gpu_draw_submit_ns": {
+        "n": 419,
+        "median_ms": 0.166686,
+        "p95_ms": 0.250797,
+        "p99_ms": 0.334074,
+        "max_ms": 2.392703
+      },
+      "gpu_fence_submit_ns": {
+        "n": 419,
+        "median_ms": 0.06176,
+        "p95_ms": 0.104037,
+        "p99_ms": 0.162222,
+        "max_ms": 0.257223
+      },
+      "gpu_cleanup_ns": {
+        "n": 419,
+        "median_ms": 0.035592,
+        "p95_ms": 0.062518,
+        "p99_ms": 0.099963,
+        "max_ms": 0.181425
+      }
+    },
+    "source_fence_signal_to_observed": {
+      "n": 422,
+      "median_ms": 0.456676,
+      "p95_ms": 1.759556,
+      "p99_ms": 1.937204,
+      "max_ms": 2.062481
+    },
+    "hal_success_unique_source_sequences": 419,
+    "hal_success_rows": 419,
+    "source_acquisition_age": {
+      "n": 419,
+      "median_ms": 1.51213,
+      "p95_ms": 2.249556,
+      "p99_ms": 3.107907,
+      "max_ms": 6.77224
+    },
+    "per_10s_success_rates": [
+      7.0,
+      6.8,
+      7.4,
+      7.0,
+      7.1,
+      6.6
+    ]
+  }
+}

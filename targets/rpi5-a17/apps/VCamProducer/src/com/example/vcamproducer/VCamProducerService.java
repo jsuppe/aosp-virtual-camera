@@ -37,6 +37,7 @@ public class VCamProducerService extends Service {
     private static final String TAG = "VCamProducer";
     static volatile Surface sReferenceSurface; // owned by the split activity
     private static volatile int sProfileRun;
+    private static volatile boolean sCachedClock, sRenderOnce;
     private static volatile boolean sMirrorEnabled=true, sClockEnabled=true, sMinimalScene;
     // Immutable handoff: UI requests a change; only the EGL owner paints it.
     private static final class TapState {
@@ -131,7 +132,16 @@ public class VCamProducerService extends Service {
             config.orientation = 0;
             config.supportsJpeg = !mProfile.endsWith("-nojpeg");
             java.util.ArrayList<ProducerMode> modes = new java.util.ArrayList<>();
-            if(mProfile.startsWith("1080p"))modes.add(mode(1,1920,1080,mProfile.startsWith("1080p60")?60:30,config.supportsJpeg));
+            if(mProfile.equals("4k-perf") && sProfileRun>0) {
+                modes.add(mode(1,3840,2160,120,config.supportsJpeg));
+                modes.add(mode(2,3840,2160,60,config.supportsJpeg));
+                modes.add(mode(3,1920,1080,120,config.supportsJpeg));
+                modes.add(mode(4,640,480,120,config.supportsJpeg));
+                modes.add(mode(5,3840,2160,40,config.supportsJpeg));
+                modes.add(mode(6,3840,2160,45,config.supportsJpeg));
+                modes.add(mode(7,3840,2160,50,config.supportsJpeg));
+            }
+            else if(mProfile.startsWith("1080p"))modes.add(mode(1,1920,1080,mProfile.startsWith("1080p60")?60:30,config.supportsJpeg));
             else if(mProfile.startsWith("4k"))modes.add(mode(1,3840,2160,mProfile.startsWith("4k60")?60:30,config.supportsJpeg));
             else if(mProfile.equals("mixed")) {modes.add(mode(1,1920,1080,60,true));modes.add(mode(2,3840,2160,30,true));}
             else if(mProfile.equals("disjoint")) {
@@ -363,7 +373,8 @@ public class VCamProducerService extends Service {
             int vertexBuffer = 0;
             Log.i(TAG, "GL generation " + request.generation + " started " +
                     mWidth + "x" + mHeight + "@" + mFps);
-            ClockTexture clockTexture = new ClockTexture();
+            ClockTexture clockTexture = new ClockTexture(sCachedClock && sProfileRun>0);
+            SceneReuse reuse = null;
             final int profileRun=sProfileRun;
             final boolean minimalScene=sMinimalScene && profileRun>0;
             FrameTrace trace=new FrameTrace(new java.io.File(getFilesDir(),"vcam-profile"),
@@ -430,6 +441,8 @@ public class VCamProducerService extends Service {
                 GLES20.glEnableVertexAttribArray(aPos);
                 GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, 0);
                 Log.i(TAG, "GEOMETRY GPU-owned vertex buffer=" + vertexBuffer);
+                if(sRenderOnce && sProfileRun>0) reuse=new SceneReuse(mWidth,mHeight,vertexBuffer);
+                GLES20.glUseProgram(prog);
                 int uClockMs = GLES20.glGetUniformLocation(prog, "uClockMs");
                 GLES20.glUniform1i(GLES20.glGetUniformLocation(prog, "uClockTexture"), 0);
                 int uProfileFrame=GLES20.glGetUniformLocation(prog,"uProfileFrame");
@@ -475,6 +488,10 @@ public class VCamProducerService extends Service {
                     float bx = 0.5f + 0.4f * (float) Math.cos(angle);
                     float by = 0.5f + 0.3f * (float) Math.sin(angle);
                     GLES20.glUseProgram(prog);
+                    GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER,vertexBuffer);
+                    GLES20.glEnableVertexAttribArray(aPos);
+                    GLES20.glVertexAttribPointer(aPos,2,GLES20.GL_FLOAT,false,0,0);
+                    if(reuse!=null)reuse.begin();
                     GLES20.glViewport(0, 0, mWidth, mHeight);
                     int cycleFrame = (int) (mFrames % mFps) + 1;
                     int cycleMs = (cycleFrame * 1000 + mFps / 2) / mFps;
@@ -495,6 +512,7 @@ public class VCamProducerService extends Service {
                     if (drawError != GLES20.GL_NO_ERROR)
                         throw new IllegalStateException("GL draw error=" + drawError);
                     if (marker != null) drawMarker(marker, request.generation, mWidth, mHeight);
+                    if(reuse!=null)reuse.toCamera(mWidth,mHeight);
                     long drawEnd=profileRun>0?System.nanoTime():0;
                     if (!mRequests.isCurrent(request)) break;
                     if (!EGL14.eglSwapBuffers(dpy, win)) {
@@ -526,6 +544,7 @@ public class VCamProducerService extends Service {
             } finally {
                 if (clock != null) clock.close();
                 if (dpy != EGL14.EGL_NO_DISPLAY) {
+                    if(reuse!=null)reuse.close();
                     clockTexture.close();
                     if (vertexBuffer != 0)
                         GLES20.glDeleteBuffers(1, new int[] { vertexBuffer }, 0);
@@ -550,7 +569,23 @@ public class VCamProducerService extends Service {
         private android.graphics.Canvas canvas;
         private final android.graphics.Paint paint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
         private int texture;
+        private final boolean cached;
+        private ClockTexture[] frames;
+        ClockTexture(boolean cached){this.cached=cached;}
         void update(int frame, int fps, int millis) {
+            if(cached) {
+                if(frames==null) {
+                    frames=new ClockTexture[fps];
+                    for(int i=0;i<fps;i++) {
+                        frames[i]=new ClockTexture(false);
+                        frames[i].update(i+1,fps,((i+1)*1000+fps/2)/fps);
+                        frames[i].bitmap.recycle(); frames[i].bitmap=null;
+                    }
+                }
+                GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+                GLES20.glBindTexture(GLES20.GL_TEXTURE_2D,frames[frame-1].texture);
+                return;
+            }
             if (bitmap == null) {
                 bitmap = android.graphics.Bitmap.createBitmap(512, 256, android.graphics.Bitmap.Config.ARGB_8888);
                 canvas = new android.graphics.Canvas(bitmap);
@@ -579,6 +614,7 @@ public class VCamProducerService extends Service {
             android.opengl.GLUtils.texSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0, bitmap);
         }
         void close() {
+            if(frames!=null){for(ClockTexture frame:frames)if(frame!=null)frame.close();frames=null;}
             if (texture != 0) { GLES20.glDeleteTextures(1, new int[] { texture }, 0); texture = 0; }
             if (bitmap != null) { bitmap.recycle(); bitmap = null; }
         }
@@ -598,6 +634,8 @@ public class VCamProducerService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent!=null) {
             sProfileRun=intent.getIntExtra("profile_run",0);
+            sCachedClock=intent.getBooleanExtra("cached_clock",false);
+            sRenderOnce=intent.getBooleanExtra("render_once",false);
             sMirrorEnabled=intent.getBooleanExtra("mirror",true);
             sClockEnabled=intent.getBooleanExtra("clock",true);
             sMinimalScene=intent.getBooleanExtra("minimal_scene",false);

@@ -50,6 +50,11 @@ adb -s SERIAL shell am start -n com.example.vcamproducer/.SplitDemoActivity \
 The source and Camera2 buffers are 3840×2160. Each preview is scaled to fit its
 half of the screen; this does not require a 4K HDMI mode. The existing shared HAL
 and default producer already advertise UHD. This change exposes it in the Pi demo.
+The normal UHD demo now uses a preview-sized left SurfaceView, reducing duplicated
+preview work while the camera input/output remain UHD. This app-only combination
+was measured at25.03 Camera2 results/s versus4.58–5.52 for the old full split;
+these are bounded reference results, not guaranteed output FPS. See the
+[separate five-POC evaluation](../../docs/pi5-4k-pocs-20261027/README.md).
 UHD selection clamps the request to 30 fps, including incoming 60/120-fps intents;
 its frame-rate menu offers only 30. Lower-resolution modes retain their existing
 rate options. Selection persists through activity recreation.
