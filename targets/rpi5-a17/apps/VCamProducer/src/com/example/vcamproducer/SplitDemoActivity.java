@@ -59,8 +59,10 @@ public final class SplitDemoActivity extends Activity {
         mTargetFps = requestedFps == 30 || requestedFps == 120 ? requestedFps : 60;
         int requestedWidth = state == null ? getIntent().getIntExtra("width", 640)
                 : state.getInt("selected_width", 640);
-        mStreamWidth = requestedWidth == 1920 ? 1920 : 640;
-        mStreamHeight = mStreamWidth == 1920 ? 1080 : 480;
+        mStreamWidth = requestedWidth == 3840 ? 3840 : requestedWidth == 1920 ? 1920 : 640;
+        mStreamHeight = mStreamWidth == 3840 ? 2160 : mStreamWidth == 1920 ? 1080 : 480;
+        // The default producer advertises UHD at up to 30 fps only.
+        if (mStreamWidth == 3840) mTargetFps = 30;
         getIntent().putExtra("width", mStreamWidth).putExtra("fps", mTargetFps);
         mUseSurfaceView=state==null ? getIntent().getBooleanExtra("surface_preview",true)
                 : state.getBoolean("selected_surface_preview",true);
@@ -94,11 +96,12 @@ public final class SplitDemoActivity extends Activity {
                 + " → 1.000 seconds", 18);
         toolbar.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
         Button resolution = new Button(this);
-        resolution.setText(mStreamWidth == 1920 ? "Resolution: 1080p" : "Resolution: VGA");
+        resolution.setText(mStreamWidth == 3840 ? "Resolution: 4K UHD" : mStreamWidth == 1920 ? "Resolution: 1080p" : "Resolution: VGA");
         resolution.setOnClickListener(v -> {
             PopupMenu menu = new PopupMenu(this, resolution);
             menu.getMenu().add(0, 640, 0, "640×480 (VGA)");
             menu.getMenu().add(0, 1920, 1, "1920×1080 (1080p)");
+            menu.getMenu().add(0, 3840, 2, "3840×2160 (4K UHD, 30 fps target)");
             menu.setOnMenuItemClickListener(item -> {
                 switchMode(item.getItemId(), mTargetFps);
                 return true;
@@ -110,7 +113,7 @@ public final class SplitDemoActivity extends Activity {
         rate.setText("Frame rate: " + mTargetFps);
         rate.setOnClickListener(v -> {
             PopupMenu menu = new PopupMenu(this, rate);
-            for (int fps : new int[] {30, 60, 120}) menu.getMenu().add(0, fps, fps, fps + " fps target");
+            for (int fps : (mStreamWidth == 3840 ? new int[] {30} : new int[] {30, 60, 120})) menu.getMenu().add(0, fps, fps, fps + " fps target");
             menu.setOnMenuItemClickListener(item -> {
                 switchMode(mStreamWidth, item.getItemId());
                 return true;

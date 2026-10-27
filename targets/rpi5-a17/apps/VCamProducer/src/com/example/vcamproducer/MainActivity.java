@@ -53,6 +53,11 @@ public final class MainActivity extends Activity {
         split1080.setOnClickListener(view -> startActivity(new Intent(this, SplitDemoActivity.class)
                 .putExtra("fps", 120).putExtra("width", 1920)));
         root.addView(split1080);
+        Button split4k = new Button(this);
+        split4k.setText("4K UHD / 30 fps target split-screen test");
+        split4k.setOnClickListener(view -> startActivity(new Intent(this, SplitDemoActivity.class)
+                .putExtra("fps", 30).putExtra("width", 3840)));
+        root.addView(split4k);
         Button stop = new Button(this);
         stop.setText("Stop producer");
         stop.setOnClickListener(view -> {

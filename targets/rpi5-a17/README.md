@@ -7,7 +7,7 @@
 Important entry points:
 
 - [VCamProducerService.java](apps/VCamProducer/src/com/example/vcamproducer/VCamProducerService.java): mode advertisement, negotiated render cadence, GPU-owned quad geometry, clock texture and HAL queue/mirror ordering.
-- [SplitDemoActivity.java](apps/VCamProducer/src/com/example/vcamproducer/SplitDemoActivity.java): actual Camera2 device/session, two TextureViews and freeze/resume.
+- [SplitDemoActivity.java](apps/VCamProducer/src/com/example/vcamproducer/SplitDemoActivity.java): actual Camera2 device/session, direct TextureView, selectable SurfaceView/TextureView camera preview and freeze/resume.
 - [DirectMirror.java](apps/VCamProducer/src/com/example/vcamproducer/DirectMirror.java): separate left EGL window using the same source uniforms/text texture.
 - [VsyncFrameClock.java](apps/VCamProducer/src/com/example/vcamproducer/VsyncFrameClock.java): latest-only Choreographer mailbox. EGL stays on one graphics owner.
 
@@ -25,7 +25,7 @@ Both the producer-direct buffer and the real Camera2 output use1920×1080,
 with16:9 layout. The1080p mode now advertises up to120 for this experiment;
 VGA60 remains the default launch and720p/4K default modes remain30fps.
 Use `--ei fps 60 --ei width 1920` for an explicit1080p60 request.
-The split toolbar provides **Resolution** (VGA/1080p) and **Frame rate**
+The split toolbar provides **Resolution** (VGA/1080p/4K UHD) and **Frame rate**
 (30/60/120fps target) menus. Changing a setting reopens the preview; the
 registered producer remains alive. Settings survive activity recreation.
 The producer explicitly retains60fps endpoint modes alongside120fps modes;
@@ -36,6 +36,28 @@ Negotiation is not performance qualification: the first1080p120 physical run
 did not sustain120 submissions or camera results/s. See the qualification record.
 Each pane is scaled to fit half the monitor;1080p refers to its source/output
 buffer, not1920 display pixels across each pane on a1920-wide monitor.
+
+### 4K UHD split test
+
+Select **4K UHD / 30 fps target split-screen test** in the launcher, or choose
+**3840×2160 (4K UHD)** from the split toolbar. For ADB:
+
+```sh
+adb -s SERIAL shell am start -n com.example.vcamproducer/.SplitDemoActivity \
+  --ei width 3840 --ei fps 30
+```
+
+The source and Camera2 buffers are 3840×2160. Each preview is scaled to fit its
+half of the screen; this does not require a 4K HDMI mode. The existing shared HAL
+and default producer already advertise UHD. This change exposes it in the Pi demo.
+UHD selection clamps the request to 30 fps, including incoming 60/120-fps intents;
+its frame-rate menu offers only 30. Lower-resolution modes retain their existing
+rate options. Selection persists through activity recreation.
+
+**30 fps is a request ceiling, not a measured throughput guarantee.** See the
+[4K validation record](../../docs/pi5-4k-20261027/README.md) for actual device
+results and limits. No HAL update or full image flash is required on the matched
+already-integrated base; build/install the updated platform-signed VCamProducer APK.
 
 ## What matching clocks mean
 

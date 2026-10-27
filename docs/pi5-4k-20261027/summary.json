@@ -1,0 +1,14 @@
+{
+  "yuv": {
+    "decoded_images": 710,
+    "distinct_sequences": 710,
+    "receipt_span_seconds": 23.72144793,
+    "interval_fps": 29.88856338332295
+  },
+  "rgba-repeat": {
+    "decoded_images": 282,
+    "distinct_sequences": 282,
+    "receipt_span_seconds": 9.487399105,
+    "interval_fps": 29.618233289238233
+  }
+}

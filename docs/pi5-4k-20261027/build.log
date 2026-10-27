@@ -1,0 +1,51 @@
+Running product configuration...
+============================================
+PLATFORM_VERSION_CODENAME=REL
+PLATFORM_VERSION=17
+TARGET_PRODUCT=aosp_rpi5
+TARGET_BUILD_VARIANT=userdebug
+TARGET_ARCH=arm64
+TARGET_ARCH_VARIANT=armv8-a
+TARGET_CPU_VARIANT=cortex-a76
+HOST_OS=linux
+HOST_OS_EXTRA=Linux-7.0.0-34-generic-x86_64-Ubuntu-24.04.5-LTS
+HOST_CROSS_OS=windows
+BUILD_ID=CP2A.260605.016
+OUT_DIR=/mnt/micron/aosp-a17-rpi5-vcam-20261022/out
+SOONG_NINJA=ninja
+SOONG_ONLY=false
+SOONG_INCREMENTAL_ANALYSIS=true
+============================================
+[100% 1/1] bootstrap blueprint
+Running globs...
+ninja: no work to do.
+No need to regenerate ninja file
+No need to regenerate ninja file
+No need to regenerate ninja file
+Starting ninja...
+[ 10% 2/20 8s remaining] //hardware/interfaces/camera/provider/virtual/apps/VCamProducer:VCamProducer fix manifest
+[ 15% 3/20 8s remaining] //hardware/interfaces/camera/provider/virtual/apps/VCamProducer:VCamProducer aapt2 link
+warn: ignoring density 'mdpi-v4' for -c option.
+warn: ignoring density 'hdpi-v4' for -c option.
+[ 20% 4/20 8s remaining] Copy: /mnt/micron/aosp-a17-rpi5-vcam-20261022/out/target/common/obj/APPS/VCamProducer_intermediates/package-export.apk
+[ 25% 5/20 8s remaining] //hardware/interfaces/camera/provider/virtual/apps/VCamProducer:VCamProducer verify <uses-library>
+[ 30% 6/20 7s remaining] //hardware/interfaces/camera/provider/virtual/apps/VCamProducer:VCamProducer ResourceProcessorBusyBox
+[ 35% 7/20 6s remaining] //hardware/interfaces/camera/provider/virtual/apps/VCamProducer:VCamProducer javac
+[ 40% 8/20 6s remaining] //hardware/interfaces/camera/provider/virtual/apps/VCamProducer:VCamProducer jarjar
+[ 45% 9/20 6s remaining] //hardware/interfaces/camera/provider/virtual/apps/VCamProducer:VCamProducer for javac
+[ 50% 10/20 6s remaining] Copy: /mnt/micron/aosp-a17-rpi5-vcam-20261022/out/target/common/obj/APPS/VCamProducer_intermediates/classes.jar
+[ 55% 11/20 2s remaining] //hardware/interfaces/camera/provider/virtual/apps/VCamProducer:VCamProducer r8
+Warning: An API level of 37 is not supported by this compiler. Please use an API level of 36 or earlier)
+[ 60% 12/20 2s remaining] //hardware/interfaces/camera/provider/virtual/apps/VCamProducer:VCamProducer align
+[ 65% 13/20 2s remaining] verify depfile
+[ 70% 14/20 2s remaining] /mnt/micron/aosp-a17-rpi5-vcam-20261022/out/host/linux-x86/bin/merge_zips /mnt/micron/aosp-a17-rpi5-vcam-20261022/out/soong/.intermediates/hardware/interfaces/camera/provider/virtual/apps/VCamProducer/VCamProducer/android_common/VCamProducer-unsigned.apk /mnt/micron/aosp-a17-rpi5-vcam-20261022/out/soong/.intermediates/hardware/interfaces/camera/provider/virtual/apps/VCamProducer/VCamProducer/android_common/aligned/VCamProducer.jar /mnt/micron/aosp-a17-rpi5-vcam-20261022/out/soong/.intermediates/hardware/interfaces/camera/provider/virtual/apps/VCamProducer/VCamProducer/android_common/package-res.apk
+[ 75% 15/20 1s remaining] //hardware/interfaces/camera/provider/virtual/apps/VCamProducer:VCamProducer signapk
+[ 80% 16/20 1s remaining] Install: /mnt/micron/aosp-a17-rpi5-vcam-20261022/out/target/product/rpi5/system/system_ext/app/VCamProducer/VCamProducer.apk
+[ 85% 17/20 1s remaining] Copy: /mnt/micron/aosp-a17-rpi5-vcam-20261022/out/target/product/rpi5/obj/APPS/VCamProducer_intermediates/package.apk
+[ 90% 18/20 1s remaining] //hardware/interfaces/camera/provider/virtual/apps/VCamProducer:VCamProducer dexpreopt
+[ 95% 19/20 1s remaining] Install: /mnt/micron/aosp-a17-rpi5-vcam-20261022/out/target/product/rpi5/system/system_ext/app/VCamProducer/oat/arm64/VCamProducer.odex
+[100% 20/20 1s remaining] Install: /mnt/micron/aosp-a17-rpi5-vcam-20261022/out/target/product/rpi5/system/system_ext/app/VCamProducer/oat/arm64/VCamProducer.vdex
+
+#### build completed successfully (15 seconds) ####
+Try enabling incremental analysis for faster builds after changing Android.bp files.
+See http://go/soong-incremental-analysis
